@@ -1,0 +1,20 @@
+## CONFIGURATION FILE: change here the number of hidden units, the training set file, etc.
+
+[MAIN_PARAMETER_SETTING]
+
+training_epochs = 100
+
+learning_rate = .001
+
+p_input = 1.0
+p_hidden = 1.0
+
+mode = regular_dropout
+
+[MODEL_PARAMETER_SETTING]
+
+model_type = big_model
+
+h1_size = 1000
+h2_size = 1000
+h3_size = 500
