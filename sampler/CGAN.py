@@ -106,34 +106,36 @@ def train(expDir = 'path/to/exp'):
 
 	i = 0
 
-
-
-	for epoch in range(100000):
+	samplesDict = dict()
+	
+	for epoch in range(100):
 		
 		for start, end in zip(range(0, len(fX), batch_size), range(batch_size, len(fX), batch_size)):
 		
-		#~ if it % 1000 == 0:
-			#~ n_sample = 16
-			
-			#~ for l in range(10):
-
-				#~ Z_sample = sample_Z(n_sample, Z_dim)
-				#~ y_sample = np.zeros(shape=[n_sample, y_dim])
-
-				#~ y_sample[:, l] = 1
-
-				#~ samples = sess.run(G_sample, feed_dict={Z: Z_sample, y:y_sample})
-
-				#~ fig = plot(samples)
-				#~ plt.savefig('out/{}_.png'.format(str(i).zfill(3)), bbox_inches='tight')
-				#~ i += 1
-				#~ plt.close(fig)
-
 			X_mb, y_mb = fX[start:end],fY[start:end]
 
 			Z_sample = sample_Z(batch_size, Z_dim)
 			_, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_mb, Z: Z_sample, y:y_mb})
 			_, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: Z_sample, y:y_mb})
+
+		if epoch % 1 == 0:
+			n_sample = 200
+			
+			print 'Sampling...'
+			
+			for l in range(10):
+
+				Z_sample = sample_Z(n_sample, Z_dim)
+				y_sample = np.zeros(shape=[n_sample, y_dim])
+
+				y_sample[:, l] = 1
+
+				samples = sess.run(G_sample, feed_dict={Z: Z_sample, y:y_sample})
+				
+				samplesDict[str(l)] = samples
+				
+			with open(expDir+'/samples_'+str(epoch)+'.pkl','w') as f:
+				cPickle.dump(samplesDict,f,cPickle.HIGHEST_PROTOCOL)	
 
 		print('Iter: {}'.format(epoch))
 		print('D loss: {:.4}'. format(D_loss_curr))

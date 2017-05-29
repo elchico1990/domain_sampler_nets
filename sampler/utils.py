@@ -63,7 +63,7 @@ def prob(x,gamma,p,mode):
 	else:
 		raise Exception('Unrecognized mode.')
 
-def computeTSNE(hiddens, labels, expDir, N=2000):
+def computeTSNE(hiddens, labels, expDir, N, fileName):
 
 	print 'Computing 2D t-SNE representation with', str(N), 'random samples.' 
 
@@ -76,7 +76,7 @@ def computeTSNE(hiddens, labels, expDir, N=2000):
 
 	plt.figure()
 	plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = labels[indices])
-	plt.savefig(expDir+'/tsne_te_'+str(N)+'.png')
+	plt.savefig(expDir+'/'+fileName+'_'+str(N)+'.png')
 			
 def countActPatterns(hiddens = []):
 	for i,h in enumerate(hiddens):
