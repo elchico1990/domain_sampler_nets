@@ -1,0 +1,10 @@
+*.mat
+*.pkl
+*.png
+*.data*
+*.jpg
+/model
+/mnist
+/svhn
+/sample
+/logs
