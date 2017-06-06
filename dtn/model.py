@@ -13,7 +13,7 @@ class DSN(object):
 		
 		inputs = tf.concat(axis=1, values=[x, y])
 		
-		with tf.variable_scope('content_extractor', reuse=reuse):
+		with tf.variable_scope('sampler_discriminator', reuse=reuse):
 			with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer()):
 				net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 				net = slim.fully_connected(net, 128, activation_fn = tf.nn.relu, scope='sdisc_fc2')
@@ -31,7 +31,7 @@ class DSN(object):
 		
 		inputs = tf.concat(axis=1, values=[z, y])
 		
-		with tf.variable_scope('content_extractor', reuse=reuse):
+		with tf.variable_scope('sampler_generator', reuse=reuse):
 			with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer()):
 				net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sgen_fc1')
 				net = slim.fully_connected(net, 128, activation_fn = tf.nn.relu, scope='sgen_fc2')
@@ -63,7 +63,7 @@ class DSN(object):
                         net = slim.conv2d(net, 10, [1, 1], padding='VALID', scope='out')
                         net = slim.flatten(net)
                     if self.mode == 'train_sampler':
-						net = slim.flatten(net)
+						net = slim.flatten(net) # (batch_size, 128)
                     return net
                 
     def generator(self, inputs, reuse=False):
@@ -126,16 +126,54 @@ class DSN(object):
             
             
             
+            
         if self.mode == 'train_sampler':
 			
-			self.noise = tf.placeholder(tf.float32, shape=[None, 100])
-			self.labels = tf.placeholder(tf.float32, shape=[None, 10])
+			self.noise = tf.placeholder(tf.float32, shape=[None, 100], 'noise')
+			self.labels = tf.placeholder(tf.float32, shape=[None, 10], 'labels')
+			self.fx = tf.placeholder(tf.float32, shape=[None, 128], 'fx')
 			
-			self.fzy = self.sampler_generator(self.noise, self.labels, 128) #last layer of content extract is 1x1x128, some flattening will be needed
-		
-		
-		
-		
+			self.fzy = self.sampler_generator(self.noise, self.labels, 128) 
+			self.logits_fake = self.sampler_discriminator(self.fzy,self.labels) 
+			self.logits_real = self.sampler_discriminator(self.fx,self.labels) 
+            
+			D_loss_real = slim.losses.sigmoid_cross_entropy(logits=self.logits_real, labels=tf.ones_like(self.logits_real))
+			D_loss_fake = slim.losses.sigmoid_cross_entropy(logits=self.logits_fake, labels=tf.zeros_like(self.logits_fake))
+			D_loss = D_loss_real + D_loss_fake
+			G_loss = slim.losses.sigmoid_cross_entropy(logits=self.logits_fake, labels=tf.ones_like(self.logits_fake))
+
+			self.d_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
+            self.g_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
+            
+            t_vars = tf.trainable_variables()
+            d_vars = [var for var in t_vars if 'sampler_discriminator' in var.name]
+            g_vars = [var for var in t_vars if 'sampler_generator' in var.name]
+            
+            
+            
+              # train op
+            with tf.variable_scope('source_train_op',reuse=False):
+                self.d_train_op_src = slim.learning.create_train_op(self.d_loss_src, self.d_optimizer_src, variables_to_train=d_vars)
+                self.g_train_op_src = slim.learning.create_train_op(self.g_loss_src, self.g_optimizer_src, variables_to_train=g_vars)
+            
+            # summary op
+            d_loss_src_summary = tf.summary.scalar('src_d_loss', self.d_loss_src)
+            g_loss_src_summary = tf.summary.scalar('src_g_loss', self.g_loss_src)
+            origin_images_summary = tf.summary.image('origin_features', self.fx)
+            sampled_images_summary = tf.summary.image('sampled_features', self.fzy)
+            self.summary_op_src = tf.summary.merge([d_loss_src_summary, g_loss_src_summary, 
+                                                    f_loss_src_summary, origin_images_summary, 
+                                                    sampled_images_summary])
+
+            for var in tf.trainable_variables():
+                tf.summary.histogram(var.op.name, var)
+            
+
+            
+            
+            
+            
+        
 
         elif self.mode == 'eval':
             self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
@@ -155,7 +193,7 @@ class DSN(object):
             self.fgfx = self.content_extractor(self.fake_images, reuse=True)
 
             # loss
-            self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logits, tf.zeros_like(self.logits))
+            self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logits, tf.zeros_like(self.logits)) # here real target images are not shown, because that part is handled later. 
             self.g_loss_src = slim.losses.sigmoid_cross_entropy(self.logits, tf.ones_like(self.logits))
             self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 15.0
             
@@ -184,6 +222,10 @@ class DSN(object):
             self.summary_op_src = tf.summary.merge([d_loss_src_summary, g_loss_src_summary, 
                                                     f_loss_src_summary, origin_images_summary, 
                                                     sampled_images_summary])
+            
+            
+            
+            
             
             # target domain (mnist)
             self.fx = self.content_extractor(self.trg_images, reuse=True)
