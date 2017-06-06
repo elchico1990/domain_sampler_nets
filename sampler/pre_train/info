@@ -1,6 +1,0 @@
-First block: sampling from feature space
-
-Dummy example -> 1. training an MLP on MNIST
-		 2. visualizing t-SNE
- 		 3. training a CGAN/CVAE on the feature samples
-                 4. sampling and visualizing t-SNE 
