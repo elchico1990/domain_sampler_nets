@@ -101,9 +101,44 @@ class Solver(object):
                     saver.save(sess, os.path.join(self.model_save_path, 'svhn_model'), global_step=step+1) 
                     print ('svhn_model-%d saved..!' %(step+1))
 
+
+
+
+
+
 	def train_sampler(self):
 		
 		print 'To be implemented yet.'
+		
+		        # load svhn dataset
+        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
+        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
+
+        # build a graph
+        model = self.model
+        model.build_model()
+
+        # make directory if not exists
+        if tf.gfile.Exists(self.log_dir):
+            tf.gfile.DeleteRecursively(self.log_dir)
+        tf.gfile.MakeDirs(self.log_dir)
+
+        with tf.Session(config=self.config) as sess:
+            # initialize G and D
+            tf.global_variables_initializer().run()
+            # restore variables of F
+            print ('loading pretrained model F..')
+            variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_model)
+            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+            saver = tf.train.Saver()
+
+			feats = sess.run(model.fx,{model.source_images:svhn_images})
+
+
+
+
 
     def train(self):
         # load svhn dataset
