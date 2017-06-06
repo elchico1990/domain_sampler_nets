@@ -66,8 +66,6 @@ class Solver(object):
             merged[i*h:(i+1)*h, (j*2+1)*h:(j*2+2)*h, :] = t
         return merged
 
-	def train_sampler(self)
-
     def pretrain(self):
         # load svhn dataset
         train_images, train_labels = self.load_svhn(self.svhn_dir, split='train')
@@ -103,6 +101,10 @@ class Solver(object):
                     saver.save(sess, os.path.join(self.model_save_path, 'svhn_model'), global_step=step+1) 
                     print ('svhn_model-%d saved..!' %(step+1))
 
+	def train_sampler(self):
+		
+		print 'To be implemented yet.'
+
     def train(self):
         # load svhn dataset
         svhn_images, _ = self.load_svhn(self.svhn_dir, split='train')
@@ -129,7 +131,7 @@ class Solver(object):
             saver = tf.train.Saver()
 
             print ('start training..!')
-            f_interval = 15
+            f_interval = 15  #weird, why not simply using a smaller hyperparameter? 
             for step in range(self.train_iter+1):
                 
                 i = step % int(svhn_images.shape[0] / self.batch_size)
