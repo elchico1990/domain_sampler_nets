@@ -3,13 +3,11 @@ import tensorflow.contrib.slim as slim
 
 
 class DSN(object):
-    """Domain Sampler Network
-    """
-    def __init__(self, mode='train', learning_rate=0.0003):
-        self.mode = mode # pretrain, train, eval
-        self.learning_rate = learning_rate
-        
-		
+	"""Domain Sampler Network
+	"""
+	def __init__(self, mode='train', learning_rate=0.0003):
+		self.mode = mode # pretrain, train, eval
+		self.learning_rate = learning_rate
 
 	def sampler_discriminator(self, x, y):
 		
@@ -40,10 +38,6 @@ class DSN(object):
 				net = slim.fully_connected(net, feature_size, activation_fn = tf.nn.relu, scope='sgen_feat')
 				return net
 
-		
-		
-        
-        
     def content_extractor(self, images, reuse=False):  #this is f(x)
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
@@ -68,6 +62,8 @@ class DSN(object):
                     if self.mode == 'pretrain':
                         net = slim.conv2d(net, 10, [1, 1], padding='VALID', scope='out')
                         net = slim.flatten(net)
+                    if self.mode == 'train_sampler':
+						net = slim.flatten(net)
                     return net
                 
     def generator(self, inputs, reuse=False):
@@ -106,7 +102,7 @@ class DSN(object):
                     return net
                 
     def build_model(self):
-        
+		
         if self.mode == 'pretrain':
             self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
@@ -121,11 +117,25 @@ class DSN(object):
             self.loss = slim.losses.sparse_softmax_cross_entropy(self.logits, self.labels)
             self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
-            
+			
             # summary op
             loss_summary = tf.summary.scalar('classification_loss', self.loss)
             accuracy_summary = tf.summary.scalar('accuracy', self.accuracy)
             self.summary_op = tf.summary.merge([loss_summary, accuracy_summary])
+            
+            
+            
+            
+        if self.mode == 'train_sampler':
+			
+			self.noise = tf.placeholder(tf.float32, shape=[None, 100])
+			self.labels = tf.placeholder(tf.float32, shape=[None, 10])
+			
+			self.fzy = self.sampler_generator(self.noise, self.labels, 128) #last layer of content extract is 1x1x128, some flattening will be needed
+		
+		
+		
+		
 
         elif self.mode == 'eval':
             self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
