@@ -123,6 +123,10 @@ class Solver(object):
         if tf.gfile.Exists(self.log_dir):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
+	
+	batch_size = 64
+	noise_dim = 100
+	epochs = 100
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -140,24 +144,32 @@ class Solver(object):
 	    
 	    print 'break'
 	    
-	    for start, end in zip(range(0, len(fX), batch_size), range(batch_size, len(fX), batch_size)):
-    
-	    X_mb, y_mb = fX[start:end],fY[start:end]
-
-	    Z_samples = utils.sample_Z(batch_size, 200)
+	    t = 0
 	    
-	    feed_dict = {}
-	    sess.run(model.d_train_op_src, feed_dict)
-	    sess.run(model.d_train_op_src, feed_dict})
-	    
-	    _, D_loss_curr = sess.run([model.D_solver, model.D_loss], feed_dict={X: X_mb, Z: Z_sample, y:y_mb})
-	    _, G_loss_curr = sess.run([model.G_solver, model.G_loss], feed_dict={Z: Z_sample, y:y_mb})
+	    for i in range(epochs):
+		
+		print 'Epoch',str(i)
+		
+		for start, end in zip(range(0, len(feats), batch_size), range(batch_size, len(feats), batch_size)):
 
+		    t += 1
 
+		    Z_samples = utils.sample_Z(batch_size, noise_dim)
 
+		    feed_dict = {model.noise: Z_samples, model.labels: labels[start:end], model.fx: feats[start:end]}
+		    sess.run(model.d_train_op, feed_dict)
+		    sess.run(model.g_train_op, feed_dict)
+		    
+		    
+		    
+		    if (t+1) % 10 == 0:
+			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
+			summary_writer.add_summary(summary, t)
+			print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
+				   %(t+1, int(epochs*len(feats)/batch_size), dl, gl))
+		    
 
-
-
+	
     def train_DTN(self):
 	
 	print 'Training DTN.'

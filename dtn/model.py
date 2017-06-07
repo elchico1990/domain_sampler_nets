@@ -142,13 +142,13 @@ class DSN(object):
 		self.logits_fake = self.sampler_discriminator(self.fzy,self.labels) 
 		self.logits_real = self.sampler_discriminator(self.fx,self.labels,reuse=True) 
 
-		D_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_real,tf.ones_like(self.logits_real))
-		D_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_fake,tf.zeros_like(self.logits_fake))
-		self.D_loss = D_loss_real + D_loss_fake
-		self.G_loss = slim.losses.sigmoid_cross_entropy(self.logits_fake,tf.ones_like(self.logits_fake))
+		d_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_real,tf.ones_like(self.logits_real))
+		d_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_fake,tf.zeros_like(self.logits_fake))
+		self.d_loss = d_loss_real + d_loss_fake
+		self.g_loss = slim.losses.sigmoid_cross_entropy(self.logits_fake,tf.ones_like(self.logits_fake))
 
-		self.d_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
-		self.g_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
+		self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+		self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate)
 		
 		t_vars = tf.trainable_variables()
 		d_vars = [var for var in t_vars if 'sampler_discriminator' in var.name]
@@ -159,16 +159,13 @@ class DSN(object):
 		
 		  # train op
 		with tf.variable_scope('source_train_op',reuse=False):
-		    self.d_train_op_src = slim.learning.create_train_op(self.D_loss, self.d_optimizer_src, variables_to_train=d_vars)
-		    self.g_train_op_src = slim.learning.create_train_op(self.G_loss, self.g_optimizer_src, variables_to_train=g_vars)
+		    self.d_train_op = slim.learning.create_train_op(self.d_loss, self.d_optimizer, variables_to_train=d_vars)
+		    self.g_train_op = slim.learning.create_train_op(self.g_loss, self.g_optimizer, variables_to_train=g_vars)
 		
 		# summary op
-		d_loss_src_summary = tf.summary.scalar('src_d_loss', self.D_loss)
-		g_loss_src_summary = tf.summary.scalar('src_g_loss', self.G_loss)
-		origin_images_summary = tf.summary.image('origin_features', self.fx)
-		sampled_images_summary = tf.summary.image('sampled_features', self.fzy)
-		self.summary_op_src = tf.summary.merge([d_loss_src_summary, g_loss_src_summary, 
-							origin_images_summary,sampled_images_summary])
+		d_loss_summary = tf.summary.scalar('d_loss', self.d_loss)
+		g_loss_summary = tf.summary.scalar('g_loss', self.g_loss)
+		self.summary_op = tf.summary.merge([d_loss_summary, g_loss_summary])
 
 		for var in tf.trainable_variables():
 		    tf.summary.histogram(var.op.name, var)
