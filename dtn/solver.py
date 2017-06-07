@@ -27,7 +27,7 @@ class Solver(object):
         self.pretrained_model = pretrained_model
         self.test_model = test_model
         self.config = tf.ConfigProto()
-        self.config.gpu_options.allow_growth=True
+        self.config.gpu_options.allow_growth=False
 
     def load_svhn(self, image_dir, split='train'):
         print ('loading svhn image dataset..')
@@ -108,11 +108,13 @@ class Solver(object):
 
 
 
+
     def train_sampler(self):
 	
 	print 'Training sampler.'
         # load svhn dataset
         svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
+	svhn_labels = utils.one_hot(svhn_labels, 10)
         mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
 
         # build a graph
@@ -139,8 +141,9 @@ class Solver(object):
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    feats = sess.run(model.fx_extracted,{model.images:svhn_images[:10000]})
-	    labels = utils.one_hot(svhn_labels[:10000],10)
+	    feats = sess.run(model.fx_ext,{model.images:svhn_images[:15000]})
+	    feats = (feats - feats.min())/(feats.max() - feats.min())
+	    svhn_labels = svhn_labels[:15000]
 	    
 	    print 'break'
 	    
@@ -156,21 +159,28 @@ class Solver(object):
 
 		    Z_samples = utils.sample_Z(batch_size, noise_dim)
 
-		    feed_dict = {model.noise: Z_samples, model.labels: labels[start:end], model.fx: feats[start:end]}
+		    feed_dict = {model.noise: Z_samples, model.labels: svhn_labels[start:end], model.fx: feats[start:end]}
 		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
+		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
+		    avg_D_real = sess.run(model.logits_real, feed_dict)
 		    
-		    
-		    
-		    if (t+1) % 10 == 0:
+		    if (t+1) % 1000 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(feats)/batch_size), dl, gl))
+				   %(t+1, int(epochs*len(svhn_images)/batch_size), dl, gl))
+			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
+			
 		    
 
 	
-    def train_DTN(self):
+	
+	
+	
+    
+	
+    def train(self):
 	
 	print 'Training DTN.'
         # load svhn dataset

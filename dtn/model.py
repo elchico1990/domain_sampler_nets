@@ -16,7 +16,6 @@ class DSN(object):
 	    with tf.variable_scope('sampler_discriminator',reuse=reuse):
 		with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer()):
 		    net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-		    net = slim.fully_connected(net, 128, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 
@@ -34,7 +33,6 @@ class DSN(object):
 	    with tf.variable_scope('sampler_generator', reuse=reuse):
 		with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer()):
 		    net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sgen_fc1')
-		    net = slim.fully_connected(net, 128, activation_fn = tf.nn.relu, scope='sgen_fc2')
 		    net = slim.fully_connected(net, feature_size, activation_fn = tf.nn.relu, scope='sgen_feat')
 		    return net
 
@@ -57,13 +55,13 @@ class DSN(object):
 			net = slim.batch_norm(net, scope='bn2')
 			net = slim.conv2d(net, 256, [3, 3], scope='conv3')     # (batch_size, 4, 4, 256)
 			net = slim.batch_norm(net, scope='bn3')
-			net = slim.conv2d(net, 128, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
+			net = slim.conv2d(net, 256, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
 			net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
 			if self.mode == 'pretrain':
 			    net = slim.conv2d(net, 10, [1, 1], padding='VALID', scope='out')
 			    net = slim.flatten(net)
 			if self.mode == 'train_sampler':
-						    net = slim.flatten(net) # (batch_size, 128)
+			    net = slim.flatten(net) # (batch_size, 128)
 			return net
 		    
 	def generator(self, inputs, reuse=False):
@@ -135,17 +133,18 @@ class DSN(object):
 		self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
 		self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
 		self.labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-		self.fx = tf.placeholder(tf.float32, [None, 128], 'fx')
-		self.fx_extracted = self.content_extractor(self.images)
+		self.fx = tf.placeholder(tf.float32, [None, 256], 'feat')
 		
-		self.fzy = self.sampler_generator(self.noise, self.labels, 128) 
-		self.logits_fake = self.sampler_discriminator(self.fzy,self.labels) 
-		self.logits_real = self.sampler_discriminator(self.fx,self.labels,reuse=True) 
+		self.fx_ext = self.content_extractor(self.images)
+		self.fzy = self.sampler_generator(self.noise, self.labels, 256) 
 
-		d_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_real,tf.ones_like(self.logits_real))
-		d_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_fake,tf.zeros_like(self.logits_fake))
+		self.logits_real = self.sampler_discriminator(self.fx,self.labels) 
+		self.logits_fake = self.sampler_discriminator(self.fzy,self.labels, reuse=True) 
+		
+		d_loss_real = tf.reduce_mean(slim.losses.sigmoid_cross_entropy(self.logits_real,tf.ones_like(self.logits_real)))
+		d_loss_fake = tf.reduce_mean(slim.losses.sigmoid_cross_entropy(self.logits_fake,tf.zeros_like(self.logits_fake)))
 		self.d_loss = d_loss_real + d_loss_fake
-		self.g_loss = slim.losses.sigmoid_cross_entropy(self.logits_fake,tf.ones_like(self.logits_fake))
+		self.g_loss = tf.reduce_mean(slim.losses.sigmoid_cross_entropy(self.logits_fake,tf.ones_like(self.logits_fake)))
 
 		self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate)
 		self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate)

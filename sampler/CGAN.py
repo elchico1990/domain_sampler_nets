@@ -145,4 +145,6 @@ def train(expDir = 'path/to/exp'):
 
 if __name__ == '__main__':
 	
-	train(expDir = './experiments/800_200')
+	train(expDir = './compute_f/mnist_theano/experiments/800_200')
+
+
