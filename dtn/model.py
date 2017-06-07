@@ -124,13 +124,19 @@ class DSN(object):
 		self.summary_op = tf.summary.merge([loss_summary, accuracy_summary])
 		
 		
+		
+		
+		
+		
+		
+		
 	    if self.mode == 'train_sampler':
 	    			    
 		self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
 		self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
 		self.labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-		#~ self.fx = tf.placeholder(tf.float32, [None, 128], 'fx')
-		self.fx = self.content_extractor(self.images)
+		self.fx = tf.placeholder(tf.float32, [None, 128], 'fx')
+		self.fx_extracted = self.content_extractor(self.images)
 		
 		self.fzy = self.sampler_generator(self.noise, self.labels, 128) 
 		self.logits_fake = self.sampler_discriminator(self.fzy,self.labels) 
@@ -166,6 +172,14 @@ class DSN(object):
 
 		for var in tf.trainable_variables():
 		    tf.summary.histogram(var.op.name, var)
+		
+		
+		
+		
+		
+		
+		
+		
 		
 
 	    elif self.mode == 'eval':
@@ -259,3 +273,5 @@ class DSN(object):
 		for var in tf.trainable_variables():
 		    tf.summary.histogram(var.op.name, var)
 		
+
+
