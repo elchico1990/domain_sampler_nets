@@ -13,13 +13,13 @@ def xavier_init(size):
     in_dim = size[0]
     xavier_stddev = 1. / tf.sqrt(in_dim / 2.)
     return tf.random_normal(shape=size, stddev=xavier_stddev)
-
+	
 def discriminator(x, y, D_W1, D_b1, D_W2, D_b2):
     inputs = tf.concat(axis=1, values=[x, y])
     D_h1 = tf.nn.relu(tf.matmul(inputs, D_W1) + D_b1)
     D_logit = tf.matmul(D_h1, D_W2) + D_b2
     D_prob = tf.nn.sigmoid(D_logit)
-
+	
     return D_prob, D_logit
     
 def generator(z, y, G_W1, G_b1, G_W2, G_b2):
@@ -27,9 +27,9 @@ def generator(z, y, G_W1, G_b1, G_W2, G_b2):
     G_h1 = tf.nn.relu(tf.matmul(inputs, G_W1) + G_b1)
     G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
     G_prob = tf.nn.sigmoid(G_log_prob)
-
+	
     return G_prob
-
+	
 def sample_Z(m, n):
     return np.random.uniform(-1., 1., size=[m, n])
 

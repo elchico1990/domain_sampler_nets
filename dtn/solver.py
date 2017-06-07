@@ -6,6 +6,8 @@ import os
 import scipy.io
 import scipy.misc
 
+import utils
+
 class Solver(object):
 
     def __init__(self, model, batch_size=100, pretrain_iter=20000, train_iter=2000, sample_iter=100, 
@@ -111,7 +113,7 @@ class Solver(object):
 	print 'Training sampler.'
         # load svhn dataset
         svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
-        mnist_images, svhn_labels = self.load_mnist(self.mnist_dir, split='train')
+        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
 
         # build a graph
         model = self.model
@@ -126,16 +128,31 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
             # restore variables of F
-            print ('loading pretrained model F..')
+            print ('Loading pretrained model F.')
             variables_to_restore = slim.get_model_variables(scope='content_extractor')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    feats = sess.run(model.fx_extracted,{model.images:svhn_images[:2000]})
+	    feats = sess.run(model.fx_extracted,{model.images:svhn_images[:10000]})
+	    labels = utils.one_hot(svhn_labels[:10000],10)
 	    
 	    print 'break'
+	    
+	    for start, end in zip(range(0, len(fX), batch_size), range(batch_size, len(fX), batch_size)):
+    
+	    X_mb, y_mb = fX[start:end],fY[start:end]
+
+	    Z_samples = utils.sample_Z(batch_size, 200)
+	    
+	    feed_dict = {}
+	    sess.run(model.d_train_op_src, feed_dict)
+	    sess.run(model.d_train_op_src, feed_dict})
+	    
+	    _, D_loss_curr = sess.run([model.D_solver, model.D_loss], feed_dict={X: X_mb, Z: Z_sample, y:y_mb})
+	    _, G_loss_curr = sess.run([model.G_solver, model.G_loss], feed_dict={Z: Z_sample, y:y_mb})
+
 
 
 
