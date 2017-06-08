@@ -12,7 +12,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=100, pretrain_iter=20000, train_iter=2000, sample_iter=100, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-20000', test_model='model/dtn-1800'):
+                 model_save_path='model', pretrained_model='model/mnist_model-4000', test_model='model/dtn-1800'):
         
         self.model = model
         self.batch_size = batch_size
@@ -51,7 +51,8 @@ class Solver(object):
         image_dir = os.path.join(image_dir, image_file)
         with open(image_dir, 'rb') as f:
             mnist = pickle.load(f)
-        images = mnist['X'] / 127.5 - 1
+        #~ images = mnist['X'] / 127.5 - 1
+        images = mnist['X'] / 255.
         labels = mnist['y']
         print ('finished loading mnist image dataset..!')
         return images, labels
@@ -70,8 +71,8 @@ class Solver(object):
 
     def pretrain(self):
         # load svhn dataset
-        train_images, train_labels = self.load_svhn(self.svhn_dir, split='train')
-        test_images, test_labels = self.load_svhn(self.svhn_dir, split='test')
+        train_images, train_labels = self.load_mnist(self.mnist_dir, split='train')
+        test_images, test_labels = self.load_mnist(self.mnist_dir, split='test')
 
         # build a graph
         model = self.model
@@ -100,8 +101,8 @@ class Solver(object):
                                %(step+1, self.pretrain_iter, l, acc, test_acc))
 
                 if (step+1) % 1000 == 0:  
-                    saver.save(sess, os.path.join(self.model_save_path, 'svhn_model'), global_step=step+1) 
-                    print ('svhn_model-%d saved..!' %(step+1))
+                    saver.save(sess, os.path.join(self.model_save_path, 'mnist_model'), global_step=step+1) 
+                    print ('mnist_model-%d saved..!' %(step+1))
 
 
 
@@ -113,10 +114,11 @@ class Solver(object):
 	
 	print 'Training sampler.'
         # load svhn dataset
-        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
-	svhn_labels = utils.one_hot(svhn_labels, 10)
+        #~ svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
+	#~ svhn_labels = utils.one_hot(svhn_labels, 10)
         mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
-
+	mnist_labels = utils.one_hot(mnist_labels, 10)
+        
         # build a graph
         model = self.model
         model.build_model()
@@ -141,9 +143,9 @@ class Solver(object):
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    feats = sess.run(model.fx_ext,{model.images:svhn_images[:15000]})
+	    feats = sess.run(model.fx_ext,{model.images:mnist_images[:30000]})
 	    feats = (feats - feats.min())/(feats.max() - feats.min())
-	    svhn_labels = svhn_labels[:15000]
+	    mnist_labels = mnist_labels[:30000]
 	    
 	    print 'break'
 	    
@@ -151,7 +153,7 @@ class Solver(object):
 	    
 	    for i in range(epochs):
 		
-		print 'Epoch',str(i)
+		#~ print 'Epoch',str(i)
 		
 		for start, end in zip(range(0, len(feats), batch_size), range(batch_size, len(feats), batch_size)):
 
@@ -159,17 +161,20 @@ class Solver(object):
 
 		    Z_samples = utils.sample_Z(batch_size, noise_dim)
 
-		    feed_dict = {model.noise: Z_samples, model.labels: svhn_labels[start:end], model.fx: feats[start:end]}
+		    feed_dict = {model.noise: Z_samples, model.labels: mnist_labels[start:end], model.fx: feats[start:end]}
+		    
+		    #~ if t%1000==0:
 		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
+		    
 		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
 		    avg_D_real = sess.run(model.logits_real, feed_dict)
 		    
-		    if (t+1) % 1000 == 0:
+		    if (t+1) % 100 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(svhn_images)/batch_size), dl, gl))
+				   %(t+1, int(epochs*len(mnist_images)/batch_size), dl, gl))
 			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
 		    
@@ -180,108 +185,108 @@ class Solver(object):
 	
     
 	
-    def train(self):
+    #~ def train(self):
 	
-	print 'Training DTN.'
-        # load svhn dataset
-        svhn_images, _ = self.load_svhn(self.svhn_dir, split='train')
-        mnist_images, _ = self.load_mnist(self.mnist_dir, split='train')
+	#~ print 'Training DTN.'
+        #~ # load svhn dataset
+        #~ svhn_images, _ = self.load_svhn(self.svhn_dir, split='train')
+        #~ mnist_images, _ = self.load_mnist(self.mnist_dir, split='train')
 
-        # build a graph
-        model = self.model
-        model.build_model()
+        #~ # build a graph
+        #~ model = self.model
+        #~ model.build_model()
 
-        # make directory if not exists
-        if tf.gfile.Exists(self.log_dir):
-            tf.gfile.DeleteRecursively(self.log_dir)
-        tf.gfile.MakeDirs(self.log_dir)
+        #~ # make directory if not exists
+        #~ if tf.gfile.Exists(self.log_dir):
+            #~ tf.gfile.DeleteRecursively(self.log_dir)
+        #~ tf.gfile.MakeDirs(self.log_dir)
 
-        with tf.Session(config=self.config) as sess:
-            # initialize G and D
-            tf.global_variables_initializer().run()
-            # restore variables of F
-            print ('loading pretrained model F..')
-            variables_to_restore = slim.get_model_variables(scope='content_extractor')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
-            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-            saver = tf.train.Saver()
+        #~ with tf.Session(config=self.config) as sess:
+            #~ # initialize G and D
+            #~ tf.global_variables_initializer().run()
+            #~ # restore variables of F
+            #~ print ('loading pretrained model F..')
+            #~ variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_model)
+            #~ summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+            #~ saver = tf.train.Saver()
 
-            print ('start training..!')
-            f_interval = 15  #weird, why not simply using a smaller hyperparameter? 
-            for step in range(self.train_iter+1):
+            #~ print ('start training..!')
+            #~ f_interval = 15  #weird, why not simply using a smaller hyperparameter? 
+            #~ for step in range(self.train_iter+1):
                 
-                i = step % int(svhn_images.shape[0] / self.batch_size)
-                # train the model for source domain S
-                src_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
-                feed_dict = {model.src_images: src_images}
+                #~ i = step % int(svhn_images.shape[0] / self.batch_size)
+                #~ # train the model for source domain S
+                #~ src_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
+                #~ feed_dict = {model.src_images: src_images}
                 
-                sess.run(model.d_train_op_src, feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict)
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict)
+                #~ sess.run(model.d_train_op_src, feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict)
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict)
                 
-                if step > 1600:
-                    f_interval = 30
+                #~ if step > 1600:
+                    #~ f_interval = 30
                 
-                if i % f_interval == 0:
-                    sess.run(model.f_train_op_src, feed_dict)
+                #~ if i % f_interval == 0:
+                    #~ sess.run(model.f_train_op_src, feed_dict)
                 
-                if (step+1) % 10 == 0:
-                    summary, dl, gl, fl = sess.run([model.summary_op_src, \
-                        model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
-                    summary_writer.add_summary(summary, step)
-                    print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl, fl))
+                #~ if (step+1) % 10 == 0:
+                    #~ summary, dl, gl, fl = sess.run([model.summary_op_src, \
+                        #~ model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
+                    #~ summary_writer.add_summary(summary, step)
+                    #~ print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
+                               #~ %(step+1, self.train_iter, dl, gl, fl))
                 
-                # train the model for target domain T
-                j = step % int(mnist_images.shape[0] / self.batch_size)
-                trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
-                feed_dict = {model.src_images: src_images, model.trg_images: trg_images}
-                sess.run(model.d_train_op_trg, feed_dict)
-                sess.run(model.d_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
+                #~ # train the model for target domain T
+                #~ j = step % int(mnist_images.shape[0] / self.batch_size)
+                #~ trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
+                #~ feed_dict = {model.src_images: src_images, model.trg_images: trg_images}
+                #~ sess.run(model.d_train_op_trg, feed_dict)
+                #~ sess.run(model.d_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
 
-                if (step+1) % 10 == 0:
-                    summary, dl, gl = sess.run([model.summary_op_trg, \
-                        model.d_loss_trg, model.g_loss_trg], feed_dict)
-                    summary_writer.add_summary(summary, step)
-                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl))
+                #~ if (step+1) % 10 == 0:
+                    #~ summary, dl, gl = sess.run([model.summary_op_trg, \
+                        #~ model.d_loss_trg, model.g_loss_trg], feed_dict)
+                    #~ summary_writer.add_summary(summary, step)
+                    #~ print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
+                               #~ %(step+1, self.train_iter, dl, gl))
 
-                if (step+1) % 200 == 0:
-                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    print ('model/dtn-%d saved' %(step+1))
+                #~ if (step+1) % 200 == 0:
+                    #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    #~ print ('model/dtn-%d saved' %(step+1))
                 
-    def eval(self):
-        # build model
-        model = self.model
-        model.build_model()
+    #~ def eval(self):
+        #~ # build model
+        #~ model = self.model
+        #~ model.build_model()
 
-        # load svhn dataset
-        svhn_images, _ = self.load_svhn(self.svhn_dir)
+        #~ # load svhn dataset
+        #~ svhn_images, _ = self.load_svhn(self.svhn_dir)
 
-        with tf.Session(config=self.config) as sess:
-            # load trained parameters
-            print ('loading test model..')
-            saver = tf.train.Saver()
-            saver.restore(sess, self.test_model)
+        #~ with tf.Session(config=self.config) as sess:
+            #~ # load trained parameters
+            #~ print ('loading test model..')
+            #~ saver = tf.train.Saver()
+            #~ saver.restore(sess, self.test_model)
 
-            print ('start sampling..!')
-            for i in range(self.sample_iter):
-                # train model for source domain S
-                batch_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
-                feed_dict = {model.images: batch_images}
-                sampled_batch_images = sess.run(model.sampled_images, feed_dict)
+            #~ print ('start sampling..!')
+            #~ for i in range(self.sample_iter):
+                #~ # train model for source domain S
+                #~ batch_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
+                #~ feed_dict = {model.images: batch_images}
+                #~ sampled_batch_images = sess.run(model.sampled_images, feed_dict)
 
-                # merge and save source images and sampled target images
-                merged = self.merge_images(batch_images, sampled_batch_images)
-                path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
-                scipy.misc.imsave(path, merged)
-                print ('saved %s' %path)
+                #~ # merge and save source images and sampled target images
+                #~ merged = self.merge_images(batch_images, sampled_batch_images)
+                #~ path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
+                #~ scipy.misc.imsave(path, merged)
+                #~ print ('saved %s' %path)
