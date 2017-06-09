@@ -143,9 +143,9 @@ class Solver(object):
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    feats = sess.run(model.fx_ext,{model.images:mnist_images[:30000]})
+	    feats = sess.run(model.fx_ext,{model.images:mnist_images[:15000]})
 	    feats = (feats - feats.min())/(feats.max() - feats.min())
-	    mnist_labels = mnist_labels[:30000]
+	    mnist_labels = mnist_labels[:15000]
 	    
 	    print 'break'
 	    
@@ -163,7 +163,7 @@ class Solver(object):
 
 		    feed_dict = {model.noise: Z_samples, model.labels: mnist_labels[start:end], model.fx: feats[start:end]}
 		    
-		    if t%3==0:
+		    if t%2==0:
 			sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
