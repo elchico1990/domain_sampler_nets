@@ -131,7 +131,7 @@ class DSN(object):
 	def build_model(self):
 		    
 	    if self.mode == 'pretrain':
-		self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+		self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
 		self.labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
 		
 		# logits and accuracy
@@ -159,7 +159,7 @@ class DSN(object):
 		
 	    if self.mode == 'train_sampler':
 	    			    
-		self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+		self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
 		self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
 		self.labels = tf.placeholder(tf.float32, [None, 10], 'labels')
 		self.fx = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'feat')

@@ -12,7 +12,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=100, pretrain_iter=20000, train_iter=2000, sample_iter=100, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/mnist_model-4000', test_model='model/dtn-1800'):
+                 model_save_path='model', pretrained_model='model/model-4000', test_model='model/dtn-1800'):
         
         self.model = model
         self.batch_size = batch_size
@@ -71,8 +71,8 @@ class Solver(object):
 
     def pretrain(self):
         # load svhn dataset
-        train_images, train_labels = self.load_mnist(self.mnist_dir, split='train')
-        test_images, test_labels = self.load_mnist(self.mnist_dir, split='test')
+        train_images, train_labels = self.load_svhn(self.svhn_dir, split='train')
+        test_images, test_labels = self.load_svhn(self.svhn_dir, split='test')
 
         # build a graph
         model = self.model
@@ -101,8 +101,8 @@ class Solver(object):
                                %(step+1, self.pretrain_iter, l, acc, test_acc))
 
                 if (step+1) % 1000 == 0:  
-                    saver.save(sess, os.path.join(self.model_save_path, 'mnist_model'), global_step=step+1) 
-                    print ('mnist_model-%d saved..!' %(step+1))
+                    saver.save(sess, os.path.join(self.model_save_path, 'model'), global_step=step+1) 
+                    print ('model-%d saved..!' %(step+1))
 
 
 
@@ -116,8 +116,8 @@ class Solver(object):
         # load svhn dataset
         #~ svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
 	#~ svhn_labels = utils.one_hot(svhn_labels, 10)
-        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
-	mnist_labels = utils.one_hot(mnist_labels, 10)
+        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
+	svhn_labels = utils.one_hot(svhn_labels, 10)
         
         # build a graph
         model = self.model
@@ -143,9 +143,9 @@ class Solver(object):
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    feats = sess.run(model.fx_ext,{model.images:mnist_images[:15000]})
+	    feats = sess.run(model.fx_ext,{model.images:svhn_images[:15000]})
 	    feats = (feats - feats.min())/(feats.max() - feats.min())
-	    mnist_labels = mnist_labels[:15000]
+	    mnist_labels = svhn_labels[:15000]
 	    
 	    print 'break'
 	    
@@ -161,7 +161,7 @@ class Solver(object):
 
 		    Z_samples = utils.sample_Z(batch_size, noise_dim)
 
-		    feed_dict = {model.noise: Z_samples, model.labels: mnist_labels[start:end], model.fx: feats[start:end]}
+		    feed_dict = {model.noise: Z_samples, model.labels: svhn_labels[start:end], model.fx: feats[start:end]}
 		    
 		    if t%15==0:
 			sess.run(model.d_train_op, feed_dict)
