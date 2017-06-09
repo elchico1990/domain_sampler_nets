@@ -163,7 +163,7 @@ class Solver(object):
 
 		    feed_dict = {model.noise: Z_samples, model.labels: mnist_labels[start:end], model.fx: feats[start:end]}
 		    
-		    if t%2==0:
+		    if t%3==0:
 			sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
@@ -174,7 +174,7 @@ class Solver(object):
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(feats)/batch_size), dl, gl))
+				   %(t+1, int(epochs*len(feats) /batch_size), dl, gl))
 			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
 		    
