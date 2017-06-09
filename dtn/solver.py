@@ -163,7 +163,7 @@ class Solver(object):
 
 		    feed_dict = {model.noise: Z_samples, model.labels: mnist_labels[start:end], model.fx: feats[start:end]}
 		    
-		    if t%2==0:
+		    if t%15==0:
 			sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    

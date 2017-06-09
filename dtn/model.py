@@ -61,7 +61,7 @@ class DSN(object):
 			net = slim.conv2d(net, 256, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
 			net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
 			net = slim.flatten(net)
-			net = slim.fully_connected(net,self.hidden_repr_size,activation_fn=tf.sigmoid,scope='fc1')
+			net = slim.fully_connected(net,self.hidden_repr_size,activation_fn=tf.nn.relu,scope='fc1')
 			
 			if self.mode == 'pretrain':
 			    net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid,scope='fc_out')
@@ -86,6 +86,12 @@ class DSN(object):
 			#~ net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid,scope='context_fco')
 			    
 		    #~ return net
+		    
+		    
+		    
+		    
+		    
+		    
 		    
 	#~ def generator(self, inputs, reuse=False):
 	    #~ # inputs: (batch, 1, 1, 128)
