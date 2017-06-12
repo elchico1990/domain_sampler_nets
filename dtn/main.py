@@ -26,6 +26,8 @@ def main(_):
         solver.train_sampler()
     elif FLAGS.mode == 'train':
         solver.train()
+    elif FLAGS.mode == 'train_dsn':
+        solver.train_dsn()
     else:
         solver.eval()
         

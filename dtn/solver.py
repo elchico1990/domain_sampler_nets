@@ -5,6 +5,7 @@ import pickle
 import os
 import scipy.io
 import scipy.misc
+import cPickle
 
 import utils
 
@@ -12,7 +13,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=100, pretrain_iter=20000, train_iter=2000, sample_iter=100, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-20000', test_model='model/dtn-1800'):
+                 model_save_path='model', pretrained_model='model/svhn_model-20000', pretrained_sampler='model/sampler-45000', test_model='model/dtn-1800'):
         
         self.model = model
         self.batch_size = batch_size
@@ -25,6 +26,7 @@ class Solver(object):
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
         self.pretrained_model = pretrained_model
+	self.pretrained_sampler = pretrained_sampler
         self.test_model = test_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
@@ -123,22 +125,29 @@ class Solver(object):
 	
 	batch_size = 64
 	noise_dim = 100
-	epochs = 200
+	epochs = 300
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
             tf.global_variables_initializer().run()
             # restore variables of F
-            print ('Loading pretrained model F.')
+            print ('Loading pretrained model.')
             variables_to_restore = slim.get_model_variables(scope='content_extractor')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
+            # restore variables of F
+
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    feats = sess.run(model.fx_ext,{model.images:svhn_images[:15000]})
-	    feats = (feats - feats.min())/(feats.max() - feats.min())
-	    mnist_labels = svhn_labels[:15000]
+	    feats = sess.run(model.fx_ext,{model.images:svhn_images[:10000]})
+	    featsMin, featsMax = feats.min(), feats.max()
+	    feats = (feats - featsMin)/(featsMax - featsMin)
+	    
+	    with open('./model/min_max_file.pkl','w') as f:
+		cPickle.dump((featsMin,featsMax),f,cPickle.HIGHEST_PROTOCOL)
+	    
+	    svhn_labels = svhn_labels[:10000]
 	    
 	    print 'break'
 	    
@@ -156,7 +165,7 @@ class Solver(object):
 
 		    feed_dict = {model.noise: Z_samples, model.labels: svhn_labels[start:end], model.fx: feats[start:end]}
 		    
-		    if t%10==0:
+		    if t%5==0:
 			sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
@@ -240,6 +249,87 @@ class Solver(object):
                 sess.run(model.g_train_op_trg, feed_dict)
                 sess.run(model.g_train_op_trg, feed_dict)
 
+                if (step+1) % 10 == 0:
+                    summary, dl, gl = sess.run([model.summary_op_trg, \
+                        model.d_loss_trg, model.g_loss_trg], feed_dict)
+                    summary_writer.add_summary(summary, step)
+                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
+                               %(step+1, self.train_iter, dl, gl))
+
+                if (step+1) % 200 == 0:
+                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    print ('model/dtn-%d saved' %(step+1))
+
+    def train_dsn(self):
+        # load svhn dataset
+        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
+        mnist_images, _ = self.load_mnist(self.mnist_dir, split='train')
+
+        # build a graph
+        model = self.model
+        model.build_model()
+
+        # make directory if not exists
+        if tf.gfile.Exists(self.log_dir):
+            tf.gfile.DeleteRecursively(self.log_dir)
+        tf.gfile.MakeDirs(self.log_dir)
+
+        with tf.Session(config=self.config) as sess:
+            # initialize G and D
+            tf.global_variables_initializer().run()
+            # restore variables of F
+            print ('loading pretrained model F..')
+            variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_model)
+            
+            print ('Loading sampler.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
+
+	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+            saver = tf.train.Saver()
+
+            print ('Start training.')
+            trg_count = 0
+            for step in range(self.train_iter+1):
+		
+		trg_count += 1
+                
+                i = step % int(svhn_images.shape[0] / self.batch_size)
+                # train the model for source domain S
+                
+		src_labels = utils.one_hot(svhn_labels[i*self.batch_size:(i+1)*self.batch_size],10)
+		src_noise = utils.sample_Z(self.batch_size,100)
+				
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: mnist_images[:2]}
+		
+		#~ feat_samples = sess.run(model.fx, feed_dict)
+		#~ feat_samples_g = sess.run(model.fgfx, feed_dict)
+		
+		if step%10==0:		
+		    sess.run(model.d_train_op_src, feed_dict) 
+                
+		sess.run([model.g_train_op_src], feed_dict)
+                #~ sess.run(model.f_train_op_src, feed_dict)
+		
+                if (step+1) % 10 == 0:
+                    summary, dl, gl, fl = sess.run([model.summary_op_src, \
+                        model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
+                    summary_writer.add_summary(summary, step)
+                    print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
+                               %(step+1, self.train_iter, dl, gl, fl))
+                
+                # train the model for target domain T
+                j = step % int(mnist_images.shape[0] / self.batch_size)
+                trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
+                feed_dict = {model.trg_images: trg_images}
+                
+		if step%20==0:
+		    sess.run(model.d_train_op_trg, feed_dict)
+                sess.run(model.g_train_op_trg, feed_dict)
+                
                 if (step+1) % 10 == 0:
                     summary, dl, gl = sess.run([model.summary_op_trg, \
                         model.d_loss_trg, model.g_loss_trg], feed_dict)
