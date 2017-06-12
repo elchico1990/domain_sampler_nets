@@ -8,18 +8,20 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
         self.learning_rate = learning_rate
+	self.hidden_repr_size = 128
 	
     	    
 	    
     def sampler_discriminator(self, x, y, reuse=False):
-	    
+	
+	#~ x = tf.reshape(x,[-1,128])
 	inputs = tf.concat(axis=1, values=[x, y])
 	#~ inputs = x
 	    
 	with tf.variable_scope('sampler_discriminator',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
-		net = slim.flatten(inputs)
-		net = slim.fully_connected(net, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		#~ net = slim.flatten(inputs)
+		net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		return net
 
@@ -65,6 +67,8 @@ class DSN(object):
                     if self.mode == 'pretrain':
                         net = slim.conv2d(net, 10, [1, 1], padding='VALID', scope='out')
                         net = slim.flatten(net)
+		    if self.mode == 'train_sampler':
+			net = slim.flatten(net)
                     return net
                 
     def generator(self, inputs, reuse=False):

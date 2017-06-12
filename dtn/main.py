@@ -1,5 +1,5 @@
 import tensorflow as tf
-from model import DTN
+from model import DSN
 from solver import Solver
 
 flags = tf.app.flags
@@ -10,7 +10,7 @@ FLAGS = flags.FLAGS
 
 def main(_):
     
-    model = DTN(mode=FLAGS.mode, learning_rate=0.0003)
+    model = DSN(mode=FLAGS.mode, learning_rate=0.0003)
     solver = Solver(model, batch_size=100, pretrain_iter=20000, train_iter=2000, sample_iter=100, 
                     svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
     
