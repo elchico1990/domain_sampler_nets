@@ -46,7 +46,7 @@ class DSN(object):
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.nn.tanh, scope='sgen_feat')
 		return net
         
-    def content_extractor(self, images, reuse=False):
+    def content_extractor(self, images, reuse=False, class_prob=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
         if images.get_shape()[3] == 1:
@@ -67,12 +67,19 @@ class DSN(object):
                     net = slim.batch_norm(net, scope='bn3')
                     net = slim.conv2d(net, 128, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
                     net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
-                    if self.mode == 'pretrain':
+                    
+		    if self.mode == 'pretrain':
                         net = slim.conv2d(net, 10, [1, 1], padding='VALID', scope='out')
                         net = slim.flatten(net)
+		    
+		    if class_prob:
+                        net = slim.conv2d(net, 10, [1, 1], padding='VALID', scope='out')
+                        net = slim.flatten(net)
+		    
 		    if self.mode in ['train_sampler','train_dsn']:
 			net = slim.flatten(net)
-                    return net
+                    
+		    return net
                 
     def generator(self, inputs, reuse=False, from_samples=False):
         # inputs: (batch, 1, 1, 128)
@@ -114,8 +121,8 @@ class DSN(object):
                     net = slim.batch_norm(net, scope='bn2')
                     net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 4, 4, 512)
                     net = slim.batch_norm(net, scope='bn3')
-                    net = slim.conv2d(net, 1, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 1)
                     net = slim.flatten(net)
+		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
                     return net
                 
     def build_model(self):
@@ -229,7 +236,7 @@ class DSN(object):
             with tf.variable_scope('source_train_op',reuse=False):
                 self.d_train_op_src = slim.learning.create_train_op(self.d_loss_src, self.d_optimizer_src, variables_to_train=d_vars)
                 self.g_train_op_src = slim.learning.create_train_op(self.g_loss_src, self.g_optimizer_src, variables_to_train=g_vars)
-                self.f_train_op_src = slim.learning.create_train_op(self.f_loss_src, self.f_optimizer_src, variables_to_train=f_vars)
+                self.f_train_op_src = slim.learning.create_train_op(self.f_loss_src, self.f_optimizer_src, variables_to_train=g_vars)
             
             # summary op
             d_loss_src_summary = tf.summary.scalar('src_d_loss', self.d_loss_src)
@@ -291,15 +298,20 @@ class DSN(object):
             self.logits = self.discriminator(self.fake_images)
             self.fgfx = self.content_extractor(self.fake_images)
 
+	    #~ self.pred_src_labels = self.content_extractor(self.fake_images, class_prob=True)
+
             # loss
             self.d_loss_src = tf.reduce_mean(tf.square(self.logits - tf.zeros_like(self.logits)))
             self.g_loss_src = tf.reduce_mean(tf.square(self.logits - tf.ones_like(self.logits)))
             self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 15.0
+            #~ self.l_loss_src = slim.losses.sigmoid_cross_entropy(self.pred_src_labels, self.src_labels))
             
-            # optimizer
+	    # optimizer
             self.d_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
             self.g_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
             self.f_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
+            #~ self.l_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
+	    
             
             t_vars = tf.trainable_variables()
             d_vars = [var for var in t_vars if 'discriminator' in var.name]
@@ -310,7 +322,7 @@ class DSN(object):
             with tf.variable_scope('source_train_op',reuse=False):
                 self.d_train_op_src = slim.learning.create_train_op(self.d_loss_src, self.d_optimizer_src, variables_to_train=d_vars)
                 self.g_train_op_src = slim.learning.create_train_op(self.g_loss_src, self.g_optimizer_src, variables_to_train=g_vars)
-                self.f_train_op_src = slim.learning.create_train_op(self.f_loss_src, self.f_optimizer_src, variables_to_train=f_vars)
+                self.f_train_op_src = slim.learning.create_train_op(self.f_loss_src, self.f_optimizer_src, variables_to_train=g_vars)
             
             # summary op
             d_loss_src_summary = tf.summary.scalar('src_d_loss', self.d_loss_src)
@@ -331,17 +343,19 @@ class DSN(object):
             self.d_loss_real_trg = tf.reduce_mean(tf.square(self.logits_real_trg - tf.ones_like(self.logits_real_trg)))
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
             self.g_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.ones_like(self.logits_fake_trg)))
-            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) * 15.0
-            self.g_loss_trg = self.g_loss_fake_trg + self.g_loss_const_trg
+            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg))
+            self.g_loss_trg = self.g_loss_fake_trg 
             
             # optimizer
             self.d_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)
             self.g_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)
+            self.g_optimizer_const_trg = tf.train.AdamOptimizer(self.learning_rate)
 
             # train op
             with tf.variable_scope('target_train_op',reuse=False):
                 self.d_train_op_trg = slim.learning.create_train_op(self.d_loss_trg, self.d_optimizer_trg, variables_to_train=d_vars)
                 self.g_train_op_trg = slim.learning.create_train_op(self.g_loss_trg, self.g_optimizer_trg, variables_to_train=g_vars)
+                self.g_train_op_const_trg = slim.learning.create_train_op(self.g_loss_const_trg, self.g_optimizer_const_trg, variables_to_train=g_vars)
             
             # summary op
             d_loss_fake_trg_summary = tf.summary.scalar('trg_d_loss_fake', self.d_loss_fake_trg)

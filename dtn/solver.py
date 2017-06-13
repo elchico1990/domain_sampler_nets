@@ -13,7 +13,7 @@ import utils
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=32, pretrain_iter=20000, train_iter=1500, sample_iter=100, 
+    def __init__(self, model, batch_size=64, pretrain_iter=20000, train_iter=3000, sample_iter=100, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/svhn_model-20000', pretrained_sampler='model/sampler-45000', test_model='model/dtn-1349'):
         
@@ -318,14 +318,25 @@ class Solver(object):
                 		
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
-		sess.run(model.d_train_op_src, feed_dict) 
+		if step%20 == 0:
+		    sess.run(model.d_train_op_src, feed_dict) 
+		
 		sess.run(model.g_train_op_src, feed_dict) 
-                sess.run(model.f_train_op_src, feed_dict)
-		sess.run(model.d_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		
+		sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.f_train_op_src, feed_dict)
+		
+		if step%10 == 0:
+		    sess.run(model.d_train_op_trg, feed_dict)
                 
+		sess.run(model.g_train_op_trg, feed_dict)
+		
+		sess.run(model.g_train_op_const_trg, feed_dict)
+		
 		
 		
 		
@@ -337,11 +348,11 @@ class Solver(object):
                     print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
                                %(step+1, self.train_iter, dl, gl, fl))
                 
-                    summary, dl, gl = sess.run([model.summary_op_trg, \
-                        model.d_loss_trg, model.g_loss_trg], feed_dict)
+                    summary, dl, gl, cl = sess.run([model.summary_op_trg, \
+                        model.d_loss_trg, model.g_loss_trg, model.g_loss_const_trg], feed_dict)
                     summary_writer.add_summary(summary, step)
-                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl))
+                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] const_loss: [%.6f]' \
+                               %(step+1, self.train_iter, dl, gl, cl))
 
 
 
