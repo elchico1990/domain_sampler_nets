@@ -110,8 +110,8 @@ class DTN(object):
             self.fgfx = self.content_extractor(self.fake_images, reuse=True)
 
             # loss
-            self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logits, tf.zeros_like(self.logits))
-            self.g_loss_src = slim.losses.sigmoid_cross_entropy(self.logits, tf.ones_like(self.logits))
+            self.d_loss_src = tf.losses.sigmoid_cross_entropy(labels=tf.zeros_like(self.logits), logits=self.logits)
+            self.g_loss_src = tf.losses.sigmoid_cross_entropy(labels=tf.ones_like(self.logits), logits=self.logits)
             self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 15.0
             
             # optimizer
@@ -147,10 +147,10 @@ class DTN(object):
             self.logits_real = self.discriminator(self.trg_images, reuse=True)
             
             # loss
-            self.d_loss_fake_trg = slim.losses.sigmoid_cross_entropy(self.logits_fake, tf.zeros_like(self.logits_fake))
-            self.d_loss_real_trg = slim.losses.sigmoid_cross_entropy(self.logits_real, tf.ones_like(self.logits_real))
+            self.d_loss_fake_trg = tf.losses.sigmoid_cross_entropy(labels=tf.zeros_like(self.logits_fake), logits=self.logits_fake)
+            self.d_loss_real_trg = tf.losses.sigmoid_cross_entropy(labels=tf.ones_like(self.logits_real), logits=self.logits_real)
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
-            self.g_loss_fake_trg = slim.losses.sigmoid_cross_entropy(self.logits_fake, tf.ones_like(self.logits_fake))
+            self.g_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_lables=tf.ones_like(self.logits_fake), logits=self.logits_fake)
             self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images)) * 15.0
             self.g_loss_trg = self.g_loss_fake_trg + self.g_loss_const_trg
             
