@@ -300,75 +300,75 @@ class Solver(object):
 		trg_count += 1
                 
                 
-		#~ src_labels = utils.one_hot(svhn_labels[:5000],10)
-		#~ src_noise = utils.sample_Z(5000,100)
-		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: mnist_images[:2]}
-		#~ feat_samples = sess.run(model.fx, feed_dict)
+		src_labels = utils.one_hot(svhn_labels[:2000],10)
+		src_noise = utils.sample_Z(2000,100)
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: mnist_images[:2], model.src_images: svhn_images[:2000]}
+		orig_fx, fx = sess.run([model.orig_fx, model.fx], feed_dict)
 		
-		#~ with open('./for_tsne.pkl','w') as f:
-		    #~ cPickle.dump((feat_samples,src_noise,src_labels),f,cPickle.HIGHEST_PROTOCOL) 
+		with open('./for_tsne.pkl','w') as f:
+		    cPickle.dump((orig_fx, fx, src_labels),f,cPickle.HIGHEST_PROTOCOL) 
 		
 		
-		i = step % int(svhn_images.shape[0] / self.batch_size)
-                j = step % int(mnist_images.shape[0] / self.batch_size)
+		#~ i = step % int(svhn_images.shape[0] / self.batch_size)
+                #~ j = step % int(mnist_images.shape[0] / self.batch_size)
                 
-		src_labels = utils.one_hot(svhn_labels[i*self.batch_size:(i+1)*self.batch_size],10)
-		src_noise = utils.sample_Z(self.batch_size,100)
-		trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
+		#~ src_labels = utils.one_hot(svhn_labels[i*self.batch_size:(i+1)*self.batch_size],10)
+		#~ src_noise = utils.sample_Z(self.batch_size,100)
+		#~ trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
                 		
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
+		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
-		if step%20 == 0:
-		    sess.run(model.d_train_op_src, feed_dict) 
+		#~ if step%20 == 0:
+		    #~ sess.run(model.d_train_op_src, feed_dict) 
 		
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
+		#~ sess.run(model.g_train_op_src, feed_dict) 
+		#~ sess.run(model.g_train_op_src, feed_dict) 
+		#~ sess.run(model.g_train_op_src, feed_dict) 
 		
-		sess.run(model.f_train_op_src, feed_dict)
-		sess.run(model.f_train_op_src, feed_dict)
-		sess.run(model.f_train_op_src, feed_dict)
-		sess.run(model.f_train_op_src, feed_dict)
+		#~ sess.run(model.f_train_op_src, feed_dict)
+		#~ sess.run(model.f_train_op_src, feed_dict)
+		#~ sess.run(model.f_train_op_src, feed_dict)
+		#~ sess.run(model.f_train_op_src, feed_dict)
 		
-		if step%10 == 0:
-		    sess.run(model.d_train_op_trg, feed_dict)
+		#~ if step%10 == 0:
+		    #~ sess.run(model.d_train_op_trg, feed_dict)
                 
-		sess.run(model.g_train_op_trg, feed_dict)
+		#~ sess.run(model.g_train_op_trg, feed_dict)
 		
-		sess.run(model.g_train_op_const_trg, feed_dict)
-		
-		
+		#~ sess.run(model.g_train_op_const_trg, feed_dict)
 		
 		
-                if (step+1) % 10 == 0:
+		
+		
+                #~ if (step+1) % 10 == 0:
 		    
-		    summary, dl, gl, fl = sess.run([model.summary_op_src, \
-                        model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
-                    summary_writer.add_summary(summary, step)
-                    print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl, fl))
+		    #~ summary, dl, gl, fl = sess.run([model.summary_op_src, \
+                        #~ model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
+                    #~ summary_writer.add_summary(summary, step)
+                    #~ print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
+                               #~ %(step+1, self.train_iter, dl, gl, fl))
                 
-                    summary, dl, gl, cl = sess.run([model.summary_op_trg, \
-                        model.d_loss_trg, model.g_loss_trg, model.g_loss_const_trg], feed_dict)
-                    summary_writer.add_summary(summary, step)
-                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] const_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl, cl))
+                    #~ summary, dl, gl, cl = sess.run([model.summary_op_trg, \
+                        #~ model.d_loss_trg, model.g_loss_trg, model.g_loss_const_trg], feed_dict)
+                    #~ summary_writer.add_summary(summary, step)
+                    #~ print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] const_loss: [%.6f]' \
+                               #~ %(step+1, self.train_iter, dl, gl, cl))
 
 
 
-                if (step+1) % 200 == 0:
-                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    print ('model/dtn-%d saved' %(step+1))
+                #~ if (step+1) % 200 == 0:
+                    #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    #~ print ('model/dtn-%d saved' %(step+1))
 		
 		
-                if (step+1) % 1349 == 0:
-                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    print ('model/dtn-%d saved' %(step+1))
+                #~ if (step+1) % 1349 == 0:
+                    #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    #~ print ('model/dtn-%d saved' %(step+1))
 		
 		
-                if (step+1) % 1350 == 0:
-                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    print ('model/dtn-%d saved' %(step+1))
+                #~ if (step+1) % 1350 == 0:
+                    #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    #~ print ('model/dtn-%d saved' %(step+1))
 	  
     def eval(self):
         # build model

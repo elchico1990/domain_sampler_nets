@@ -21,17 +21,15 @@ def one_hot(x,n):
 def computeTSNE(fileName='./for_tsne.pkl'):
 	
 	with open(fileName,'r') as f:
-		feat_samples,src_noise,src_labels = cPickle.load(f)
+		orig_fx, fx, src_labels = cPickle.load(f)
 
 	print 'Computing T-SNE.'
 
 	model = TSNE(n_components=2, random_state=0)
 
-	print feat_samples.shape
+	TSNE_hA = model.fit_transform(np.vstack((orig_fx,fx)))
 
-	TSNE_hA = model.fit_transform(feat_samples)
-
-	colors = np.argmax(src_labels,1)
+	colors = np.argmax(np.vstack((src_labels,src_labels)),1)
 	colors = colors[:,None]
 
 	plt.figure()

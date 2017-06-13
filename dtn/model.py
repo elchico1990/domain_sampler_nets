@@ -9,11 +9,11 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 128
+	self.hidden_repr_size = 512
 	
-	if self.mode in ['train_dsn','eval_dsn']:
-	    with open('./model/min_max_file.pkl','r') as f:
-		self.featsMin, self.featsMax = cPickle.load(f)
+	#~ if self.mode in ['train_dsn','eval_dsn']:
+	    #~ with open('./model/min_max_file.pkl','r') as f:
+		#~ self.featsMin, self.featsMax = cPickle.load(f)
 	    
     def sampler_discriminator(self, x, y, reuse=False):
 	
@@ -24,7 +24,7 @@ class DSN(object):
 	with tf.variable_scope('sampler_discriminator',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		#~ net = slim.flatten(inputs)
-		net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		net = slim.fully_connected(inputs, 256, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		return net
 
@@ -42,7 +42,7 @@ class DSN(object):
 	
 	with tf.variable_scope('sampler_generator', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
-		net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sgen_fc1')
+		net = slim.fully_connected(inputs, 256, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.nn.tanh, scope='sgen_feat')
 		return net
         
@@ -65,7 +65,7 @@ class DSN(object):
                     net = slim.batch_norm(net, scope='bn2')
                     net = slim.conv2d(net, 256, [3, 3], scope='conv3')     # (batch_size, 4, 4, 256)
                     net = slim.batch_norm(net, scope='bn3')
-                    net = slim.conv2d(net, 128, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
+                    net = slim.conv2d(net, self.hidden_repr_size, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
                     net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
                     
 		    if self.mode == 'pretrain':
@@ -84,9 +84,9 @@ class DSN(object):
     def generator(self, inputs, reuse=False, from_samples=False):
         # inputs: (batch, 1, 1, 128)
 	
-	if from_samples:
-	    inputs = tf.multiply(inputs,(self.featsMax - self.featsMin))
-	    inputs = tf.add(inputs,self.featsMin)
+	#~ if from_samples:
+	    #~ inputs = tf.multiply(inputs,(self.featsMax - self.featsMin))
+	    #~ inputs = tf.add(inputs,self.featsMin)
 	    
 	if inputs.get_shape()[1] != 1:
 	    inputs = tf.expand_dims(inputs, 1)
@@ -98,7 +98,7 @@ class DSN(object):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                      activation_fn=tf.nn.relu, is_training=(self.mode=='train')):
 
-                    net = slim.conv2d_transpose(inputs, 512, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
+                    net = slim.conv2d_transpose(inputs, self.hidden_repr_size, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
                     net = slim.batch_norm(net, scope='bn1')
                     net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 8, 8, 256)
                     net = slim.batch_norm(net, scope='bn2')
@@ -290,6 +290,7 @@ class DSN(object):
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
             # source domain (svhn to mnist)
@@ -297,6 +298,8 @@ class DSN(object):
 	    self.fake_images = self.generator(self.fx,from_samples=True)
             self.logits = self.discriminator(self.fake_images)
             self.fgfx = self.content_extractor(self.fake_images)
+
+	    self.orig_fx = self.content_extractor(self.src_images, reuse=True)
 
 	    #~ self.pred_src_labels = self.content_extractor(self.fake_images, class_prob=True)
 
