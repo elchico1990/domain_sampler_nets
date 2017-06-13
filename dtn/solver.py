@@ -7,13 +7,15 @@ import scipy.io
 import scipy.misc
 import cPickle
 
+import matplotlib.pyplot as plt
+
 import utils
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=32, pretrain_iter=20000, train_iter=2000, sample_iter=100, 
+    def __init__(self, model, batch_size=32, pretrain_iter=20000, train_iter=1500, sample_iter=100, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-20000', pretrained_sampler='model/sampler-45000', test_model='model/dtn-1800'):
+                 model_save_path='model', pretrained_model='model/svhn_model-20000', pretrained_sampler='model/sampler-45000', test_model='model/dtn-1349'):
         
         self.model = model
         self.batch_size = batch_size
@@ -346,7 +348,43 @@ class Solver(object):
                 if (step+1) % 200 == 0:
                     saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
                     print ('model/dtn-%d saved' %(step+1))
-                
+		
+		
+                if (step+1) % 1349 == 0:
+                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    print ('model/dtn-%d saved' %(step+1))
+		
+		
+                if (step+1) % 1350 == 0:
+                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    print ('model/dtn-%d saved' %(step+1))
+	  
+    def eval(self):
+        # build model
+        model = self.model
+        model.build_model()
+
+        # load svhn dataset
+        svhn_images, _ = self.load_svhn(self.svhn_dir)
+
+        with tf.Session(config=self.config) as sess:
+            # load trained parameters
+            print ('loading test model..')
+            saver = tf.train.Saver()
+            saver.restore(sess, self.test_model)
+
+            print ('start sampling..!')
+            for i in range(self.sample_iter):
+                # train model for source domain S
+                batch_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
+                feed_dict = {model.images: batch_images}
+                sampled_batch_images = sess.run(model.sampled_images, feed_dict)
+
+                # merge and save source images and sampled target images
+                merged = self.merge_images(batch_images, sampled_batch_images)
+                path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
+                scipy.misc.imsave(path, merged)
+                print ('saved %s' %path)
 	    
     def eval(self):
         # build model
@@ -374,6 +412,39 @@ class Solver(object):
                 path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
                 scipy.misc.imsave(path, merged)
                 print ('saved %s' %path)
+	    
+    def eval_dsn(self):
+        # build model
+        model = self.model
+        model.build_model()
+
+        # load svhn dataset
+        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir)
+
+        with tf.Session(config=self.config) as sess:
+            # load trained parameters
+            print ('loading test model..')
+            saver = tf.train.Saver()
+            saver.restore(sess, self.test_model)
+
+
+	    # train model for source domain S
+	    src_labels = utils.one_hot(svhn_labels[:1000],10)
+	    src_noise = utils.sample_Z(1000,100)
+
+	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
+
+	    samples = sess.run(model.sampled_images, feed_dict)
+
+	    for i in range(100):
+		
+		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
+		plt.imshow(np.squeeze(samples[i]), cmap='gray')
+		plt.show()
+
+	    path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
+	    scipy.misc.imsave(path,sampled_batch_images)
+	    print ('saved %s' %path)
 
 
 

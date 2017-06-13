@@ -11,7 +11,7 @@ class DSN(object):
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 128
 	
-	if self.mode == 'train_dsn':
+	if self.mode in ['train_dsn','eval_dsn']:
 	    with open('./model/min_max_file.pkl','r') as f:
 		self.featsMin, self.featsMax = cPickle.load(f)
 	    
@@ -191,6 +191,14 @@ class DSN(object):
             # source domain (svhn to mnist)
             self.fx = self.content_extractor(self.images)
             self.sampled_images = self.generator(self.fx)
+        
+	elif self.mode == 'eval_dsn':
+            self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+            self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
+            
+            # source domain (svhn to mnist)
+            self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    self.sampled_images = self.generator(self.fx,from_samples=True)
 
         elif self.mode == 'train':
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
