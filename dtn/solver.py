@@ -316,16 +316,27 @@ class Solver(object):
                 		
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
+		sess.run(model.f_train_op_src, feed_dict)
+				
 		sess.run(model.d_train_op_src, feed_dict) 
+		
 		sess.run(model.g_train_op_src, feed_dict) 
-                sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		
+		
 		sess.run(model.d_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                
+		
+		sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_trg, feed_dict)
 		
 		
+		    
 		
                 if (step+1) % 10 == 0:
 		    
@@ -335,11 +346,11 @@ class Solver(object):
                     print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
                                %(step+1, self.train_iter, dl, gl, fl))
                 
-                    summary, dl, gl = sess.run([model.summary_op_trg, \
-                        model.d_loss_trg, model.g_loss_trg], feed_dict)
+                    summary, dl, gl, fl = sess.run([model.summary_op_trg, \
+                        model.d_loss_trg, model.g_loss_trg, model.f_loss_trg], feed_dict)
                     summary_writer.add_summary(summary, step)
-                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl))
+                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
+                               %(step+1, self.train_iter, dl, gl, fl))
 
 
 
