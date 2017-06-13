@@ -83,7 +83,7 @@ class DTN(object):
             self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
 
             # loss and train op
-            self.loss = slim.losses.sparse_softmax_cross_entropy(self.logits, self.labels)
+            self.loss = tf.losses.sparse_softmax_cross_entropy(labels=self.labels, logits=self.logits)
             self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
             
@@ -110,8 +110,8 @@ class DTN(object):
             self.fgfx = self.content_extractor(self.fake_images, reuse=True)
 
             # loss
-            self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logits, tf.zeros_like(self.logits))
-            self.g_loss_src = slim.losses.sigmoid_cross_entropy(self.logits, tf.ones_like(self.logits))
+            self.d_loss_src = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.zeros_like(self.logits), logits=self.logits)
+            self.g_loss_src = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits), logits=self.logits)
             self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 15.0
             
             # optimizer
@@ -125,7 +125,7 @@ class DTN(object):
             f_vars = [var for var in t_vars if 'content_extractor' in var.name]
             
             # train op
-            with tf.name_scope('source_train_op'):
+            with tf.variable_scope('source_train_op',reuse=False):
                 self.d_train_op_src = slim.learning.create_train_op(self.d_loss_src, self.d_optimizer_src, variables_to_train=d_vars)
                 self.g_train_op_src = slim.learning.create_train_op(self.g_loss_src, self.g_optimizer_src, variables_to_train=g_vars)
                 self.f_train_op_src = slim.learning.create_train_op(self.f_loss_src, self.f_optimizer_src, variables_to_train=f_vars)
@@ -147,10 +147,10 @@ class DTN(object):
             self.logits_real = self.discriminator(self.trg_images, reuse=True)
             
             # loss
-            self.d_loss_fake_trg = slim.losses.sigmoid_cross_entropy(self.logits_fake, tf.zeros_like(self.logits_fake))
-            self.d_loss_real_trg = slim.losses.sigmoid_cross_entropy(self.logits_real, tf.ones_like(self.logits_real))
+            self.d_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.zeros_like(self.logits_fake), logits=self.logits_fake)
+            self.d_loss_real_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits_real), logits=self.logits_real)
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
-            self.g_loss_fake_trg = slim.losses.sigmoid_cross_entropy(self.logits_fake, tf.ones_like(self.logits_fake))
+            self.g_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits_fake), logits=self.logits_fake)
             self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images)) * 15.0
             self.g_loss_trg = self.g_loss_fake_trg + self.g_loss_const_trg
             
@@ -159,7 +159,7 @@ class DTN(object):
             self.g_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)
 
             # train op
-            with tf.name_scope('target_train_op'):
+            with tf.variable_scope('target_train_op',reuse=False):
                 self.d_train_op_trg = slim.learning.create_train_op(self.d_loss_trg, self.d_optimizer_trg, variables_to_train=d_vars)
                 self.g_train_op_trg = slim.learning.create_train_op(self.g_loss_trg, self.g_optimizer_trg, variables_to_train=g_vars)
             
