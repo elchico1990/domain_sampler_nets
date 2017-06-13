@@ -271,8 +271,8 @@ class DSN(object):
                                                     origin_images_summary, sampled_images_summary])
             for var in tf.trainable_variables():
                 tf.summary.histogram(var.op.name, var)
-	    
-        elif self.mode == 'train_dsn':
+	
+	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
@@ -286,7 +286,7 @@ class DSN(object):
             # loss
             self.d_loss_src = tf.reduce_mean(tf.square(self.logits - tf.zeros_like(self.logits)))
             self.g_loss_src = tf.reduce_mean(tf.square(self.logits - tf.ones_like(self.logits)))
-            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 15
+            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 15.0
             
             # optimizer
             self.d_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
@@ -315,49 +315,41 @@ class DSN(object):
             # target domain (mnist)
             self.fx_trg = self.content_extractor(self.trg_images, reuse=True)
             self.reconst_images_trg = self.generator(self.fx_trg, reuse=True)
-            self.fgfx_trg = self.content_extractor(self.reconst_images_trg, reuse=True)
-	    self.logits_fake_trg = self.discriminator(self.reconst_images_trg, reuse=True)
+            self.logits_fake_trg = self.discriminator(self.reconst_images_trg, reuse=True)
             self.logits_real_trg = self.discriminator(self.trg_images, reuse=True)
             
             # loss
-            
-	    self.d_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.zeros_like(self.logits_fake_trg)))
+            self.d_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.zeros_like(self.logits_fake_trg)))
             self.d_loss_real_trg = tf.reduce_mean(tf.square(self.logits_real_trg - tf.ones_like(self.logits_real_trg)))
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
-            
-	    self.g_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.ones_like(self.logits_fake_trg)))
-            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) 
-            self.g_loss_trg = self.g_loss_fake_trg + self.g_loss_const_trg * 15
-            
-	    self.f_loss_trg = tf.reduce_mean(tf.square(self.fx_trg - self.fgfx_trg)) 
+            self.g_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.ones_like(self.logits_fake_trg)))
+            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) * 15.0
+            self.g_loss_trg = self.g_loss_fake_trg + self.g_loss_const_trg
             
             # optimizer
             self.d_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)
             self.g_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)
-            self.f_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)
 
             # train op
             with tf.variable_scope('target_train_op',reuse=False):
                 self.d_train_op_trg = slim.learning.create_train_op(self.d_loss_trg, self.d_optimizer_trg, variables_to_train=d_vars)
                 self.g_train_op_trg = slim.learning.create_train_op(self.g_loss_trg, self.g_optimizer_trg, variables_to_train=g_vars)
-                self.f_train_op_trg = slim.learning.create_train_op(self.f_loss_trg, self.f_optimizer_trg, variables_to_train=f_vars)
             
             # summary op
             d_loss_fake_trg_summary = tf.summary.scalar('trg_d_loss_fake', self.d_loss_fake_trg)
             d_loss_real_trg_summary = tf.summary.scalar('trg_d_loss_real', self.d_loss_real_trg)
             d_loss_trg_summary = tf.summary.scalar('trg_d_loss', self.d_loss_trg)
             g_loss_fake_trg_summary = tf.summary.scalar('trg_g_loss_fake', self.g_loss_fake_trg)
+            g_loss_const_trg_summary = tf.summary.scalar('trg_g_loss_const', self.g_loss_const_trg)
             g_loss_trg_summary = tf.summary.scalar('trg_g_loss', self.g_loss_trg)
-            f_loss_trg_summary = tf.summary.scalar('trg_f_loss', self.f_loss_trg)
             origin_images_summary = tf.summary.image('trg_origin_images', self.trg_images)
             sampled_images_summary = tf.summary.image('trg_reconstructed_images', self.reconst_images_trg)
             self.summary_op_trg = tf.summary.merge([d_loss_trg_summary, g_loss_trg_summary, 
                                                     d_loss_fake_trg_summary, d_loss_real_trg_summary,
-                                                    g_loss_fake_trg_summary, f_loss_trg_summary,
+                                                    g_loss_fake_trg_summary, g_loss_const_trg_summary,
                                                     origin_images_summary, sampled_images_summary])
             for var in tf.trainable_variables():
-                tf.summary.histogram(var.op.name, var)
-	    
+                tf.summary.histogram(var.op.name, var)    
 	    
 	    
 	    
