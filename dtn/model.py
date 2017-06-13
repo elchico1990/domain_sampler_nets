@@ -313,17 +313,17 @@ class DSN(object):
                                                     f_loss_src_summary, sampled_images_summary])
             
             # target domain (mnist)
-            self.fx = self.content_extractor(self.trg_images, reuse=True)
-            self.reconst_images = self.generator(self.fx, reuse=True)
-            self.logits_fake = self.discriminator(self.reconst_images, reuse=True)
-            self.logits_real = self.discriminator(self.trg_images, reuse=True)
+            self.fx_trg = self.content_extractor(self.trg_images, reuse=True)
+            self.reconst_images_trg = self.generator(self.fx_trg, reuse=True)
+            self.logits_fake_trg = self.discriminator(self.reconst_images_trg, reuse=True)
+            self.logits_real_trg = self.discriminator(self.trg_images, reuse=True)
             
             # loss
-            self.d_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
-            self.d_loss_real_trg = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
+            self.d_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.zeros_like(self.logits_fake_trg)))
+            self.d_loss_real_trg = tf.reduce_mean(tf.square(self.logits_real_trg - tf.ones_like(self.logits_real_trg)))
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
-            self.g_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
-            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images)) * 15.0
+            self.g_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.ones_like(self.logits_fake_trg)))
+            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) * 15.0
             self.g_loss_trg = self.g_loss_fake_trg + self.g_loss_const_trg
             
             # optimizer
@@ -343,7 +343,7 @@ class DSN(object):
             g_loss_const_trg_summary = tf.summary.scalar('trg_g_loss_const', self.g_loss_const_trg)
             g_loss_trg_summary = tf.summary.scalar('trg_g_loss', self.g_loss_trg)
             origin_images_summary = tf.summary.image('trg_origin_images', self.trg_images)
-            sampled_images_summary = tf.summary.image('trg_reconstructed_images', self.reconst_images)
+            sampled_images_summary = tf.summary.image('trg_reconstructed_images', self.reconst_images_trg)
             self.summary_op_trg = tf.summary.merge([d_loss_trg_summary, g_loss_trg_summary, 
                                                     d_loss_fake_trg_summary, d_loss_real_trg_summary,
                                                     g_loss_fake_trg_summary, g_loss_const_trg_summary,

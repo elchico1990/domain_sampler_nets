@@ -11,7 +11,7 @@ import utils
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=100, pretrain_iter=20000, train_iter=2000, sample_iter=100, 
+    def __init__(self, model, batch_size=32, pretrain_iter=20000, train_iter=2000, sample_iter=100, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/svhn_model-20000', pretrained_sampler='model/sampler-45000', test_model='model/dtn-1800'):
         
@@ -297,45 +297,51 @@ class Solver(object):
 		
 		trg_count += 1
                 
-                i = step % int(svhn_images.shape[0] / self.batch_size)
-                # train the model for source domain S
+                
+		#~ src_labels = utils.one_hot(svhn_labels[:5000],10)
+		#~ src_noise = utils.sample_Z(5000,100)
+		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: mnist_images[:2]}
+		#~ feat_samples = sess.run(model.fx, feed_dict)
+		
+		#~ with open('./for_tsne.pkl','w') as f:
+		    #~ cPickle.dump((feat_samples,src_noise,src_labels),f,cPickle.HIGHEST_PROTOCOL) 
+		
+		
+		i = step % int(svhn_images.shape[0] / self.batch_size)
+                j = step % int(mnist_images.shape[0] / self.batch_size)
                 
 		src_labels = utils.one_hot(svhn_labels[i*self.batch_size:(i+1)*self.batch_size],10)
 		src_noise = utils.sample_Z(self.batch_size,100)
-				
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: mnist_images[:2]}
+		trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
+                		
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
-		#~ feat_samples = sess.run(model.fx, feed_dict)
-		#~ feat_samples_g = sess.run(model.fgfx, feed_dict)
-		
-		if step%10==0:		
-		    sess.run(model.d_train_op_src, feed_dict) 
+		sess.run(model.d_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+                sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.d_train_op_trg, feed_dict)
+                sess.run(model.g_train_op_trg, feed_dict)
+                sess.run(model.g_train_op_trg, feed_dict)
+                sess.run(model.g_train_op_trg, feed_dict)
                 
-		sess.run([model.g_train_op_src], feed_dict)
-                #~ sess.run(model.f_train_op_src, feed_dict)
+		
+		
 		
                 if (step+1) % 10 == 0:
-                    summary, dl, gl, fl = sess.run([model.summary_op_src, \
+		    
+		    summary, dl, gl, fl = sess.run([model.summary_op_src, \
                         model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
                     summary_writer.add_summary(summary, step)
                     print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
                                %(step+1, self.train_iter, dl, gl, fl))
                 
-                # train the model for target domain T
-                j = step % int(mnist_images.shape[0] / self.batch_size)
-                trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
-                feed_dict = {model.trg_images: trg_images}
-                
-		if step%20==0:
-		    sess.run(model.d_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                
-                if (step+1) % 10 == 0:
                     summary, dl, gl = sess.run([model.summary_op_trg, \
                         model.d_loss_trg, model.g_loss_trg], feed_dict)
                     summary_writer.add_summary(summary, step)
                     print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
                                %(step+1, self.train_iter, dl, gl))
+
+
 
                 if (step+1) % 200 == 0:
                     saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
