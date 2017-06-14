@@ -24,7 +24,7 @@ def main(_):
         solver.pretrain()
     elif FLAGS.mode == 'train':
         solver.train()
-    else:
+    elif FLAGS.mode == 'eval':
         solver.eval()
         
 if __name__ == '__main__':
