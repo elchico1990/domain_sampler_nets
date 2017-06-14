@@ -13,9 +13,9 @@ import utils
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=64, pretrain_iter=20000, train_iter=3000, sample_iter=100, 
+    def __init__(self, model, batch_size=256, pretrain_iter=20000, train_iter=3000, sample_iter=100, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-20000', pretrained_sampler='model/sampler-45000', test_model='model/dtn-1349'):
+                 model_save_path='model', pretrained_model='model/svhn_model-3000', pretrained_sampler='model/sampler-5000', test_model='model/dtn-6000'):
         
         self.model = model
         self.batch_size = batch_size
@@ -142,14 +142,14 @@ class Solver(object):
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    feats = sess.run(model.fx_ext,{model.images:svhn_images[:10000]})
-	    featsMin, featsMax = feats.min(), feats.max()
-	    feats = (feats - featsMin)/(featsMax - featsMin)
+	    #~ feats = sess.run(model.fx_ext,{model.images:svhn_images[:5000]})
+	    #~ featsMin, featsMax = feats.min(), feats.max()
+	    #~ feats = (feats - featsMin)/(featsMax - featsMin)
 	    
-	    with open('./model/min_max_file.pkl','w') as f:
-		cPickle.dump((featsMin,featsMax),f,cPickle.HIGHEST_PROTOCOL)
+	    #~ with open('./model/min_max_file.pkl','w') as f:
+		#~ cPickle.dump((featsMin,featsMax),f,cPickle.HIGHEST_PROTOCOL)
 	    
-	    svhn_labels = svhn_labels[:10000]
+	    svhn_labels = svhn_labels[:5000]
 	    
 	    print 'break'
 	    
@@ -167,8 +167,12 @@ class Solver(object):
 
 		    feed_dict = {model.noise: Z_samples, model.labels: svhn_labels[start:end], model.fx: feats[start:end]}
 		    
-		    if t%5==0:
-			sess.run(model.d_train_op, feed_dict)
+		    sess.run(model.d_train_op, feed_dict)
+		    sess.run(model.d_train_op, feed_dict)
+		    sess.run(model.g_train_op, feed_dict)
+		    sess.run(model.g_train_op, feed_dict)
+		    sess.run(model.g_train_op, feed_dict)
+		    sess.run(model.g_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
 		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
@@ -359,44 +363,7 @@ class Solver(object):
                 #~ if (step+1) % 200 == 0:
                     #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
                     #~ print ('model/dtn-%d saved' %(step+1))
-		
-		
-                #~ if (step+1) % 1349 == 0:
-                    #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    #~ print ('model/dtn-%d saved' %(step+1))
-		
-		
-                #~ if (step+1) % 1350 == 0:
-                    #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    #~ print ('model/dtn-%d saved' %(step+1))
-	  
-    def eval(self):
-        # build model
-        model = self.model
-        model.build_model()
-
-        # load svhn dataset
-        svhn_images, _ = self.load_svhn(self.svhn_dir)
-
-        with tf.Session(config=self.config) as sess:
-            # load trained parameters
-            print ('loading test model..')
-            saver = tf.train.Saver()
-            saver.restore(sess, self.test_model)
-
-            print ('start sampling..!')
-            for i in range(self.sample_iter):
-                # train model for source domain S
-                batch_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
-                feed_dict = {model.images: batch_images}
-                sampled_batch_images = sess.run(model.sampled_images, feed_dict)
-
-                # merge and save source images and sampled target images
-                merged = self.merge_images(batch_images, sampled_batch_images)
-                path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
-                scipy.misc.imsave(path, merged)
-                print ('saved %s' %path)
-	    
+	
     def eval(self):
         # build model
         model = self.model
