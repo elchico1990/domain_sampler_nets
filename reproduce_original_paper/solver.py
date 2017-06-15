@@ -139,10 +139,21 @@ class Solver(object):
                 sess.run(model.d_train_op_src, feed_dict) 
                 sess.run([model.g_train_op_src], feed_dict)
                 sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict)
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict)
+                #~ sess.run([model.g_train_op_src], feed_dict)
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict)
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict) 
+                #~ sess.run([model.g_train_op_src], feed_dict)
                 
                 if step > 1600:
                     f_interval = 30
@@ -162,11 +173,19 @@ class Solver(object):
                 trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
                 feed_dict = {model.src_images: src_images, model.trg_images: trg_images}
                 sess.run(model.d_train_op_trg, feed_dict)
-                sess.run(model.d_train_op_trg, feed_dict)
+                #~ sess.run(model.d_train_op_trg, feed_dict)
                 sess.run(model.g_train_op_trg, feed_dict)
                 sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
+                #~ sess.run(model.g_train_op_trg, feed_dict)
 
                 if (step+1) % 10 == 0:
                     summary, dl, gl = sess.run([model.summary_op_trg, \
