@@ -3,9 +3,9 @@ import cPickle
 
 import numpy as np
 
-from utils import *
+from utils_old import *
 
-expDir = './experiments/800_200'
+expDir = './compute_f/mnist_theano/experiments/800_200'
 
 with open(expDir+'/results.pkl','r') as f:
 	_,_,_,hiddens,labels = cPickle.load(f)
@@ -18,7 +18,7 @@ labelsReal = np.argmax(labels,1)[:2000]
 #~ computeTSNE(hiddens, np.argmax(labels,1), expDir, N=6000)
 
  
-expDir = './experiments/800_200'
+expDir = './compute_f/mnist_theano/experiments/800_200'
 
 for i in range(100):
 #~ i = 35
@@ -38,7 +38,7 @@ for i in range(100):
 		labels[i * sizeSamplesX : i * sizeSamplesX + sizeSamplesX] = i
 
 	hiddens = np.vstack((hiddensReal,hiddens))
-	labels = np.vstack((labelsReal[:,None],labels))
+	labels = np.vstack((np.ones((len(labelsReal),1)),np.zeros((len(labels),1))))
 
 	computeTSNE(hiddens, labels, expDir, hiddens.shape[0], fileName)
 
