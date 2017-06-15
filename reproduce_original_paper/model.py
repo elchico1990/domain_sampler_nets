@@ -68,8 +68,8 @@ class DTN(object):
                     net = slim.batch_norm(net, scope='bn2')
                     net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 4, 4, 512)
                     net = slim.batch_norm(net, scope='bn3')
-                    net = slim.conv2d(net, 1, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 1) #OLD
-                    #~ net = slim.conv2d(net, 3, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 3, 1, 1) #NEW
+                    #~ net = slim.conv2d(net, 1, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 1) #OLD
+                    net = slim.conv2d(net, 3, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 3, 1, 1) #NEW
                     net = slim.flatten(net)
                     return net
                 
@@ -113,10 +113,10 @@ class DTN(object):
             self.fgfx = self.content_extractor(self.fake_images, reuse=True)
 
             # loss
-            self.d_loss_src = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.zeros_like(self.logits), logits=self.logits) #OLD
-            #~ self.g_loss_src = tf.losses.sparse_softmax_cross_entropy(labels=tf.zeros_like(self.logits_fake[:,0],dtype=tf.int64), logits=self.logits_fake) #NEW
-            self.g_loss_src = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits), logits=self.logits) #OLD
-            #~ self.g_loss_src = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits[:,2]), logits=self.logits[:,2]) #NEW
+            #~ self.d_loss_src = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.zeros_like(self.logits), logits=self.logits) #OLD
+            self.d_loss_src = tf.losses.sparse_softmax_cross_entropy(labels=tf.zeros_like(self.logits[:,0],dtype=tf.int64), logits=self.logits) #NEW
+            #~ self.g_loss_src = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits), logits=self.logits) #OLD
+            self.g_loss_src = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits[:,2]), logits=self.logits[:,2]) #NEW
             self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * self.alpha
             
             # optimizer
@@ -127,14 +127,14 @@ class DTN(object):
             t_vars = tf.trainable_variables()
             d_vars = [var for var in t_vars if 'discriminator' in var.name]
             g_vars = [var for var in t_vars if 'generator' in var.name]
-            f_vars = [var for var in t_vars if 'content_extractor' in var.name]
+            #~ f_vars = [var for var in t_vars if 'content_extractor' in var.name] # f should be pretrained and then kept fixed
             
             # train op
             with tf.variable_scope('source_train_op',reuse=False):
                 self.d_train_op_src = slim.learning.create_train_op(self.d_loss_src, self.d_optimizer_src, variables_to_train=d_vars)
                 self.g_train_op_src = slim.learning.create_train_op(self.g_loss_src, self.g_optimizer_src, variables_to_train=g_vars)
                 #~ self.f_train_op_src = slim.learning.create_train_op(self.f_loss_src, self.f_optimizer_src, variables_to_train=f_vars) #OLD
-                self.f_train_op_src = slim.learning.create_train_op(self.f_loss_src, self.f_optimizer_src, variables_to_train=g_vars+f_vars) #NEW
+                self.f_train_op_src = slim.learning.create_train_op(self.f_loss_src, self.f_optimizer_src, variables_to_train=g_vars) #NEW
             
             # summary op
             d_loss_src_summary = tf.summary.scalar('src_d_loss', self.d_loss_src)
@@ -153,13 +153,13 @@ class DTN(object):
             self.logits_real = self.discriminator(self.trg_images, reuse=True)
             
             # loss
-            self.d_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.zeros_like(self.logits_fake), logits=self.logits_fake) #OLD
-            self.d_loss_real_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits_real), logits=self.logits_real) #OLD
-            #~ self.d_loss_fake_trg = tf.losses.sparse_softmax_cross_entropy(labels=tf.ones_like(self.logits_fake[:,0],dtype=tf.int64), logits=self.logits_fake) #NEW
-            #~ self.d_loss_real_trg = tf.losses.sparse_softmax_cross_entropy(labels=2*tf.ones_like(self.logits_real[:,0],dtype=tf.int64), logits=self.logits_real) #NEW
+            #~ self.d_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.zeros_like(self.logits_fake), logits=self.logits_fake) #OLD
+            #~ self.d_loss_real_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits_real), logits=self.logits_real) #OLD
+            self.d_loss_fake_trg = tf.losses.sparse_softmax_cross_entropy(labels=tf.ones_like(self.logits_fake[:,0],dtype=tf.int64), logits=self.logits_fake) #NEW
+            self.d_loss_real_trg = tf.losses.sparse_softmax_cross_entropy(labels=2*tf.ones_like(self.logits_real[:,0],dtype=tf.int64), logits=self.logits_real) #NEW
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
-            self.g_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits_fake), logits=self.logits_fake) #OLD
-            #~ self.g_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits_fake[:,2]), logits=self.logits_fake[:,2]) #NEW
+            #~ self.g_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits_fake), logits=self.logits_fake) #OLD
+            self.g_loss_fake_trg = tf.losses.sigmoid_cross_entropy(multi_class_labels=tf.ones_like(self.logits_fake[:,2]), logits=self.logits_fake[:,2]) #NEW
             self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images)) * self.beta
             self.g_loss_trg = self.g_loss_fake_trg + self.g_loss_const_trg
             
