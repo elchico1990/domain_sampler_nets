@@ -13,9 +13,9 @@ import utils
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=256, pretrain_iter=20000, train_iter=3000, sample_iter=100, 
+    def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-3000', pretrained_sampler='model/sampler-5000', test_model='model/dtn-6000'):
+                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-31000', test_model='model/dtn-1400'):
         
         self.model = model
         self.batch_size = batch_size
@@ -34,7 +34,7 @@ class Solver(object):
         self.config.gpu_options.allow_growth=True
 
     def load_svhn(self, image_dir, split='train'):
-        print ('loading svhn image dataset..')
+        print ('Loading SVHN dataset.')
         
         if self.model.mode == 'pretrain':
             image_file = 'extra_32x32.mat' if split=='train' else 'test_32x32.mat'
@@ -46,18 +46,28 @@ class Solver(object):
         images = np.transpose(svhn['X'], [3, 0, 1, 2]) / 127.5 - 1
         labels = svhn['y'].reshape(-1)
         labels[np.where(labels==10)] = 0
-        print ('finished loading svhn image dataset..!')
         return images, labels
 
     def load_mnist(self, image_dir, split='train'):
-        print ('loading mnist image dataset..')
+        print ('Loading MNIST dataset.')
         image_file = 'train.pkl' if split=='train' else 'test.pkl'
         image_dir = os.path.join(image_dir, image_file)
         with open(image_dir, 'rb') as f:
             mnist = pickle.load(f)
         images = mnist['X'] / 127.5 - 1
         labels = mnist['y']
-        print ('finished loading mnist image dataset..!')
+        return images, labels
+
+    def load_usps(self, image_dir, split='train'):
+        
+	print ('Loading USPS dataset.')
+	
+	uspsData = scipy.io.load_mat('./usps/USPS.mat')
+	
+	images = uspsData['fea']
+	labels = labelsuspsData['gnd']
+	labels[np.where(labels==10)] = 0
+	
         return images, labels
 
     def merge_images(self, sources, targets, k=10):
@@ -74,8 +84,8 @@ class Solver(object):
 
     def pretrain(self):
         # load svhn dataset
-        train_images, train_labels = self.load_svhn(self.svhn_dir, split='train')
-        test_images, test_labels = self.load_svhn(self.svhn_dir, split='test')
+        train_images, train_labels = self.load_mnist(self.mnist_dir, split='train')
+        test_images, test_labels = self.load_mnist(self.mnist_dir, split='test')
 
         # build a graph
         model = self.model
@@ -93,7 +103,7 @@ class Solver(object):
                 feed_dict = {model.images: batch_images, model.labels: batch_labels}
                 sess.run(model.train_op, feed_dict) 
 
-                if (step+1) % 10 == 0:
+                if (step+1) % 500 == 0:
                     summary, l, acc = sess.run([model.summary_op, model.loss, model.accuracy], feed_dict)
                     rand_idxs = np.random.permutation(test_images.shape[0])[:self.batch_size]
                     test_acc, _ = sess.run(fetches=[model.accuracy, model.loss], 
@@ -111,10 +121,11 @@ class Solver(object):
 	
 	print 'Training sampler.'
         # load svhn dataset
-        #~ svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
-	#~ svhn_labels = utils.one_hot(svhn_labels, 10)
-        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
-	svhn_labels = utils.one_hot(svhn_labels, 10)
+        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
+	mnist_labels = utils.one_hot(mnist_labels, 10)
+	
+	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
+	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
         
         # build a graph
         model = self.model
@@ -138,19 +149,14 @@ class Solver(object):
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
             # restore variables of F
-
+	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
+	    
+	    feed_dict = {model.images: mnist_images[:10000]}
 
-	    #~ feats = sess.run(model.fx_ext,{model.images:svhn_images[:5000]})
-	    #~ featsMin, featsMax = feats.min(), feats.max()
-	    #~ feats = (feats - featsMin)/(featsMax - featsMin)
-	    
-	    #~ with open('./model/min_max_file.pkl','w') as f:
-		#~ cPickle.dump((featsMin,featsMax),f,cPickle.HIGHEST_PROTOCOL)
-	    
-	    svhn_labels = svhn_labels[:5000]
-	    
+	    fx = sess.run(model.fx, feed_dict)
+		 
 	    print 'break'
 	    
 	    t = 0
@@ -159,33 +165,35 @@ class Solver(object):
 		
 		#~ print 'Epoch',str(i)
 		
-		for start, end in zip(range(0, len(feats), batch_size), range(batch_size, len(feats), batch_size)):
-
+		for start, end in zip(range(0, len(mnist_images), batch_size), range(batch_size, len(mnist_images), batch_size)):
+		    
 		    t += 1
 
-		    Z_samples = utils.sample_Z(batch_size, noise_dim)
+		    Z_samples = utils.sample_Z(batch_size, noise_dim, 'uniform')
 
-		    feed_dict = {model.noise: Z_samples, model.labels: svhn_labels[start:end], model.fx: feats[start:end]}
+		    feed_dict = {model.noise: Z_samples, model.labels: mnist_labels[start:end], model.images: mnist_images[start:end]}
+
+
+		    if t==1:
+			d_loss, _ = sess.run([model.d_loss, model.d_train_op], feed_dict)
+			g_loss, _ = sess.run([model.g_loss, model.g_train_op], feed_dict)
 		    
-		    sess.run(model.d_train_op, feed_dict)
-		    sess.run(model.d_train_op, feed_dict)
-		    sess.run(model.g_train_op, feed_dict)
-		    sess.run(model.g_train_op, feed_dict)
-		    sess.run(model.g_train_op, feed_dict)
-		    sess.run(model.g_train_op, feed_dict)
-		    sess.run(model.g_train_op, feed_dict)
-		    
+
+		    		    
 		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
 		    avg_D_real = sess.run(model.logits_real, feed_dict)
 		    
-		    if (t+1) % 500 == 0:
+		    d_loss, _ = sess.run([model.d_loss, model.d_train_op], feed_dict)
+		    g_loss, _ = sess.run([model.g_loss, model.g_train_op], feed_dict)
+		    
+		    if (t+1) % 100 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
-			print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(feats) /batch_size), dl, gl))
+			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
+				   %(t+1, int(epochs*len(mnist_images) /batch_size), dl, gl))
 			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
-                    if (t+1) % 5000 == 0:  
+                    if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler'), global_step=t+1) 
 			print ('sampler-%d saved..!' %(t+1))
 
@@ -268,9 +276,15 @@ class Solver(object):
     
     def train_dsn(self):
         # load svhn dataset
-        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
-        mnist_images, _ = self.load_mnist(self.mnist_dir, split='train')
+        #~ svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
+        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
 
+	#~ svhn_images = svhn_images[svhn_labels==1]
+	#~ svhn_labels = svhn_labels[svhn_labels==1]
+        
+	#~ mnist_images = mnist_images[mnist_labels==1]
+	#~ mnist_labels = mnist_labels[mnist_labels==1]
+        
         # build a graph
         model = self.model
         model.build_model()
@@ -304,14 +318,16 @@ class Solver(object):
 		trg_count += 1
                 
                 
-		src_labels = utils.one_hot(svhn_labels[:2000],10)
+		src_labels = utils.one_hot(mnist_labels[:2000],10)
 		src_noise = utils.sample_Z(2000,100)
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: mnist_images[:2], model.src_images: svhn_images[:2000]}
-		orig_fx, fx = sess.run([model.orig_fx, model.fx], feed_dict)
 		
-		with open('./for_tsne.pkl','w') as f:
-		    cPickle.dump((orig_fx, fx, src_labels),f,cPickle.HIGHEST_PROTOCOL) 
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: mnist_images[:2000]}
 		
+		src_fx, fx = sess.run([model.orig_src_fx, model.fx], feed_dict)
+		
+		f = file('./for_tsne.pkl','w')
+		cPickle.dump((src_fx, fx, src_labels),f,cPickle.HIGHEST_PROTOCOL) 
+		f.close()
 		
 		#~ i = step % int(svhn_images.shape[0] / self.batch_size)
                 #~ j = step % int(mnist_images.shape[0] / self.batch_size)
@@ -322,7 +338,7 @@ class Solver(object):
                 		
 		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
-		#~ if step%20 == 0:
+		#~ if step%15 == 0:
 		    #~ sess.run(model.d_train_op_src, feed_dict) 
 		
 		#~ sess.run(model.g_train_op_src, feed_dict) 
@@ -334,11 +350,13 @@ class Solver(object):
 		#~ sess.run(model.f_train_op_src, feed_dict)
 		#~ sess.run(model.f_train_op_src, feed_dict)
 		
-		#~ if step%10 == 0:
+		#~ if step%15 == 0:
 		    #~ sess.run(model.d_train_op_trg, feed_dict)
                 
 		#~ sess.run(model.g_train_op_trg, feed_dict)
 		
+		#~ sess.run(model.g_train_op_const_trg, feed_dict)
+		#~ sess.run(model.g_train_op_const_trg, feed_dict)
 		#~ sess.run(model.g_train_op_const_trg, feed_dict)
 		
 		
@@ -425,10 +443,11 @@ class Solver(object):
 	    print ('saved %s' %path)
 
 
-
-
-
-
+if __name__=='__main__':
+    
+    uspsData = scipy.io.loadmat('./usps/USPS.mat')
+    
+    print 'break'
 
 
 
