@@ -3,7 +3,7 @@ from model import DTN
 from solver import Solver
 
 flags = tf.app.flags
-flags.DEFINE_string('mode', 'train', "'pretrain', 'train' or 'eval'")
+flags.DEFINE_string('mode', 'train', "'pretrain', 'train', 'eval' or 'transfer'")
 flags.DEFINE_string('model_save_path', 'model', "directory for saving the model")
 flags.DEFINE_string('sample_save_path', 'sample', "directory for saving the sampled images")
 FLAGS = flags.FLAGS
@@ -26,6 +26,9 @@ def main(_):
         solver.train()
     elif FLAGS.mode == 'eval':
         solver.eval()
+    elif FLAGS.mode == 'transfer':
+        solver.transfer_svhn()
+
         
 if __name__ == '__main__':
     tf.app.run()

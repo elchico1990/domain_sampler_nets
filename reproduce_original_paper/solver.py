@@ -224,3 +224,33 @@ class Solver(object):
                 path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
                 scipy.misc.imsave(path, merged)
                 print ('saved %s' %path)
+                
+                
+    def transfer_svhn(self):
+        # build model
+        model = self.model
+        model.build_model()
+
+        # load svhn dataset
+        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir)
+        print svhn_images.shape
+        print svhn_labels.shape
+
+        with tf.Session(config=self.config) as sess:
+            # load trained parameters
+            print ('loading test model..')
+            saver = tf.train.Saver()
+            saver.restore(sess, self.test_model)
+
+            print ('start transferring..!')
+            for i in range(self.sample_iter):
+                # train model for source domain S
+                batch_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
+                feed_dict = {model.images: batch_images}
+                sampled_batch_images = sess.run(model.sampled_images, feed_dict)
+                print sampled_batch_images.shape
+                # merge and save source images and sampled target images
+                # merged = self.merge_images(batch_images, sampled_batch_images)
+                #path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
+                #scipy.misc.imsave(path, sampled_batch_images)
+                #print ('saved %s' %path)
