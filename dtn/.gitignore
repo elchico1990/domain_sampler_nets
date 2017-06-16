@@ -7,5 +7,6 @@
 /model
 /mnist
 /svhn
+/usps
 /sample
 /logs

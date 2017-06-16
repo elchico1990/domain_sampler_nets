@@ -28,11 +28,11 @@ def computeTSNE(fileName='./for_tsne.pkl'):
 
 	#~ print np.argmax(src_labels,1).shape
 	#~ print trg_labels[:,None].shape
-	colors_0 = np.vstack((np.argmax(src_labels,1),trg_labels))
+	#~ colors_0 = np.vstack((np.argmax(src_labels,1),trg_labels))
 	#~ colors_12 = np.argmax(src_labels,1)
 	#~ colors_0 = colors_0[:,None]
 	#~ colors_12 = colors_12[:,None]
-	#~ colors = np.vstack((np.ones((2000,1)), 2 * np.ones((2000,1))))
+	colors = np.vstack((np.ones((2000,1)), 2 * np.ones((2000,1))))
 
 	print 'Computing T-SNE.'
 
@@ -40,22 +40,19 @@ def computeTSNE(fileName='./for_tsne.pkl'):
 
 	print '0'
 	TSNE_hA_0 = model.fit_transform(np.vstack((orig_fx,trg_fx)))
-	#~ print '1'
-	#~ TSNE_hA_1 = model.fit_transform(fx)
+	print '1'
+	TSNE_hA_1 = model.fit_transform(np.vstack((orig_fx,fx)))
 	#~ print '2'
 	#~ TSNE_hA_2 = model.fit_transform(orig_fx)
 
 	plt.figure(0)
-	plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = colors_0)
+	plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = colors)
 	
 	
-	#~ plt.figure(1)
-	#~ plt.scatter(TSNE_hA_1[:,0], TSNE_hA_1[:,1], c = colors_12)
+	plt.figure(1)
+	plt.scatter(TSNE_hA_1[:,0], TSNE_hA_1[:,1], c = colors)
 	
 
-	#~ plt.figure(2)
-	#~ plt.scatter(TSNE_hA_2[:,0], TSNE_hA_2[:,1], c = colors_12)
-	
 	
 	plt.show()
 
