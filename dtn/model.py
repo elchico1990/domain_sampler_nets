@@ -71,9 +71,9 @@ class DSN(object):
     def content_extractor(self, images, reuse=False, class_prob=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
-        if images.get_shape()[3] == 1:
-            # For mnist dataset, replicate the gray scale image 3 times.
-            images = tf.image.grayscale_to_rgb(images)
+        #~ if images.get_shape()[3] == 1:
+            #~ # For mnist dataset, replicate the gray scale image 3 times.
+            #~ images = tf.image.grayscale_to_rgb(images)
         
         with tf.variable_scope('content_extractor', reuse=reuse):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
@@ -139,7 +139,7 @@ class DSN(object):
     def build_model(self):
         
         if self.mode == 'pretrain':
-            self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'svhn_images')
             self.labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             
             # logits and accuracy
@@ -160,7 +160,7 @@ class DSN(object):
 	
 	elif self.mode == 'train_sampler':
 				
-	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
 	    self.labels = tf.placeholder(tf.float32, [None, 10], 'labels')
 	    #~ self.fx = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'feat')

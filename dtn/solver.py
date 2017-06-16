@@ -34,7 +34,7 @@ class Solver(object):
         self.config.gpu_options.allow_growth=True
 
     def load_svhn(self, image_dir, split='train'):
-        print ('loading svhn image dataset..')
+        print ('Loading SVHN dataset.')
         
         if self.model.mode == 'pretrain':
             image_file = 'extra_32x32.mat' if split=='train' else 'test_32x32.mat'
@@ -46,18 +46,28 @@ class Solver(object):
         images = np.transpose(svhn['X'], [3, 0, 1, 2]) / 127.5 - 1
         labels = svhn['y'].reshape(-1)
         labels[np.where(labels==10)] = 0
-        print ('finished loading svhn image dataset..!')
         return images, labels
 
     def load_mnist(self, image_dir, split='train'):
-        print ('loading mnist image dataset..')
+        print ('Loading MNIST dataset.')
         image_file = 'train.pkl' if split=='train' else 'test.pkl'
         image_dir = os.path.join(image_dir, image_file)
         with open(image_dir, 'rb') as f:
             mnist = pickle.load(f)
         images = mnist['X'] / 127.5 - 1
         labels = mnist['y']
-        print ('finished loading mnist image dataset..!')
+        return images, labels
+
+    def load_usps(self, image_dir, split='train'):
+        
+	print ('Loading USPS dataset.')
+	
+	uspsData = scipy.io.load_mat('./usps/USPS.mat')
+	
+	images = uspsData['fea']
+	labels = labelsuspsData['gnd']
+	labels[np.where(labels==10)] = 0
+	
         return images, labels
 
     def merge_images(self, sources, targets, k=10):
@@ -74,8 +84,8 @@ class Solver(object):
 
     def pretrain(self):
         # load svhn dataset
-        train_images, train_labels = self.load_svhn(self.svhn_dir, split='train')
-        test_images, test_labels = self.load_svhn(self.svhn_dir, split='test')
+        train_images, train_labels = self.load_mnist(self.mnist_dir, split='train')
+        test_images, test_labels = self.load_mnist(self.mnist_dir, split='test')
 
         # build a graph
         model = self.model
@@ -114,8 +124,8 @@ class Solver(object):
         svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
 	svhn_labels = utils.one_hot(svhn_labels, 10)
 	
-	svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
-	svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
+	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
+	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
         
         # build a graph
         model = self.model
@@ -424,10 +434,11 @@ class Solver(object):
 	    print ('saved %s' %path)
 
 
-
-
-
-
+if __name__=='__main__':
+    
+    uspsData = scipy.io.loadmat('./usps/USPS.mat')
+    
+    print 'break'
 
 
 
