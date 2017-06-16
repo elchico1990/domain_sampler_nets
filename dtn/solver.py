@@ -15,7 +15,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-31000', test_model='model/dtn-1400'):
+                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', test_model='model/dtn-1400'):
         
         self.model = model
         self.batch_size = batch_size
@@ -101,7 +101,10 @@ class Solver(object):
                 batch_images = train_images[i*self.batch_size:(i+1)*self.batch_size]
                 batch_labels = train_labels[i*self.batch_size:(i+1)*self.batch_size] 
                 feed_dict = {model.images: batch_images, model.labels: batch_labels}
-                sess.run(model.train_op, feed_dict) 
+                
+		a,b = sess.run([model.labels, model.logits], feed_dict)
+		
+		sess.run(model.train_op, feed_dict) 
 
                 if (step+1) % 500 == 0:
                     summary, l, acc = sess.run([model.summary_op, model.loss, model.accuracy], feed_dict)
@@ -122,7 +125,7 @@ class Solver(object):
 	print 'Training sampler.'
         # load svhn dataset
         mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
-	mnist_labels = utils.one_hot(mnist_labels, 10)
+	mnist_labels_oh = utils.one_hot(mnist_labels, 11)
 	
 	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
 	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
@@ -153,13 +156,14 @@ class Solver(object):
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 	    
-	    feed_dict = {model.images: mnist_images[:10000]}
-
-	    fx = sess.run(model.fx, feed_dict)
-		 
-	    print 'break'
-	    
+	    #~ feed_dict = {model.images: mnist_images[:10000]}
+	    #~ fx = sess.run(model.fx, feed_dict)
+		 	    
 	    t = 0
+	    
+	    labels_fake_oh = np.zeros((batch_size,11))
+	    labels_fake_oh[:,10] = 1
+	    labels_fake = np.argmax(labels_fake_oh,1)
 	    
 	    for i in range(epochs):
 		
@@ -171,27 +175,22 @@ class Solver(object):
 
 		    Z_samples = utils.sample_Z(batch_size, noise_dim, 'uniform')
 
-		    feed_dict = {model.noise: Z_samples, model.labels: mnist_labels[start:end], model.images: mnist_images[start:end]}
+		    feed_dict = {model.noise: Z_samples, model.images: mnist_images[start:end], model.labels_real: mnist_labels[start:end], model.labels_fake: labels_fake, model.labels_real_oh: mnist_labels_oh[start:end], model.labels_fake_oh: labels_fake_oh}
 
-
-		    if t==1:
-			d_loss, _ = sess.run([model.d_loss, model.d_train_op], feed_dict)
-			g_loss, _ = sess.run([model.g_loss, model.g_train_op], feed_dict)
-		    
-
+		    #~ a,b,c,d = sess.run([model.logits_real,model.logits_fake,model.labels_real,model.labels_fake], feed_dict)
 		    		    
-		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
-		    avg_D_real = sess.run(model.logits_real, feed_dict)
+		    #~ avg_D_fake = sess.run(model.logits_fake, feed_dict)
+		    #~ avg_D_real = sess.run(model.logits_real, feed_dict)
 		    
-		    d_loss, _ = sess.run([model.d_loss, model.d_train_op], feed_dict)
-		    g_loss, _ = sess.run([model.g_loss, model.g_train_op], feed_dict)
+		    sess.run(model.d_train_op, feed_dict)
+		    sess.run(model.g_train_op, feed_dict)
 		    
 		    if (t+1) % 100 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
 				   %(t+1, int(epochs*len(mnist_images) /batch_size), dl, gl))
-			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
+			#~ print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
                     if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler'), global_step=t+1) 
@@ -318,7 +317,7 @@ class Solver(object):
 		trg_count += 1
                 
                 
-		src_labels = utils.one_hot(mnist_labels[:2000],10)
+		src_labels = utils.one_hot(mnist_labels[:2000],11)
 		src_noise = utils.sample_Z(2000,100)
 		
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: mnist_images[:2000]}

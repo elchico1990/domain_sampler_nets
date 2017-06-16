@@ -16,7 +16,7 @@ class DSN(object):
 	
 	#~ x = tf.reshape(x,[-1,128])
 	
-	inputs = tf.concat(axis=1, values=[x, y])
+	inputs = tf.concat(axis=1, values=[x, tf.cast(y,tf.float32)])
 	inputs = x
 	
 	
@@ -24,8 +24,8 @@ class DSN(object):
 	with tf.variable_scope('sampler_discriminator',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		#~ net = slim.flatten(inputs)
-		net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-		net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
+		net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		return net
 
     def sampler_generator(self, z, y, reuse=False):
@@ -37,12 +37,12 @@ class DSN(object):
 	in equal ratios.  
 	'''
 	
-	#~ inputs = tf.concat(axis=1, values=[z, y])
-	inputs = z
+	inputs = tf.concat(axis=1, values=[z, tf.cast(y,tf.float32)])
+	#~ inputs = z
 	
 	with tf.variable_scope('sampler_generator', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
-		net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sgen_fc1')
+		net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		return net
         	    
@@ -141,27 +141,37 @@ class DSN(object):
 				
 	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-	    self.labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-	    #~ self.fx = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'feat')
+	    self.labels_real = tf.placeholder(tf.int64, [None], 'labels_real')
+	    self.labels_fake = tf.placeholder(tf.int64, [None], 'labels_fake')
+	    self.labels_real_oh = tf.placeholder(tf.int64, [None, 11], 'labels_real')
+	    self.labels_fake_oh = tf.placeholder(tf.int64, [None, 11], 'labels_fake')
 	    
 	    self.fx = self.content_extractor(self.images)
-	    self.fzy = self.sampler_generator(self.noise, self.labels) 
+	    self.fzy = self.sampler_generator(self.noise, self.labels_real_oh) 
 
-	    self.logits_real = self.sampler_discriminator(self.fx,self.labels) 
-	    self.logits_fake = self.sampler_discriminator(self.fzy,self.labels, reuse=True) 
-	 
+	    self.logits_real = self.sampler_discriminator(self.fx,self.labels_real_oh) 
+	    self.logits_fake = self.sampler_discriminator(self.fzy,self.labels_real_oh, reuse=True)
+	    
+	    self.pred_real = tf.argmax(self.logits_real, 1) 
+	    self.pred_fake = tf.argmax(self.logits_fake, 1) 
+	  
 	    #~ self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_real, labels=tf.ones_like(self.logits_real)))
 	    #~ self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_fake, labels=tf.zeros_like(self.logits_fake)))
 	    
-	    self.d_loss_real = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
-            self.d_loss_fake = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
+	    #~ self.d_loss_real = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
+            #~ self.d_loss_fake = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
            
+	    self.d_loss_real = slim.losses.sparse_softmax_cross_entropy(self.logits_real, self.labels_real)
+	    self.d_loss_fake = slim.losses.sparse_softmax_cross_entropy(self.logits_fake, self.labels_fake)
+            
 	    self.d_loss = self.d_loss_real + self.d_loss_fake
 	    
 	    #~ self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_fake, labels=tf.ones_like(self.logits_fake)))
 	    
-	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
-
+	    #~ self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
+	    
+	    self.g_loss = slim.losses.sparse_softmax_cross_entropy(self.logits_fake, self.labels_real)
+            
 	    self.d_optimizer = tf.train.AdamOptimizer(0.001)
 	    self.g_optimizer = tf.train.AdamOptimizer(0.001)
 	    
@@ -279,7 +289,7 @@ class DSN(object):
 	
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
+            self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    

@@ -38,6 +38,8 @@ def computeTSNE(fileName='./for_tsne.pkl'):
 
 	print '0'
 	TSNE_hA_0 = model.fit_transform(np.vstack((src_fx,fx)))
+	print '1'
+	TSNE_hA_1 = model.fit_transform(fx)
 	print '2'
 	TSNE_hA_2 = model.fit_transform(src_fx)
 
@@ -48,6 +50,9 @@ def computeTSNE(fileName='./for_tsne.pkl'):
 	plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = colors)
 	
 	plt.figure(2)
+	plt.scatter(TSNE_hA_1[:,0], TSNE_hA_1[:,1], c = colors_12)
+	
+	plt.figure(3)
 	plt.scatter(TSNE_hA_2[:,0], TSNE_hA_2[:,1], c = colors_12)
 	
 
