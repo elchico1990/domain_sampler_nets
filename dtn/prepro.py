@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 from PIL import Image
 from tensorflow.examples.tutorials.mnist import input_data
-
+import scipy.io
 
 def resize_images(image_arrays, size=[32, 32]):
     # convert float type to integer 
@@ -33,8 +33,25 @@ def main():
         
     save_pickle(train, 'mnist/train.pkl')
     save_pickle(test, 'mnist/test.pkl')
-    
-    
+
+def usps():
+	
+
+	uspsData = scipy.io.loadmat('./usps/USPS.mat')
+	
+	images = (uspsData['fea'] + 1)/2.
+	
+	images = images.reshape(-1,16,16)
+
+	images = resize_images(images)
+
+	labels = uspsData['gnd']
+	labels[np.where(labels==10)] = 0
+
+	train = {'X': images, 'y': labels}
+
+	save_pickle(train, 'usps/train.pkl')
+
 if __name__ == "__main__":
-    main()
+    usps()
     

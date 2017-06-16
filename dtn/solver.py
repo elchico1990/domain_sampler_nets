@@ -14,8 +14,8 @@ import utils
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
-                 svhn_dir='svhn', mnist_dir='mnist', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', test_model='model/dtn-1400'):
+                 svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
+                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', test_model='model/dtn-1000'):
         
         self.model = model
         self.batch_size = batch_size
@@ -24,6 +24,7 @@ class Solver(object):
         self.sample_iter = sample_iter
         self.svhn_dir = svhn_dir
         self.mnist_dir = mnist_dir
+        self.usps_dir = usps_dir
         self.log_dir = log_dir
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
@@ -58,18 +59,17 @@ class Solver(object):
         labels = mnist['y']
         return images, labels
 
-    def load_usps(self, image_dir, split='train'):
+    def load_usps(self, image_dir):
         
 	print ('Loading USPS dataset.')
-	
-	uspsData = scipy.io.load_mat('./usps/USPS.mat')
-	
-	images = uspsData['fea']
-	labels = labelsuspsData['gnd']
-	labels[np.where(labels==10)] = 0
-	
+        image_file = 'train.pkl'
+        image_dir = os.path.join(image_dir, image_file)
+        with open(image_dir, 'rb') as f:
+            usps = pickle.load(f)
+        images = usps['X'] / 127.5 - 1
+        labels = usps['y']
         return images, labels
-
+	
     def merge_images(self, sources, targets, k=10):
         _, h, w, _ = sources.shape
         row = int(np.sqrt(self.batch_size))
@@ -274,16 +274,10 @@ class Solver(object):
                     print ('model/dtn-%d saved' %(step+1))
     
     def train_dsn(self):
-        # load svhn dataset
-        #~ svhn_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
-        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
+        
+	mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
+	usps_images, usps_labels = self.load_usps(self.usps_dir)
 
-	#~ svhn_images = svhn_images[svhn_labels==1]
-	#~ svhn_labels = svhn_labels[svhn_labels==1]
-        
-	#~ mnist_images = mnist_images[mnist_labels==1]
-	#~ mnist_labels = mnist_labels[mnist_labels==1]
-        
         # build a graph
         model = self.model
         model.build_model()
@@ -297,7 +291,7 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
             # restore variables of F
-            print ('loading pretrained model F..')
+            print ('Loading pretrained model F.')
             variables_to_restore = slim.get_model_variables(scope='content_extractor')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
@@ -317,69 +311,69 @@ class Solver(object):
 		trg_count += 1
                 
                 
-		src_labels = utils.one_hot(mnist_labels[:2000],11)
-		src_noise = utils.sample_Z(2000,100)
+		#~ src_labels = utils.one_hot(mnist_labels[:2000],11)
+		#~ src_noise = utils.sample_Z(2000,100)
 		
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: mnist_images[:2000]}
+		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: mnist_images[:2000]}
 		
-		src_fx, fx = sess.run([model.orig_src_fx, model.fx], feed_dict)
+		#~ src_fx, fx = sess.run([model.orig_src_fx, model.fx], feed_dict)
 		
-		f = file('./for_tsne.pkl','w')
-		cPickle.dump((src_fx, fx, src_labels),f,cPickle.HIGHEST_PROTOCOL) 
-		f.close()
+		#~ f = file('./for_tsne.pkl','w')
+		#~ cPickle.dump((src_fx, fx, src_labels),f,cPickle.HIGHEST_PROTOCOL) 
+		#~ f.close()
 		
-		#~ i = step % int(svhn_images.shape[0] / self.batch_size)
-                #~ j = step % int(mnist_images.shape[0] / self.batch_size)
+		i = step % int(mnist_images.shape[0] / self.batch_size)
+                j = step % int(usps_images.shape[0] / self.batch_size)
                 
-		#~ src_labels = utils.one_hot(svhn_labels[i*self.batch_size:(i+1)*self.batch_size],10)
-		#~ src_noise = utils.sample_Z(self.batch_size,100)
-		#~ trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
+		src_labels = utils.one_hot(mnist_labels[i*self.batch_size:(i+1)*self.batch_size],11)
+		src_noise = utils.sample_Z(self.batch_size,100)
+		trg_images = usps_images[j*self.batch_size:(j+1)*self.batch_size]
                 		
-		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
-		#~ if step%15 == 0:
-		    #~ sess.run(model.d_train_op_src, feed_dict) 
+		if step%15 == 0:
+		    sess.run(model.d_train_op_src, feed_dict) 
 		
-		#~ sess.run(model.g_train_op_src, feed_dict) 
-		#~ sess.run(model.g_train_op_src, feed_dict) 
-		#~ sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
 		
-		#~ sess.run(model.f_train_op_src, feed_dict)
-		#~ sess.run(model.f_train_op_src, feed_dict)
-		#~ sess.run(model.f_train_op_src, feed_dict)
-		#~ sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.f_train_op_src, feed_dict)
+		sess.run(model.f_train_op_src, feed_dict)
 		
-		#~ if step%15 == 0:
-		    #~ sess.run(model.d_train_op_trg, feed_dict)
+		if step%15 == 0:
+		    sess.run(model.d_train_op_trg, feed_dict)
                 
-		#~ sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_trg, feed_dict)
 		
-		#~ sess.run(model.g_train_op_const_trg, feed_dict)
-		#~ sess.run(model.g_train_op_const_trg, feed_dict)
-		#~ sess.run(model.g_train_op_const_trg, feed_dict)
-		
-		
+		sess.run(model.g_train_op_const_trg, feed_dict)
+		sess.run(model.g_train_op_const_trg, feed_dict)
+		sess.run(model.g_train_op_const_trg, feed_dict)
 		
 		
-                #~ if (step+1) % 10 == 0:
+		
+		
+                if (step+1) % 10 == 0:
 		    
-		    #~ summary, dl, gl, fl = sess.run([model.summary_op_src, \
-                        #~ model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
-                    #~ summary_writer.add_summary(summary, step)
-                    #~ print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
-                               #~ %(step+1, self.train_iter, dl, gl, fl))
+		    summary, dl, gl, fl = sess.run([model.summary_op_src, \
+                        model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
+                    summary_writer.add_summary(summary, step)
+                    print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
+                               %(step+1, self.train_iter, dl, gl, fl))
                 
-                    #~ summary, dl, gl, cl = sess.run([model.summary_op_trg, \
-                        #~ model.d_loss_trg, model.g_loss_trg, model.g_loss_const_trg], feed_dict)
-                    #~ summary_writer.add_summary(summary, step)
-                    #~ print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] const_loss: [%.6f]' \
-                               #~ %(step+1, self.train_iter, dl, gl, cl))
+                    summary, dl, gl, cl = sess.run([model.summary_op_trg, \
+                        model.d_loss_trg, model.g_loss_trg, model.g_loss_const_trg], feed_dict)
+                    summary_writer.add_summary(summary, step)
+                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] const_loss: [%.6f]' \
+                               %(step+1, self.train_iter, dl, gl, cl))
 
 
 
-                #~ if (step+1) % 200 == 0:
-                    #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    #~ print ('model/dtn-%d saved' %(step+1))
+                if (step+1) % 200 == 0:
+                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    print ('model/dtn-%d saved' %(step+1))
 	
     def eval(self):
         # build model
@@ -414,7 +408,7 @@ class Solver(object):
         model.build_model()
 
         # load svhn dataset
-        svhn_images, svhn_labels = self.load_svhn(self.svhn_dir)
+        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir)
 
         with tf.Session(config=self.config) as sess:
             # load trained parameters
@@ -424,7 +418,7 @@ class Solver(object):
 
 
 	    # train model for source domain S
-	    src_labels = utils.one_hot(svhn_labels[:1000],10)
+	    src_labels = utils.one_hot(mnist_labels[:1000],11)
 	    src_noise = utils.sample_Z(1000,100)
 
 	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
