@@ -13,14 +13,18 @@ class DSN(object):
 	
     def sampler_discriminator(self, x, y, reuse=False):
 	
+	
 	#~ x = tf.reshape(x,[-1,128])
-	#~ inputs = tf.concat(axis=1, values=[x, y])
+	
+	inputs = tf.concat(axis=1, values=[x, y])
 	inputs = x
+	
+	
 	    
 	with tf.variable_scope('sampler_discriminator',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		#~ net = slim.flatten(inputs)
-		net = slim.fully_connected(inputs, 256, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		return net
 
@@ -38,43 +42,18 @@ class DSN(object):
 	
 	with tf.variable_scope('sampler_generator', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
-		net = slim.fully_connected(inputs, 256, activation_fn = tf.nn.relu, scope='sgen_fc1')
+		net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		return net
-        
-    #~ def content_extractor(self, images, reuse=False, class_prob=False):
-        #~ # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
-        
-        #~ if images.get_shape()[3] == 1:
-            #~ # For mnist dataset, replicate the gray scale image 3 times.
-            #~ images = tf.image.grayscale_to_rgb(images)
-        
-        #~ with tf.variable_scope('content_extractor', reuse=reuse):
-            #~ with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
-                                 #~ stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
-                #~ with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    #~ activation_fn=tf.nn.relu, is_training=(self.mode=='train' or self.mode=='pretrain')):
-                    
-                    #~ net = slim.conv2d(images, 64, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
-                    #~ net = slim.batch_norm(net, scope='bn1')
-                    #~ net = slim.conv2d(net, 128, [3, 3], scope='conv2')     # (batch_size, 8, 8, 128)
-                    #~ net = slim.batch_norm(net, scope='bn2')
-                    #~ net = slim.conv2d(net, 256, [3, 3], scope='conv3')     # (batch_size, 4, 4, 256)
-                    #~ net = slim.batch_norm(net, scope='bn3')
-                    #~ net = slim.conv2d(net, self.hidden_repr_size, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
-                    #~ net = slim.batch_norm(net, scope='bn4')
-		    #~ net = slim.flatten(net)
-                    #~ if self.mode == 'pretrain':
-                        #~ net = slim.fully_connected(net, 10, activation_fn = tf.nn.sigmoid, scope='out')
-		    #~ return net
-		    
+        	    
     def content_extractor(self, images, reuse=False, class_prob=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
         #~ if images.get_shape()[3] == 1:
             #~ # For mnist dataset, replicate the gray scale image 3 times.
             #~ images = tf.image.grayscale_to_rgb(images)
-        
+	
+	
         with tf.variable_scope('content_extractor', reuse=reuse):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
@@ -85,7 +64,7 @@ class DSN(object):
 		net = slim.avg_pool2d(images,kernel_size=[2,2])
 		net = slim.flatten(net)
 		net = slim.fully_connected(net, 512, activation_fn = tf.nn.relu, scope='fc1')
-		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.nn.relu, scope='fc2')
+		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc2')
 		
 		if self.mode == 'pretrain':
 		    net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
@@ -177,14 +156,14 @@ class DSN(object):
 	    self.d_loss_real = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
             self.d_loss_fake = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
            
-	    self.d_loss = 0.5 * self.d_loss_real + 0.5 * self.d_loss_fake
+	    self.d_loss = self.d_loss_real + self.d_loss_fake
 	    
 	    #~ self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_fake, labels=tf.ones_like(self.logits_fake)))
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 
-	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate)
-	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+	    self.d_optimizer = tf.train.AdamOptimizer(0.001)
+	    self.g_optimizer = tf.train.AdamOptimizer(0.001)
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'sampler_discriminator' in var.name]
@@ -301,7 +280,7 @@ class DSN(object):
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
             # source domain (svhn to mnist)
