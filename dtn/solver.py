@@ -15,7 +15,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', test_model='model/dtn-1000'):
+                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', test_model='model/dtn-350'):
         
         self.model = model
         self.batch_size = batch_size
@@ -331,23 +331,26 @@ class Solver(object):
                 		
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
-		if step%15 == 0:
-		    sess.run(model.d_train_op_src, feed_dict) 
+		sess.run(model.d_train_op_src, feed_dict) 
 		
 		sess.run(model.g_train_op_src, feed_dict) 
 		sess.run(model.g_train_op_src, feed_dict) 
 		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
 		
 		sess.run(model.f_train_op_src, feed_dict)
 		sess.run(model.f_train_op_src, feed_dict)
 		sess.run(model.f_train_op_src, feed_dict)
 		sess.run(model.f_train_op_src, feed_dict)
 		
-		if step%15 == 0:
-		    sess.run(model.d_train_op_trg, feed_dict)
+		sess.run(model.d_train_op_trg, feed_dict)
                 
 		sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_trg, feed_dict)
+		sess.run(model.g_train_op_trg, feed_dict)
 		
+		sess.run(model.g_train_op_const_trg, feed_dict)
 		sess.run(model.g_train_op_const_trg, feed_dict)
 		sess.run(model.g_train_op_const_trg, feed_dict)
 		sess.run(model.g_train_op_const_trg, feed_dict)
@@ -371,9 +374,9 @@ class Solver(object):
 
 
 
-                if (step+1) % 200 == 0:
+                if (step+1) % 50 == 0:
                     saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    print ('model/dtn-%d saved' %(step+1))
+                    #~ print ('model/dtn-%d saved' %(step+1))
 	
     def eval(self):
         # build model
@@ -425,11 +428,11 @@ class Solver(object):
 
 	    samples = sess.run(model.sampled_images, feed_dict)
 
-	    for i in range(100):
+	    for i in range(1000):
 		
 		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 		plt.imshow(np.squeeze(samples[i]), cmap='gray')
-		plt.show()
+		plt.imsave('./sample/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
 
 	    path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
 	    scipy.misc.imsave(path,sampled_batch_images)

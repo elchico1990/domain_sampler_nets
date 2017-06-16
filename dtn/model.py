@@ -347,7 +347,7 @@ class DSN(object):
             self.d_loss_real_trg = tf.reduce_mean(tf.square(self.logits_real_trg - tf.ones_like(self.logits_real_trg)))
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
             self.g_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.ones_like(self.logits_fake_trg)))
-            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg))
+            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) * 15
             self.g_loss_trg = self.g_loss_fake_trg 
             
             # optimizer
