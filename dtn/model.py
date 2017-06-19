@@ -374,6 +374,7 @@ class DSN(object):
 
 	    self.orig_src_fx = self.content_extractor(self.src_images, reuse=True)
 	    self.orig_trg_fx = self.content_extractor(self.trg_images, reuse=True)
+	    self.adda_trg_fx = self.content_extractor_target(self.trg_images)
 
             # loss
 	    self.d_loss_real_src = slim.losses.sparse_softmax_cross_entropy(self.logits_real_src, tf.cast(3 * tf.ones([64,1]),tf.int64))

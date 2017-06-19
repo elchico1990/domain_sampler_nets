@@ -15,7 +15,8 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', test_model='model/dtn-10000'):
+                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', 
+		 test_model='model/dtn-10000', adda_model='model/adda-30000'):
         
         self.model = model
         self.batch_size = batch_size
@@ -31,6 +32,7 @@ class Solver(object):
         self.pretrained_model = pretrained_model
 	self.pretrained_sampler = pretrained_sampler
         self.test_model = test_model
+        self.adda_model = adda_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
 
@@ -122,7 +124,7 @@ class Solver(object):
 	
     def adda_train(self):
 	
-	print 'Training sampler.'
+	print 'Training ADDA encoder.'
         # load svhn dataset
         mnist_images, _ = self.load_mnist(self.mnist_dir, split='train')
         usps_images, _ = self.load_usps(self.usps_dir)
@@ -353,6 +355,11 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
             # restore variables of F
+            print ('Loading ADDA encoder.')
+            variables_to_restore = slim.get_model_variables(scope='target_encoder')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.adda_model)
+            
             print ('Loading pretrained model F.')
             variables_to_restore = slim.get_model_variables(scope='content_extractor')
             restorer = tf.train.Saver(variables_to_restore)
@@ -379,10 +386,10 @@ class Solver(object):
 		
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: mnist_images[:500], model.trg_images: usps_images[:500]}
 		
-		src_fx, trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.fx], feed_dict)
+		src_fx, trg_fx, adda_trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.adda_trg_fx, model.fx], feed_dict)
 		
 		f = file('./for_tsne.pkl','w')
-		cPickle.dump((fx, src_fx, src_labels, trg_fx, trg_labels),f,cPickle.HIGHEST_PROTOCOL) 
+		cPickle.dump((fx, src_fx, src_labels, trg_fx, adda_trg_fx, trg_labels),f,cPickle.HIGHEST_PROTOCOL) 
 		f.close()
 		
 		#~ i = step % int(mnist_images.shape[0] / self.batch_size)
