@@ -1,5 +1,8 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+
+import numpy as np
+
 import cPickle
 
 
@@ -305,8 +308,8 @@ class DSN(object):
 	    #~ self.pred_src_labels = self.content_extractor(self.fake_images, class_prob=True)
 
             # loss
-            self.d_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits, tf.one_hot(2*np.ones(self.logits.get_shape()[0],),3))
-            self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits, tf.one_hot(0*np.ones(self.logits.get_shape()[0],),3))
+            self.d_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits, tf.cast(2 * tf.ones([64,1]),tf.int64))
+            self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits, tf.cast(0 * tf.ones([64,1]),tf.int64))
             self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
             #~ self.l_loss_src = slim.losses.sigmoid_cross_entropy(self.pred_src_labels, self.src_labels))
 	    
@@ -344,13 +347,11 @@ class DSN(object):
             self.logits_real_trg = self.discriminator(self.trg_images, reuse=True)
             
             # loss
-	    self.d_loss_fake_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_trg, tf.one_hot(1*np.ones(self.logits_fake_trg.get_shape()[0],),3))
-            self.d_loss_real_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_real_trg, tf.one_hot(0*np.ones(self.logits_real_trg.get_shape()[0],),3))
+	    self.d_loss_fake_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_trg,  tf.cast(1 * tf.ones([64,1]),tf.int64))
+            self.d_loss_real_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_real_trg,  tf.cast(0 * tf.ones([64,1]),tf.int64))
             
-            self.d_loss_fake_trg = tf.reduce_mean(tf.square(self.logits_fake_trg - tf.zeros_like(self.logits_fake_trg)))
-            self.d_loss_real_trg = tf.reduce_mean(tf.square(self.logits_real_trg - tf.ones_like(self.logits_real_trg)))
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
-            self.g_loss_fake_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_trg, tf.one_hot(0*np.ones(self.logits_fake_trg.get_shape()[0],),3))
+            self.g_loss_fake_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_trg, tf.cast(0 * tf.ones([64,1]),tf.int64))
             self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) 
             self.g_loss_trg = self.g_loss_fake_trg 
             
