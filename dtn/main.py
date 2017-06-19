@@ -21,6 +21,8 @@ def main(_):
     
     if FLAGS.mode == 'pretrain':
         solver.pretrain()
+    if FLAGS.mode == 'adda_train':
+        solver.adda_train()
     elif FLAGS.mode == 'train_sampler':
         solver.train_sampler()
     elif FLAGS.mode == 'train':

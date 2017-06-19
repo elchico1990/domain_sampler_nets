@@ -119,6 +119,68 @@ class Solver(object):
                 if (step+1) % 1000 == 0:  
                     saver.save(sess, os.path.join(self.model_save_path, 'svhn_model'), global_step=step+1) 
                     print ('svhn_model-%d saved..!' %(step+1))
+	
+    def adda_train(self):
+	
+	print 'Training sampler.'
+        # load svhn dataset
+        mnist_images, _ = self.load_mnist(self.mnist_dir, split='train')
+        usps_images, _ = self.load_usps(self.usps_dir)
+	
+        # build a graph
+        model = self.model
+        model.build_model()
+
+        # make directory if not exists
+        if tf.gfile.Exists(self.log_dir):
+            tf.gfile.DeleteRecursively(self.log_dir)
+        tf.gfile.MakeDirs(self.log_dir)
+	
+	batch_size = 64
+	noise_dim = 100
+	epochs = 300
+
+        with tf.Session(config=self.config) as sess:
+            # initialize G and D
+            tf.global_variables_initializer().run()
+            # restore variables of F
+            print ('Loading pretrained model.')
+            variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_model)
+            # restore variables of F
+	    
+            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+            saver = tf.train.Saver()
+		 	    
+	    t = 0
+    
+	    for i in range(epochs):
+		
+		#~ print 'Epoch',str(i)
+		
+		for start, end in zip(range(0, len(usps_images), batch_size), range(batch_size, len(usps_images), batch_size)):
+		    
+		    t += 1
+
+		    feed_dict = {model.src_images: mnist_images[start:end], model.trg_images: usps_images[start:end]}
+
+		    sess.run(model.d_train_op, feed_dict)
+		    sess.run(model.enc_train_op, feed_dict)
+		    		    
+		    avg_D_trg = sess.run(model.logit_trg, feed_dict)
+		    avg_D_src = sess.run(model.logit_src, feed_dict)
+		    
+		    		    
+		    if (t+1) % 100 == 0:
+			summary, dl, encl = sess.run([model.summary_op, model.d_loss, model.enc_loss], feed_dict)
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] d_loss: [%.6f] enc_loss: [%.6f]' \
+				   %(t+1, int(epochs*len(mnist_images) /batch_size), dl, encl))
+			print 'avg_D_trg',str(avg_D_trg.mean()),'avg_D_src',str(avg_D_src.mean())
+			
+                    if (t+1) % 500 == 0:  
+			saver.save(sess, os.path.join(self.model_save_path, 'adda'), global_step=t+1) 
 		    
     def train_sampler(self):
 	
@@ -334,7 +396,7 @@ class Solver(object):
                 		
 		#~ feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images}
 		
-		#~ # Training D to classufy well images generated from SRC
+		#~ # Training D to classify well images generated from SRC
 		#~ sess.run(model.d_train_op_src, feed_dict) 
 		
 		#~ # Training G to fool D in classifying images generated from RSC

@@ -73,7 +73,36 @@ class DSN(object):
 		    net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
 		    
 		return net
-            
+        	    
+    def content_extractor_target(self, images, reuse=False):
+        # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
+        
+        #~ if images.get_shape()[3] == 1:
+            #~ # For mnist dataset, replicate the gray scale image 3 times.
+            #~ images = tf.image.grayscale_to_rgb(images)
+	
+	
+        with tf.variable_scope('target_encoder', reuse=reuse):
+            with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
+                                 stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
+	    
+		net = slim.conv2d(images, 32, [3, 3], scope='adda_conv1')   # (batch_size, 16, 16, 64)
+		net = slim.avg_pool2d(images,kernel_size=[2,2])
+		net = slim.conv2d(net, 64, [3, 3], scope='adda_conv2')     # (batch_size, 8, 8, 128)
+		net = slim.avg_pool2d(images,kernel_size=[2,2])
+		net = slim.flatten(net)
+		net = slim.fully_connected(net, 512, activation_fn = tf.nn.relu, scope='adda_fc1')
+		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='adda_fc2')
+		return net
+    
+    def adda_discriminator(self, inputs, reuse=False):
+	
+	with tf.variable_scope('adda_discriminator',reuse=reuse):
+	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
+		net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='adda_disc_fc1')
+		net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='adda_disc_prob')
+		return net
+ 
     def generator(self, inputs, reuse=False):
         # inputs: (batch, 1, 1, 128)
 	
@@ -135,6 +164,48 @@ class DSN(object):
             loss_summary = tf.summary.scalar('classification_loss', self.loss)
             accuracy_summary = tf.summary.scalar('accuracy', self.accuracy)
             self.summary_op = tf.summary.merge([loss_summary, accuracy_summary])
+	
+        elif self.mode == 'adda_train':
+            
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'usps_images')
+	    
+            self.fx_src = self.content_extractor(self.src_images)
+            self.fx_trg = self.content_extractor_target(self.trg_images)
+            
+	    self.logit_trg = self.adda_discriminator(self.fx_trg)
+	    self.logit_src = self.adda_discriminator(self.fx_src, reuse=True)
+	    
+	    #~ self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logit_src, tf.zeros_like(self.logit_trg))
+	    #~ self.d_loss_trg = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.ones_like(self.logit_trg))
+	    
+	    self.d_loss_src = tf.reduce_mean(tf.square(self.logit_src - tf.ones_like(self.logit_trg)))
+	    self.d_loss_trg = tf.reduce_mean(tf.square(self.logit_trg - tf.zeros_like(self.logit_trg)))
+	    
+	    self.d_loss = self.d_loss_src + self.d_loss_trg
+	    
+            #~ self.enc_loss = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.zeros_like(self.logit_trg))
+            
+	    self.enc_loss = tf.reduce_mean(tf.square(self.logit_trg - tf.ones_like(self.logit_trg)))
+            
+	    self.d_optimizer = tf.train.AdamOptimizer(0.0001)
+	    self.enc_optimizer = tf.train.AdamOptimizer(0.0001)
+	     
+	    t_vars = tf.trainable_variables()
+	    d_vars = [var for var in t_vars if 'adda_discriminator' in var.name]
+	    enc_vars = [var for var in t_vars if 'target_encoder' in var.name]
+	    
+	    # train op
+	    self.d_train_op = slim.learning.create_train_op(self.d_loss, self.d_optimizer, variables_to_train=d_vars)
+	    self.enc_train_op = slim.learning.create_train_op(self.enc_loss, self.enc_optimizer, variables_to_train=enc_vars)
+	    
+	    # summary op
+	    d_loss_summary = tf.summary.scalar('d_loss', self.d_loss)
+	    enc_loss_summary = tf.summary.scalar('enc_loss', self.enc_loss)
+	    self.summary_op = tf.summary.merge([d_loss_summary, enc_loss_summary])
+
+	    for var in tf.trainable_variables():
+		tf.summary.histogram(var.op.name, var)
 	
 	elif self.mode == 'train_sampler':
 				
