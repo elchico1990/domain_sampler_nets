@@ -331,16 +331,24 @@ class Solver(object):
                 		
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
+		# Training D to classufy well images generated from SRC
 		sess.run(model.d_train_op_src, feed_dict) 
 		
+		# Training G to fool D in classifying images generated from RSC
 		sess.run(model.g_train_op_src, feed_dict) 
 		
+		# Forcing hidden representation of images generated from SRC to 
+	        # be close to hidden representation used as starting point
 		sess.run(model.f_train_op_src, feed_dict)
 		
+		# Training D to classufy well images generated from TRG
 		sess.run(model.d_train_op_trg, feed_dict)
                 
+		# Training G to fool D in classifying images generated from TRG
 		sess.run(model.g_train_op_trg, feed_dict)
 		
+		# Forcing images generated from TRG to be close to images
+		# used as starting point
 		sess.run(model.g_train_op_const_trg, feed_dict)
 		
 		
