@@ -15,7 +15,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', test_model='model/dtn-350'):
+                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', test_model='model/dtn-1000'):
         
         self.model = model
         self.batch_size = batch_size
