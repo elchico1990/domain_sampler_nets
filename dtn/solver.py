@@ -327,10 +327,11 @@ class Solver(object):
                 
 		src_images = mnist_images[i*self.batch_size:(i+1)*self.batch_size]
                 src_labels = utils.one_hot(mnist_labels[i*self.batch_size:(i+1)*self.batch_size],11)
+		src_labels_int = mnist_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100)
 		trg_images = usps_images[j*self.batch_size:(j+1)*self.batch_size]
                 		
-		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
+		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images}
 		
 		# Training D to classufy well images generated from SRC
 		sess.run(model.d_train_op_src, feed_dict) 

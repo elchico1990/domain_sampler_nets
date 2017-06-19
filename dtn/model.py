@@ -49,7 +49,7 @@ class DSN(object):
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		return net
         	    
-    def content_extractor(self, images, reuse=False, class_prob=False):
+    def content_extractor(self, images, reuse=False, make_preds=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
         #~ if images.get_shape()[3] == 1:
@@ -69,7 +69,7 @@ class DSN(object):
 		net = slim.fully_connected(net, 512, activation_fn = tf.nn.relu, scope='fc1')
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc2')
 		
-		if self.mode == 'pretrain':
+		if (self.mode == 'pretrain' or make_preds):
 		    net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
 		    
 		return net
@@ -293,6 +293,7 @@ class DSN(object):
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
+	    self.src_labels_int = tf.placeholder(tf.int64, [None], 'labels_int')
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
@@ -301,15 +302,16 @@ class DSN(object):
 	    self.fake_images = self.generator(self.fx,from_samples=True)
             self.logits_real_src = self.discriminator(self.src_images)
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
-            self.fgfx = self.content_extractor(self.fake_images)
+	    self.predictions = self.content_extractor(self.fake_images, make_preds=True)
+            self.fgfx = self.content_extractor(self.fake_images, reuse=True)
 
             # loss
 	    self.d_loss_real_src = slim.losses.sparse_softmax_cross_entropy(self.logits_real_src, tf.cast(3 * tf.ones([64,1]),tf.int64))
             self.d_loss_fake_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(2 * tf.ones([64,1]),tf.int64))
             self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
-            #~ self.l_loss_src = slim.losses.sigmoid_cross_entropy(self.pred_src_labels, self.src_labels))
+            #~ self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
+            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int)
 	    
             
 	    # optimizer
