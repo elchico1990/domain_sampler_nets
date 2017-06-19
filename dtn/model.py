@@ -115,7 +115,7 @@ class DSN(object):
                     net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 4, 4, 512)
                     net = slim.batch_norm(net, scope='bn3')
                     net = slim.flatten(net)
-		    net = slim.fully_connected(net,3,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
+		    net = slim.fully_connected(net,4,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
                     return net
                 
     def build_model(self):
@@ -299,18 +299,16 @@ class DSN(object):
             # source domain (svhn to mnist)
             self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
 	    self.fake_images = self.generator(self.fx,from_samples=True)
-            self.logits = self.discriminator(self.fake_images)
+            self.logits_real_src = self.discriminator(self.src_images)
+            self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
             self.fgfx = self.content_extractor(self.fake_images)
 
-	    self.orig_src_fx = self.content_extractor(self.src_images, reuse=True)
-	    self.orig_trg_fx = self.content_extractor(self.trg_images, reuse=True)
-
-	    #~ self.pred_src_labels = self.content_extractor(self.fake_images, class_prob=True)
-
             # loss
-            self.d_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits, tf.cast(2 * tf.ones([64,1]),tf.int64))
-            self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 0.01
+	    self.d_loss_real_src = slim.losses.sparse_softmax_cross_entropy(self.logits_real_src, tf.cast(3 * tf.ones([64,1]),tf.int64))
+            self.d_loss_fake_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(2 * tf.ones([64,1]),tf.int64))
+            self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
+	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
+            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
             #~ self.l_loss_src = slim.losses.sigmoid_cross_entropy(self.pred_src_labels, self.src_labels))
 	    
             
@@ -351,9 +349,9 @@ class DSN(object):
             self.d_loss_real_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_real_trg,  tf.cast(0 * tf.ones([64,1]),tf.int64))
             
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
-            self.g_loss_fake_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_trg, tf.cast(0 * tf.ones([64,1]),tf.int64))
+            
+	    self.g_loss_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_trg, tf.cast(0 * tf.ones([64,1]),tf.int64))
             self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) * 15
-            self.g_loss_trg = self.g_loss_fake_trg 
             
             # optimizer
             self.d_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)
@@ -370,14 +368,14 @@ class DSN(object):
             d_loss_fake_trg_summary = tf.summary.scalar('trg_d_loss_fake', self.d_loss_fake_trg)
             d_loss_real_trg_summary = tf.summary.scalar('trg_d_loss_real', self.d_loss_real_trg)
             d_loss_trg_summary = tf.summary.scalar('trg_d_loss', self.d_loss_trg)
-            g_loss_fake_trg_summary = tf.summary.scalar('trg_g_loss_fake', self.g_loss_fake_trg)
+            g_loss_trg_summary = tf.summary.scalar('trg_g_loss_fake', self.g_loss_trg)
             g_loss_const_trg_summary = tf.summary.scalar('trg_g_loss_const', self.g_loss_const_trg)
             g_loss_trg_summary = tf.summary.scalar('trg_g_loss', self.g_loss_trg)
             origin_images_summary = tf.summary.image('trg_origin_images', self.trg_images)
             sampled_images_summary = tf.summary.image('trg_reconstructed_images', self.reconst_images_trg)
             self.summary_op_trg = tf.summary.merge([d_loss_trg_summary, g_loss_trg_summary, 
                                                     d_loss_fake_trg_summary, d_loss_real_trg_summary,
-                                                    g_loss_fake_trg_summary, g_loss_const_trg_summary,
+                                                    g_loss_const_trg_summary,
                                                     origin_images_summary, sampled_images_summary])
             for var in tf.trainable_variables():
                 tf.summary.histogram(var.op.name, var)    
