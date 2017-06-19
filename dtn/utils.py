@@ -24,13 +24,10 @@ def one_hot(x,n):
 def computeTSNE(fileName='./for_tsne.pkl'):
 	
 	with open(fileName,'r') as f:
-		src_fx, fx, src_labels = cPickle.load(f)
+		fx, src_fx, src_labels, trg_fx, trg_labels = cPickle.load(f)
 		
-	colors_0 = np.vstack((np.argmax(src_labels,1),np.argmax(src_labels,1)))
-	colors_12 = np.argmax(src_labels,1)
-	colors_0 = colors_0[:,None]
-	colors_12 = colors_12[:,None]
-	colors = np.vstack((np.ones((2000,1)), 2 * np.ones((2000,1))))
+	src_labels = np.argmax(src_labels,1)
+	trg_labels = np.argmax(trg_labels,1)
 
 	print 'Computing T-SNE.'
 
@@ -38,25 +35,31 @@ def computeTSNE(fileName='./for_tsne.pkl'):
 
 	print '0'
 	TSNE_hA_0 = model.fit_transform(np.vstack((src_fx,fx)))
-	print '1'
-	TSNE_hA_1 = model.fit_transform(fx)
-	print '2'
-	TSNE_hA_2 = model.fit_transform(src_fx)
-
+	#~ print '1'
+	#~ TSNE_hA_1 = model.fit_transform(fx)
+	#~ print '2'
+	#~ TSNE_hA_2 = model.fit_transform(src_fx)
+	print '3'
+	TSNE_hA_3 = model.fit_transform(np.vstack((src_fx,fx,trg_fx)))
+	
 	plt.figure(0)
-	plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = colors_0)
+	plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = np.hstack((src_labels,src_labels)))
 	
 	plt.figure(1)
-	plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = colors)
+	plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
 	
-	plt.figure(2)
-	plt.scatter(TSNE_hA_1[:,0], TSNE_hA_1[:,1], c = colors_12)
+	#~ plt.figure(2)
+	#~ plt.scatter(TSNE_hA_1[:,0], TSNE_hA_1[:,1], c = colors_12)
 	
-	plt.figure(3)
-	plt.scatter(TSNE_hA_2[:,0], TSNE_hA_2[:,1], c = colors_12)
+	#~ plt.figure(3)
+	#~ plt.scatter(TSNE_hA_2[:,0], TSNE_hA_2[:,1], c = colors_12)
 	
-
+	plt.figure(4)
+	plt.scatter(TSNE_hA_3[:,0], TSNE_hA_3[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)), 3 * np.ones((500,)))))
 	
+	plt.figure(5)
+	plt.scatter(TSNE_hA_3[:,0], TSNE_hA_3[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
+		
 	plt.show()
 
 if __name__=='__main__':

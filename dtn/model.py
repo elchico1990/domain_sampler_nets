@@ -74,13 +74,9 @@ class DSN(object):
 		    
 		return net
             
-    def generator(self, inputs, reuse=False, from_samples=False):
+    def generator(self, inputs, reuse=False):
         # inputs: (batch, 1, 1, 128)
 	
-	#~ if from_samples:
-	    #~ inputs = tf.multiply(inputs,(self.featsMax - self.featsMin))
-	    #~ inputs = tf.add(inputs,self.featsMin)
-	    
 	if inputs.get_shape()[1] != 1:
 	    inputs = tf.expand_dims(inputs, 1)
 	    inputs = tf.expand_dims(inputs, 1)
@@ -295,15 +291,18 @@ class DSN(object):
             self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
 	    self.src_labels_int = tf.placeholder(tf.int64, [None], 'labels_int')
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'usps_images')
 	    
             # source domain (svhn to mnist)
             self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    self.fake_images = self.generator(self.fx,from_samples=True)
+	    self.fake_images = self.generator(self.fx)
             self.logits_real_src = self.discriminator(self.src_images)
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
 	    self.predictions = self.content_extractor(self.fake_images, make_preds=True)
             self.fgfx = self.content_extractor(self.fake_images, reuse=True)
+
+	    self.orig_src_fx = self.content_extractor(self.src_images, reuse=True)
+	    self.orig_trg_fx = self.content_extractor(self.trg_images, reuse=True)
 
             # loss
 	    self.d_loss_real_src = slim.losses.sparse_softmax_cross_entropy(self.logits_real_src, tf.cast(3 * tf.ones([64,1]),tf.int64))
@@ -311,7 +310,7 @@ class DSN(object):
             self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
             #~ self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
-            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int)
+            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) * 15
 	    
             
 	    # optimizer
