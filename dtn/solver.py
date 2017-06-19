@@ -334,25 +334,13 @@ class Solver(object):
 		sess.run(model.d_train_op_src, feed_dict) 
 		
 		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
 		
-		sess.run(model.f_train_op_src, feed_dict)
-		sess.run(model.f_train_op_src, feed_dict)
-		sess.run(model.f_train_op_src, feed_dict)
 		sess.run(model.f_train_op_src, feed_dict)
 		
 		sess.run(model.d_train_op_trg, feed_dict)
                 
 		sess.run(model.g_train_op_trg, feed_dict)
-		sess.run(model.g_train_op_trg, feed_dict)
-		sess.run(model.g_train_op_trg, feed_dict)
-		sess.run(model.g_train_op_trg, feed_dict)
 		
-		sess.run(model.g_train_op_const_trg, feed_dict)
-		sess.run(model.g_train_op_const_trg, feed_dict)
-		sess.run(model.g_train_op_const_trg, feed_dict)
 		sess.run(model.g_train_op_const_trg, feed_dict)
 		
 		
