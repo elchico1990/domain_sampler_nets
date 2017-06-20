@@ -479,7 +479,7 @@ class Solver(object):
         model.build_model()
 
         # load svhn dataset
-        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir)
+        source_images, source_labels = self.load_svhn(self.svhn_dir)
 
         with tf.Session(config=self.config) as sess:
             # load trained parameters
@@ -489,7 +489,7 @@ class Solver(object):
 
 
 	    # train model for source domain S
-	    src_labels = utils.one_hot(mnist_labels[:1000],11)
+	    src_labels = utils.one_hot(source_labels[:1000],11)
 	    src_noise = utils.sample_Z(1000,100)
 	    noise = utils.sample_Z(1000,100)
 
@@ -503,9 +503,6 @@ class Solver(object):
 		plt.imshow(np.squeeze(samples[i]), cmap='gray')
 		plt.imsave('./sample/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
 
-	    path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
-	    scipy.misc.imsave(path,sampled_batch_images)
-	    print ('saved %s' %path)
 
 
 if __name__=='__main__':
