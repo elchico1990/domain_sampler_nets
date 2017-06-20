@@ -277,12 +277,12 @@ class DSN(object):
         
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+            self.noise = tf.placeholder(tf.float32, [None, 100], 'noise_generator')
             self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
-            self.noise_generator = tf.placeholder(tf.float32, [None, 100], 'noise_generator')
-	    
+            
             # source domain (svhn to mnist)
             self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    self.sampled_images = self.generator(self.fx, self.noise_generator)
+	    self.sampled_images = self.generator(self.fx, self.noise)
 
         elif self.mode == 'train':
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
@@ -366,25 +366,24 @@ class DSN(object):
 	
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.noise_generator = tf.placeholder(tf.float32, [None, 100], 'noise_generator')
-	    
+            self.noise = tf.placeholder(tf.float32, [None, 100], 'noise_generator')
             self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
 	    self.src_labels_int = tf.placeholder(tf.int64, [None], 'labels_int')
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'usps_images')
 	    
+	    
             # source domain (svhn to mnist)
             self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    self.fake_images = self.generator(self.fx, self.noise_generator)
+	    self.fake_images = self.generator(self.fx, self.noise)
             self.logits_real_src = self.discriminator(self.src_images)
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
-            self.fgfx = self.content_extractor(self.fake_images)
-
-	    self.predictions = self.content_extractor(self.fake_images)
+	    self.predictions = self.content_extractor(self.fake_images, make_preds=True)
+            self.fgfx = self.content_extractor(self.fake_images, reuse=True)
 
 	    self.orig_src_fx = self.content_extractor(self.src_images, reuse=True)
 	    self.orig_trg_fx = self.content_extractor(self.trg_images, reuse=True)
-	    self.adda_trg_fx = self.content_extractor_target(self.trg_images, reuse=True)
+	    self.adda_trg_fx = self.content_extractor_target(self.trg_images)
 
             # loss
 	    self.d_loss_real_src = slim.losses.sparse_softmax_cross_entropy(self.logits_real_src, tf.cast(3 * tf.ones([64,1]),tf.int64))
@@ -392,8 +391,8 @@ class DSN(object):
             self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
             #~ self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
-            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int)
-            
+            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) * 15
+	    
             
 	    # optimizer
             self.d_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
@@ -422,8 +421,8 @@ class DSN(object):
                                                     f_loss_src_summary, sampled_images_summary])
             
             # target domain (mnist)
-            self.fx_trg = self.content_extractor_target(self.trg_images, reuse=True)
-            self.reconst_images_trg = self.generator(self.fx_trg, self.noise_generator, reuse=True)
+            self.fx_trg = self.content_extractor(self.trg_images, reuse=True)
+            self.reconst_images_trg = self.generator(self.fx_trg, self.noise, reuse=True)
             self.logits_fake_trg = self.discriminator(self.reconst_images_trg, reuse=True)
             self.logits_real_trg = self.discriminator(self.trg_images, reuse=True)
             
@@ -461,7 +460,7 @@ class DSN(object):
                                                     g_loss_const_trg_summary,
                                                     origin_images_summary, sampled_images_summary])
             for var in tf.trainable_variables():
-                tf.summary.histogram(var.op.name, var)    
+                tf.summary.histogram(var.op.name, var)  
 	    
 	    
 	    
@@ -469,28 +468,5 @@ class DSN(object):
 	    
 	    
 	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-
-	    
-	    
-
 
 

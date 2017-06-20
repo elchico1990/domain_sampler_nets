@@ -399,15 +399,16 @@ class Solver(object):
                 src_labels = utils.one_hot(mnist_labels[i*self.batch_size:(i+1)*self.batch_size],11)
 		src_labels_int = mnist_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100)
-		noise_generator = utils.sample_Z(self.batch_size,100)
+		noise = utils.sample_Z(self.batch_size,100)
 		trg_images = usps_images[j*self.batch_size:(j+1)*self.batch_size]
                 		
-		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images, model.noise_generator: noise_generator}
+		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images, model.noise: noise}
 		
 		# Training D to classify well images generated from SRC
 		sess.run(model.d_train_op_src, feed_dict) 
 		
 		# Training G to fool D in classifying images generated from RSC
+		sess.run(model.g_train_op_src, feed_dict) 
 		sess.run(model.g_train_op_src, feed_dict) 
 		
 		# Forcing hidden representation of images generated from SRC to 
@@ -443,8 +444,7 @@ class Solver(object):
 
                 if (step+1) % 50 == 0:
                     saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    #~ #print ('model/dtn-%d saved' %(step+1))
-	
+        
     def eval(self):
         # build model
         model = self.model
@@ -490,9 +490,9 @@ class Solver(object):
 	    # train model for source domain S
 	    src_labels = utils.one_hot(mnist_labels[:1000],11)
 	    src_noise = utils.sample_Z(1000,100)
-	    noise_generator = utils.sample_Z(1000,100)
+	    noise = utils.sample_Z(1000,100)
 
-	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.noise_generator: noise_generator}
+	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.noise: noise}
 
 	    samples = sess.run(model.sampled_images, feed_dict)
 
