@@ -391,7 +391,7 @@ class DSN(object):
             self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
             #~ self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
-            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) * 15
+            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int)
 	    
             
 	    # optimizer

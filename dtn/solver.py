@@ -16,7 +16,7 @@ class Solver(object):
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', 
-		 test_model='model/dtn-800', adda_model='model/adda-30000'):
+		 test_model='model/dtn-1000', adda_model='model/adda-30000'):
         
         self.model = model
         self.batch_size = batch_size
@@ -340,7 +340,9 @@ class Solver(object):
     def train_dsn(self):
         
 	mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
-	usps_images, usps_labels = self.load_usps(self.usps_dir)
+	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
+	source_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
+	
 
         # build a graph
         model = self.model
@@ -380,11 +382,11 @@ class Solver(object):
 		trg_count += 1
                 
                 
-		#~ src_labels = utils.one_hot(mnist_labels[:500],11)
-		#~ trg_labels = utils.one_hot(usps_labels[:500],11)
+		#~ src_labels = utils.one_hot(source_labels[:500],11)
+		#~ trg_labels = utils.one_hot(target_labels[:500],11)
 		#~ src_noise = utils.sample_Z(500,100)
 		
-		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: mnist_images[:500], model.trg_images: usps_images[:500]}
+		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:500], model.trg_images: target_images[:500]}
 		
 		#~ src_fx, trg_fx, adda_trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.adda_trg_fx, model.fx], feed_dict)
 		
@@ -392,15 +394,15 @@ class Solver(object):
 		#~ cPickle.dump((fx, src_fx, src_labels, trg_fx, adda_trg_fx, trg_labels),f,cPickle.HIGHEST_PROTOCOL) 
 		#~ f.close()
 		
-		i = step % int(mnist_images.shape[0] / self.batch_size)
-                j = step % int(usps_images.shape[0] / self.batch_size)
+		i = step % int(source_images.shape[0] / self.batch_size)
+                j = step % int(target_images.shape[0] / self.batch_size)
                 
-		src_images = mnist_images[i*self.batch_size:(i+1)*self.batch_size]
-                src_labels = utils.one_hot(mnist_labels[i*self.batch_size:(i+1)*self.batch_size],11)
-		src_labels_int = mnist_labels[i*self.batch_size:(i+1)*self.batch_size]
+		src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
+                src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],11)
+		src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100)
 		noise = utils.sample_Z(self.batch_size,100)
-		trg_images = usps_images[j*self.batch_size:(j+1)*self.batch_size]
+		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
                 		
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images, model.noise: noise}
 		
