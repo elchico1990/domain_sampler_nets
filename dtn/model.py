@@ -49,7 +49,7 @@ class DSN(object):
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		return net
         	    
-    def content_extractor(self, images, reuse=False, make_preds=False):
+    def content_extractor(self, images, reuse=False, make_preds=False, adda = False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
         #~ if images.get_shape()[3] == 1:
@@ -60,6 +60,10 @@ class DSN(object):
         with tf.variable_scope('content_extractor', reuse=reuse):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
+				     
+		if adda == True:
+		    net = slim.fully_connected(images, 10, activation_fn=tf.sigmoid, scope='out')
+		    return net
 	    
 		net = slim.conv2d(images, 32, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
 		net = slim.avg_pool2d(images,kernel_size=[2,2])
@@ -369,12 +373,13 @@ class DSN(object):
 	    self.fake_images = self.generator(self.fx)
             self.logits_real_src = self.discriminator(self.src_images)
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
-	    self.predictions = self.content_extractor(self.fake_images, make_preds=True)
-            self.fgfx = self.content_extractor(self.fake_images, reuse=True)
+            self.fgfx = self.content_extractor(self.fake_images)
+
+	    self.predictions = self.content_extractor(self.content_extractor_target(self.fake_images), adda=True)
 
 	    self.orig_src_fx = self.content_extractor(self.src_images, reuse=True)
 	    self.orig_trg_fx = self.content_extractor(self.trg_images, reuse=True)
-	    self.adda_trg_fx = self.content_extractor_target(self.trg_images)
+	    self.adda_trg_fx = self.content_extractor_target(self.trg_images, reuse=True)
 
             # loss
 	    self.d_loss_real_src = slim.losses.sparse_softmax_cross_entropy(self.logits_real_src, tf.cast(3 * tf.ones([64,1]),tf.int64))
@@ -412,7 +417,7 @@ class DSN(object):
                                                     f_loss_src_summary, sampled_images_summary])
             
             # target domain (mnist)
-            self.fx_trg = self.content_extractor(self.trg_images, reuse=True)
+            self.fx_trg = self.content_extractor_target(self.trg_images, reuse=True)
             self.reconst_images_trg = self.generator(self.fx_trg, reuse=True)
             self.logits_fake_trg = self.discriminator(self.reconst_images_trg, reuse=True)
             self.logits_real_trg = self.discriminator(self.trg_images, reuse=True)

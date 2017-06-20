@@ -34,7 +34,7 @@ class Solver(object):
         self.test_model = test_model
         self.adda_model = adda_model
         self.config = tf.ConfigProto()
-        self.config.gpu_options.allow_growth=True
+        self.config.gpu_options.allow_growth=False
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -380,71 +380,69 @@ class Solver(object):
 		trg_count += 1
                 
                 
-		src_labels = utils.one_hot(mnist_labels[:500],11)
-		trg_labels = utils.one_hot(usps_labels[:500],11)
-		src_noise = utils.sample_Z(500,100)
+		#~ src_labels = utils.one_hot(mnist_labels[:500],11)
+		#~ trg_labels = utils.one_hot(usps_labels[:500],11)
+		#~ src_noise = utils.sample_Z(500,100)
 		
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: mnist_images[:500], model.trg_images: usps_images[:500]}
+		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: mnist_images[:500], model.trg_images: usps_images[:500]}
 		
-		src_fx, trg_fx, adda_trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.adda_trg_fx, model.fx], feed_dict)
+		#~ src_fx, trg_fx, adda_trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.adda_trg_fx, model.fx], feed_dict)
 		
-		f = file('./for_tsne.pkl','w')
-		cPickle.dump((fx, src_fx, src_labels, trg_fx, adda_trg_fx, trg_labels),f,cPickle.HIGHEST_PROTOCOL) 
-		f.close()
+		#~ f = file('./for_tsne.pkl','w')
+		#~ cPickle.dump((fx, src_fx, src_labels, trg_fx, adda_trg_fx, trg_labels),f,cPickle.HIGHEST_PROTOCOL) 
+		#~ f.close()
 		
-		#~ i = step % int(mnist_images.shape[0] / self.batch_size)
-                #~ j = step % int(usps_images.shape[0] / self.batch_size)
+		i = step % int(mnist_images.shape[0] / self.batch_size)
+                j = step % int(usps_images.shape[0] / self.batch_size)
                 
-		#~ src_images = mnist_images[i*self.batch_size:(i+1)*self.batch_size]
-                #~ src_labels = utils.one_hot(mnist_labels[i*self.batch_size:(i+1)*self.batch_size],11)
-		#~ src_labels_int = mnist_labels[i*self.batch_size:(i+1)*self.batch_size]
-		#~ src_noise = utils.sample_Z(self.batch_size,100)
-		#~ trg_images = usps_images[j*self.batch_size:(j+1)*self.batch_size]
+		src_images = mnist_images[i*self.batch_size:(i+1)*self.batch_size]
+                src_labels = utils.one_hot(mnist_labels[i*self.batch_size:(i+1)*self.batch_size],11)
+		src_labels_int = mnist_labels[i*self.batch_size:(i+1)*self.batch_size]
+		src_noise = utils.sample_Z(self.batch_size,100)
+		trg_images = usps_images[j*self.batch_size:(j+1)*self.batch_size]
                 		
-		#~ feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images}
+		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images}
 		
-		#~ # Training D to classify well images generated from SRC
-		#~ sess.run(model.d_train_op_src, feed_dict) 
+		# Training D to classify well images generated from SRC
+		sess.run(model.d_train_op_src, feed_dict) 
 		
-		#~ # Training G to fool D in classifying images generated from RSC
-		#~ sess.run(model.g_train_op_src, feed_dict) 
+		# Training G to fool D in classifying images generated from RSC
+		sess.run(model.g_train_op_src, feed_dict) 
 		
-		#~ # Forcing hidden representation of images generated from SRC to 
-	        #~ # be close to hidden representation used as starting point
-		#~ sess.run(model.f_train_op_src, feed_dict)
+		# Forcing hidden representation of images generated from SRC to 
+	        # be close to hidden representation used as starting point
+		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
 		
-		#~ # Training D to classufy well images generated from TRG
-		#~ sess.run(model.d_train_op_trg, feed_dict)
+		# Training D to classufy well images generated from TRG
+		sess.run(model.d_train_op_trg, feed_dict)
                 
-		#~ # Training G to fool D in classifying images generated from TRG
-		#~ sess.run(model.g_train_op_trg, feed_dict)
+		# Training G to fool D in classifying images generated from TRG
+		sess.run(model.g_train_op_trg, feed_dict)
 		
-		#~ # Forcing images generated from TRG to be close to images
-		#~ # used as starting point
-		#~ sess.run(model.g_train_op_const_trg, feed_dict)
-		
-		
+		# Forcing images generated from TRG to be close to images
+		# used as starting point
+		sess.run(model.g_train_op_const_trg, feed_dict)
 		
 		
-                #~ if (step+1) % 10 == 0:
+                if (step+1) % 10 == 0:
 		    
-		    #~ summary, dl, gl, fl = sess.run([model.summary_op_src, \
-                        #~ model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
-                    #~ summary_writer.add_summary(summary, step)
-                    #~ print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
-                               #~ %(step+1, self.train_iter, dl, gl, fl))
+		    summary, dl, gl, fl = sess.run([model.summary_op_src, \
+                        model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
+                    summary_writer.add_summary(summary, step)
+                    print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
+                               %(step+1, self.train_iter, dl, gl, fl))
                 
-                    #~ summary, dl, gl, cl = sess.run([model.summary_op_trg, \
-                        #~ model.d_loss_trg, model.g_loss_trg, model.g_loss_const_trg], feed_dict)
-                    #~ summary_writer.add_summary(summary, step)
-                    #~ print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] const_loss: [%.6f]' \
-                               #~ %(step+1, self.train_iter, dl, gl, cl))
+                    summary, dl, gl, cl = sess.run([model.summary_op_trg, \
+                        model.d_loss_trg, model.g_loss_trg, model.g_loss_const_trg], feed_dict)
+                    summary_writer.add_summary(summary, step)
+                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] const_loss: [%.6f]' \
+                               %(step+1, self.train_iter, dl, gl, cl))
 
 
 
-                #~ if (step+1) % 50 == 0:
-                    #~ saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
-                    #print ('model/dtn-%d saved' %(step+1))
+                if (step+1) % 50 == 0:
+                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'), global_step=step+1)
+                    #~ #print ('model/dtn-%d saved' %(step+1))
 	
     def eval(self):
         # build model
