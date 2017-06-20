@@ -52,9 +52,9 @@ class DSN(object):
     def content_extractor(self, images, reuse=False, make_preds=False, adda = False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
-        #~ if images.get_shape()[3] == 1:
-            #~ # For mnist dataset, replicate the gray scale image 3 times.
-            #~ images = tf.image.grayscale_to_rgb(images)
+        if images.get_shape()[3] == 1:
+            # For mnist dataset, replicate the gray scale image 3 times.
+            images = tf.image.grayscale_to_rgb(images)
 	
 	
         with tf.variable_scope('content_extractor', reuse=reuse):
@@ -132,6 +132,11 @@ class DSN(object):
                     return net
     
     def discriminator(self, images, reuse=False):
+	
+	if images.get_shape()[3] == 3:
+            # For mnist dataset, replicate the gray scale image 3 times.
+            images = tf.image.rgb_to_grayscale(images)
+	
         # images: (batch, 32, 32, 1)
         with tf.variable_scope('discriminator', reuse=reuse):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
@@ -152,7 +157,7 @@ class DSN(object):
     def build_model(self):
         
         if self.mode == 'pretrain':
-            self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'svhn_images')
+            self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             
             # logits and accuracy
@@ -163,7 +168,7 @@ class DSN(object):
 
             # loss and train op
             self.loss = slim.losses.sparse_softmax_cross_entropy(self.logits, self.labels)
-            self.optimizer = tf.train.GradientDescentOptimizer(0.01) 
+            self.optimizer = tf.train.AdamOptimizer(0.001) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
             
             # summary op
@@ -173,26 +178,27 @@ class DSN(object):
 	
         elif self.mode == 'adda_train':
             
-	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'usps_images')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
             self.fx_src = self.content_extractor(self.src_images)
-            self.fx_trg = self.content_extractor_target(self.trg_images)
+            #~ self.fx_trg = self.content_extractor_target(self.trg_images)
+            self.fx_trg = self.content_extractor(self.trg_images, reuse=True)
             
 	    self.logit_trg = self.adda_discriminator(self.fx_trg)
 	    self.logit_src = self.adda_discriminator(self.fx_src, reuse=True)
 	    
-	    #~ self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logit_src, tf.zeros_like(self.logit_trg))
-	    #~ self.d_loss_trg = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.ones_like(self.logit_trg))
+	    self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logit_src, tf.ones_like(self.logit_src))
+	    self.d_loss_trg = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.zeros_like(self.logit_trg))
 	    
-	    self.d_loss_src = tf.reduce_mean(tf.square(self.logit_src - tf.ones_like(self.logit_trg)))
-	    self.d_loss_trg = tf.reduce_mean(tf.square(self.logit_trg - tf.zeros_like(self.logit_trg)))
+	    #~ self.d_loss_src = tf.reduce_mean(tf.square(self.logit_src - tf.ones_like(self.logit_trg)))
+	    #~ self.d_loss_trg = tf.reduce_mean(tf.square(self.logit_trg - tf.zeros_like(self.logit_trg)))
 	    
 	    self.d_loss = self.d_loss_src + self.d_loss_trg
 	    
-            #~ self.enc_loss = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.zeros_like(self.logit_trg))
+            self.enc_loss = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.ones_like(self.logit_trg))
             
-	    self.enc_loss = tf.reduce_mean(tf.square(self.logit_trg - tf.ones_like(self.logit_trg)))
+	    #~ self.enc_loss = tf.reduce_mean(tf.square(self.logit_trg - tf.ones_like(self.logit_trg)))
             
 	    self.d_optimizer = tf.train.AdamOptimizer(0.0001)
 	    self.enc_optimizer = tf.train.AdamOptimizer(0.0001)
@@ -215,7 +221,7 @@ class DSN(object):
 	
 	elif self.mode == 'train_sampler':
 				
-	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
 	    self.labels_real = tf.placeholder(tf.int64, [None], 'labels_real')
 	    self.labels_fake = tf.placeholder(tf.int64, [None], 'labels_fake')
@@ -369,8 +375,8 @@ class DSN(object):
             self.noise = tf.placeholder(tf.float32, [None, 100], 'noise_generator')
             self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
 	    self.src_labels_int = tf.placeholder(tf.int64, [None], 'labels_int')
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'usps_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
 	    
             # source domain (svhn to mnist)
@@ -383,7 +389,8 @@ class DSN(object):
 
 	    self.orig_src_fx = self.content_extractor(self.src_images, reuse=True)
 	    self.orig_trg_fx = self.content_extractor(self.trg_images, reuse=True)
-	    self.adda_trg_fx = self.content_extractor_target(self.trg_images)
+	    #~ self.adda_trg_fx = self.content_extractor_target(self.trg_images)
+	    self.adda_trg_fx = self.content_extractor(self.trg_images, reuse=True)
 
             # loss
 	    self.d_loss_real_src = slim.losses.sparse_softmax_cross_entropy(self.logits_real_src, tf.cast(3 * tf.ones([64,1]),tf.int64))

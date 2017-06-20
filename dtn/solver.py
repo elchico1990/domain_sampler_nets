@@ -15,8 +15,8 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/svhn_model-100000', pretrained_sampler='model/sampler-54000', 
-		 test_model='model/dtn-1000', adda_model='model/adda-30000'):
+                 model_save_path='model', pretrained_model='model/model-100000', pretrained_sampler='model/sampler-45000', 
+		 test_model='model/dtn-1000', adda_model='model/adda-1500'):
         
         self.model = model
         self.batch_size = batch_size
@@ -86,8 +86,8 @@ class Solver(object):
 
     def pretrain(self):
         # load svhn dataset
-        train_images, train_labels = self.load_mnist(self.mnist_dir, split='train')
-        test_images, test_labels = self.load_mnist(self.mnist_dir, split='test')
+        train_images, train_labels = self.load_svhn(self.svhn_dir, split='train')
+        test_images, test_labels = self.load_svhn(self.svhn_dir, split='test')
 
         # build a graph
         model = self.model
@@ -119,15 +119,15 @@ class Solver(object):
                                %(step+1, self.pretrain_iter, l, acc, test_acc))
 
                 if (step+1) % 1000 == 0:  
-                    saver.save(sess, os.path.join(self.model_save_path, 'svhn_model'), global_step=step+1) 
-                    print ('svhn_model-%d saved..!' %(step+1))
+                    saver.save(sess, os.path.join(self.model_save_path, 'model'), global_step=step+1) 
+                    print ('model-%d saved..!' %(step+1))
 	
     def adda_train(self):
 	
 	print 'Training ADDA encoder.'
         # load svhn dataset
-        mnist_images, _ = self.load_mnist(self.mnist_dir, split='train')
-        usps_images, _ = self.load_usps(self.usps_dir)
+        source_images, _ = self.load_svhn(self.svhn_dir, split='train')
+        target_images, _ = self.load_mnist(self.mnist_dir, split='train')
 	
         # build a graph
         model = self.model
@@ -161,15 +161,15 @@ class Solver(object):
 		
 		#~ print 'Epoch',str(i)
 		
-		for start, end in zip(range(0, len(usps_images), batch_size), range(batch_size, len(usps_images), batch_size)):
+		for start, end in zip(range(0, min(len(source_images),len(target_images)), batch_size), range(batch_size, min(len(source_images),len(target_images)), batch_size)):
 		    
 		    t += 1
 
-		    feed_dict = {model.src_images: mnist_images[start:end], model.trg_images: usps_images[start:end]}
+		    feed_dict = {model.src_images: source_images[start:end], model.trg_images: target_images[start:end]}
 
 		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.enc_train_op, feed_dict)
-		    		    
+		    
 		    avg_D_trg = sess.run(model.logit_trg, feed_dict)
 		    avg_D_src = sess.run(model.logit_src, feed_dict)
 		    
@@ -178,7 +178,7 @@ class Solver(object):
 			summary, dl, encl = sess.run([model.summary_op, model.d_loss, model.enc_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] enc_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(mnist_images) /batch_size), dl, encl))
+				   %(t+1, int(epochs*len(source_images) /batch_size), dl, encl))
 			print 'avg_D_trg',str(avg_D_trg.mean()),'avg_D_src',str(avg_D_src.mean())
 			
                     if (t+1) % 500 == 0:  
@@ -188,8 +188,8 @@ class Solver(object):
 	
 	print 'Training sampler.'
         # load svhn dataset
-        mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
-	mnist_labels_oh = utils.one_hot(mnist_labels, 11)
+        source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	source_labels_oh = utils.one_hot(source_labels, 11)
 	
 	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
 	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
@@ -220,7 +220,7 @@ class Solver(object):
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 	    
-	    #~ feed_dict = {model.images: mnist_images[:10000]}
+	    #~ feed_dict = {model.images: source_images[:10000]}
 	    #~ fx = sess.run(model.fx, feed_dict)
 		 	    
 	    t = 0
@@ -233,13 +233,13 @@ class Solver(object):
 		
 		#~ print 'Epoch',str(i)
 		
-		for start, end in zip(range(0, len(mnist_images), batch_size), range(batch_size, len(mnist_images), batch_size)):
+		for start, end in zip(range(0, len(source_images), batch_size), range(batch_size, len(source_images), batch_size)):
 		    
 		    t += 1
 
 		    Z_samples = utils.sample_Z(batch_size, noise_dim, 'uniform')
 
-		    feed_dict = {model.noise: Z_samples, model.images: mnist_images[start:end], model.labels_real: mnist_labels[start:end], model.labels_fake: labels_fake, model.labels_real_oh: mnist_labels_oh[start:end], model.labels_fake_oh: labels_fake_oh}
+		    feed_dict = {model.noise: Z_samples, model.images: source_images[start:end], model.labels_real: source_labels[start:end], model.labels_fake: labels_fake, model.labels_real_oh: source_labels_oh[start:end], model.labels_fake_oh: labels_fake_oh}
 
 		    #~ a,b,c,d = sess.run([model.logits_real,model.logits_fake,model.labels_real,model.labels_fake], feed_dict)
 		    		    
@@ -253,7 +253,7 @@ class Solver(object):
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(mnist_images) /batch_size), dl, gl))
+				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
 			#~ print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
                     if (t+1) % 1000 == 0:  
@@ -339,9 +339,9 @@ class Solver(object):
     
     def train_dsn(self):
         
-	mnist_images, mnist_labels = self.load_mnist(self.mnist_dir, split='train')
+	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, svhn_labels = self.load_svhn(self.svhn_dir, split='train')
+	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
 	
 
         # build a graph
@@ -357,10 +357,10 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
             # restore variables of F
-            print ('Loading ADDA encoder.')
-            variables_to_restore = slim.get_model_variables(scope='target_encoder')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.adda_model)
+            #~ print ('Loading ADDA encoder.')
+            #~ variables_to_restore = slim.get_model_variables(scope='target_encoder')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.adda_model)
             
             print ('Loading pretrained model F.')
             variables_to_restore = slim.get_model_variables(scope='content_extractor')
@@ -410,7 +410,6 @@ class Solver(object):
 		sess.run(model.d_train_op_src, feed_dict) 
 		
 		# Training G to fool D in classifying images generated from RSC
-		sess.run(model.g_train_op_src, feed_dict) 
 		sess.run(model.g_train_op_src, feed_dict) 
 		
 		# Forcing hidden representation of images generated from SRC to 
