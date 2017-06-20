@@ -66,9 +66,9 @@ class DSN(object):
 		    return net
 	    
 		net = slim.conv2d(images, 32, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
-		net = slim.avg_pool2d(images,kernel_size=[2,2])
+		net = slim.avg_pool2d(net,kernel_size=[2,2])
 		net = slim.conv2d(net, 64, [3, 3], scope='conv2')     # (batch_size, 8, 8, 128)
-		net = slim.avg_pool2d(images,kernel_size=[2,2])
+		net = slim.avg_pool2d(net,kernel_size=[2,2])
 		net = slim.flatten(net)
 		net = slim.fully_connected(net, 512, activation_fn = tf.nn.relu, scope='fc1')
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc2')
@@ -91,9 +91,9 @@ class DSN(object):
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
 	    
 		net = slim.conv2d(images, 32, [3, 3], scope='adda_conv1')   # (batch_size, 16, 16, 64)
-		net = slim.avg_pool2d(images,kernel_size=[2,2])
+		net = slim.avg_pool2d(net,kernel_size=[2,2])
 		net = slim.conv2d(net, 64, [3, 3], scope='adda_conv2')     # (batch_size, 8, 8, 128)
-		net = slim.avg_pool2d(images,kernel_size=[2,2])
+		net = slim.avg_pool2d(net,kernel_size=[2,2])
 		net = slim.flatten(net)
 		net = slim.fully_connected(net, 512, activation_fn = tf.nn.relu, scope='adda_fc1')
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='adda_fc2')
