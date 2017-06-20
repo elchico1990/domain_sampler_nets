@@ -278,10 +278,11 @@ class DSN(object):
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
-            
+            self.noise_generator = tf.placeholder(tf.float32, [None, 100], 'noise_generator')
+	    
             # source domain (svhn to mnist)
             self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    self.sampled_images = self.generator(self.fx)
+	    self.sampled_images = self.generator(self.fx, self.noise_generator)
 
         elif self.mode == 'train':
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
@@ -379,7 +380,7 @@ class DSN(object):
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
             self.fgfx = self.content_extractor(self.fake_images)
 
-	    self.predictions = self.content_extractor(self.content_extractor_target(self.fake_images), adda=True)
+	    self.predictions = self.content_extractor(self.fake_images)
 
 	    self.orig_src_fx = self.content_extractor(self.src_images, reuse=True)
 	    self.orig_trg_fx = self.content_extractor(self.trg_images, reuse=True)
@@ -390,8 +391,8 @@ class DSN(object):
             self.d_loss_fake_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(2 * tf.ones([64,1]),tf.int64))
             self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
-            #~ self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) * 15
+            #~ self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
+            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int)
             
             
 	    # optimizer
