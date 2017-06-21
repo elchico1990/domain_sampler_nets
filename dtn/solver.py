@@ -11,12 +11,14 @@ import matplotlib.pyplot as plt
 
 import utils
 
+from sklearn.manifold import TSNE
+
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/model-100000', pretrained_sampler='model/sampler-45000', 
-		 test_model='model/dtn-1000', adda_model='model/adda-1500'):
+                 model_save_path='model', pretrained_model='model/model-150000', pretrained_sampler='model/sampler-45000', 
+		 test_model='model/dtn-1000', adda_model='model/adda-31000', pretrained_adda_model='model/pre_adda-31000'):
         
         self.model = model
         self.batch_size = batch_size
@@ -33,13 +35,14 @@ class Solver(object):
 	self.pretrained_sampler = pretrained_sampler
         self.test_model = test_model
         self.adda_model = adda_model
+        self.pretrained_adda_model = pretrained_adda_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=False
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
         
-        if self.model.mode == 'pretrain':
+        if self.model.mode in ['pretrain','adda_pretrain']:
             image_file = 'extra_32x32.mat' if split=='train' else 'test_32x32.mat'
         else:
             image_file = 'train_32x32.mat' if split=='train' else 'test_32x32.mat'
@@ -86,7 +89,7 @@ class Solver(object):
 
     def pretrain(self):
         # load svhn dataset
-        train_images, train_labels = self.load_svhn(self.svhn_dir, split='train')
+        source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
         test_images, test_labels = self.load_svhn(self.svhn_dir, split='test')
 
         # build a graph
@@ -96,31 +99,102 @@ class Solver(object):
         with tf.Session(config=self.config) as sess:
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
+	    
+	    
+	    
+	    #~ print ('Loading pretrained model.')
+            #~ variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_model)
+	    
+	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-            for step in range(self.pretrain_iter+1):
-                i = step % int(train_images.shape[0] / self.batch_size)
-                batch_images = train_images[i*self.batch_size:(i+1)*self.batch_size]
-                batch_labels = train_labels[i*self.batch_size:(i+1)*self.batch_size] 
-                feed_dict = {model.images: batch_images, model.labels: batch_labels}
-                
-		a,b = sess.run([model.labels, model.logits], feed_dict)
+	    epochs = 200
+	    
+	    t = 0
+
+	    for i in range(epochs):
 		
-		sess.run(model.train_op, feed_dict) 
+		print 'Epoch',str(i)
+		print len(source_images)
+		for start, end in zip(range(0, len(source_images), self.batch_size), range(self.batch_size, len(source_images), self.batch_size)):
+		    
+		    t+=1
+		       
+		    batch_images = source_images[start:end]
+		    batch_labels = source_labels[start:end] 
+		    feed_dict = {model.images: batch_images, model.labels: batch_labels}
+		    
+		    a,b = sess.run([model.labels, model.logits], feed_dict)
+		    
+		    sess.run(model.train_op, feed_dict) 
 
-                if (step+1) % 500 == 0:
-                    summary, l, acc = sess.run([model.summary_op, model.loss, model.accuracy], feed_dict)
-                    rand_idxs = np.random.permutation(test_images.shape[0])[:self.batch_size]
-                    test_acc, _ = sess.run(fetches=[model.accuracy, model.loss], 
-                                           feed_dict={model.images: test_images[rand_idxs], 
-                                                      model.labels: test_labels[rand_idxs]})
-                    summary_writer.add_summary(summary, step)
-                    print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] test acc [%.2f]' \
-                               %(step+1, self.pretrain_iter, l, acc, test_acc))
+		    if (t+1) % 500 == 0:
+			summary, l, acc = sess.run([model.summary_op, model.loss, model.accuracy], feed_dict)
+			rand_idxs = np.random.permutation(test_images.shape[0])[:self.batch_size]
+			test_acc, _ = sess.run(fetches=[model.accuracy, model.loss], 
+					       feed_dict={model.images: test_images[rand_idxs], 
+							  model.labels: test_labels[rand_idxs]})
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] test acc [%.2f]' \
+				   %(t+1, self.pretrain_iter, l, acc, test_acc))
 
-                if (step+1) % 1000 == 0:  
-                    saver.save(sess, os.path.join(self.model_save_path, 'model'), global_step=step+1) 
-                    print ('model-%d saved..!' %(step+1))
+		    #~ if (t+1) % 1000 == 0:  
+			#~ saver.save(sess, os.path.join(self.model_save_path, 'model'), global_step=t+1) 
+	
+    def adda_pretrain(self):
+        # load svhn dataset
+        source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+        test_images, test_labels = self.load_svhn(self.svhn_dir, split='test')
+
+        # build a graph
+        model = self.model
+        model.build_model()
+        
+        with tf.Session(config=self.config) as sess:
+            tf.global_variables_initializer().run()
+            saver = tf.train.Saver()
+	    
+	    #~ print ('Loading pretrained model.')
+            #~ variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_model)
+	    
+            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+
+	    epochs = 200
+	    
+	    t = 0
+
+	    for i in range(epochs):
+		
+		print 'Epoch',str(i)
+		print len(source_images)
+		for start, end in zip(range(0, len(source_images), self.batch_size), range(self.batch_size, len(source_images), self.batch_size)):
+		    
+		    t+=1
+		       
+		    batch_images = source_images[start:end]
+		    batch_labels = source_labels[start:end] 
+		    feed_dict = {model.images: batch_images, model.labels: batch_labels}
+		    
+		    a,b = sess.run([model.labels, model.logits], feed_dict)
+		    
+		    sess.run(model.train_op, feed_dict) 
+
+		    if (t+1) % 500 == 0:
+			summary, l, acc = sess.run([model.summary_op, model.loss, model.accuracy], feed_dict)
+			rand_idxs = np.random.permutation(test_images.shape[0])[:self.batch_size]
+			test_acc, _ = sess.run(fetches=[model.accuracy, model.loss], 
+					       feed_dict={model.images: test_images[rand_idxs], 
+							  model.labels: test_labels[rand_idxs]})
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] test acc [%.2f]' \
+				   %(t+1, self.pretrain_iter, l, acc, test_acc))
+
+		    if (t+1) % 1000 == 0:  
+			saver.save(sess, os.path.join(self.model_save_path, 'pre_adda'), global_step=t+1) 
 	
     def adda_train(self):
 	
@@ -142,6 +216,7 @@ class Solver(object):
 	noise_dim = 100
 	epochs = 300
 
+
         with tf.Session(config=self.config) as sess:
             # initialize G and D
             tf.global_variables_initializer().run()
@@ -150,7 +225,12 @@ class Solver(object):
             variables_to_restore = slim.get_model_variables(scope='content_extractor')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
-            # restore variables of F
+            
+	    print ('Loading ADDA pretrained model.')
+            variables_to_restore = slim.get_model_variables(scope='adda_content_extractor')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.adda_model)
+            
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
@@ -167,7 +247,8 @@ class Solver(object):
 
 		    feed_dict = {model.src_images: source_images[start:end], model.trg_images: target_images[start:end]}
 
-		    sess.run(model.d_train_op, feed_dict)
+		    if t%10==0:
+			sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.enc_train_op, feed_dict)
 		    
 		    avg_D_trg = sess.run(model.logit_trg, feed_dict)
@@ -246,7 +327,8 @@ class Solver(object):
 		    #~ avg_D_fake = sess.run(model.logits_fake, feed_dict)
 		    #~ avg_D_real = sess.run(model.logits_real, feed_dict)
 		    
-		    sess.run(model.d_train_op, feed_dict)
+		    if t%5==0:
+			sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
 		    if (t+1) % 100 == 0:
@@ -357,15 +439,16 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
             # restore variables of F
-            #~ print ('Loading ADDA encoder.')
-            #~ variables_to_restore = slim.get_model_variables(scope='target_encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.adda_model)
             
             print ('Loading pretrained model F.')
             variables_to_restore = slim.get_model_variables(scope='content_extractor')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
+	                
+	    print ('Loading ADDA pretrained model.')
+            variables_to_restore = slim.get_model_variables(scope='adda_content_extractor')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.adda_model)
             
             print ('Loading sampler.')
             variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -418,7 +501,7 @@ class Solver(object):
 		
 		# Training D to classufy well images generated from TRG
 		sess.run(model.d_train_op_trg, feed_dict)
-                
+		
 		# Training G to fool D in classifying images generated from TRG
 		sess.run(model.g_train_op_trg, feed_dict)
 		
@@ -503,14 +586,113 @@ class Solver(object):
 		plt.imshow(np.squeeze(samples[i]), cmap='gray')
 		plt.imsave('./sample/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
 
+    def check_TSNE(self):
+	
+	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
+	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	
 
+        # build a graph
+        model = self.model
+        model.build_model()
+
+        # make directory if not exists
+        if tf.gfile.Exists(self.log_dir):
+            tf.gfile.DeleteRecursively(self.log_dir)
+        tf.gfile.MakeDirs(self.log_dir)
+	
+		
+	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+
+
+        with tf.Session(config=self.config) as sess:
+            # initialize G and D
+            tf.global_variables_initializer().run()
+            # restore variables of F
+            #~ print ('Loading ADDA encoder.')
+            #~ variables_to_restore = slim.get_model_variables(scope='target_encoder')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.adda_model)
+            
+            print ('Loading pretrained model.')
+            variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_model)
+	    
+	    	                
+	    #~ print ('Loading ADDA encoder.')
+            #~ variables_to_restore = slim.get_model_variables(scope='adda_content_extractor')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.adda_model)
+            
+            print ('Loading sampler.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
+
+	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+            saver = tf.train.Saver()
+
+   
+	    src_labels = utils.one_hot(source_labels[:1000],11)
+	    trg_labels = utils.one_hot(target_labels[:1000],11)
+	    src_noise = utils.sample_Z(1000,100)
+	    
+	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:1000], model.trg_images: target_images[:1000]}
+	    
+	    src_fx, trg_fx, adda_trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.adda_trg_fx, model.fx], feed_dict)
+	    
+	    src_labels = np.argmax(src_labels,1)
+	    trg_labels = np.argmax(trg_labels,1)
+
+	    print 'Computing T-SNE.'
+
+	    model = TSNE(n_components=2, random_state=0)
+
+	    #~ print '0'
+	    #~ TSNE_hA_0 = model.fit_transform(np.vstack((src_fx,fx)))
+	    #~ print '1'
+	    #~ TSNE_hA_1 = model.fit_transform(fx)
+	    #~ print '2'
+	    #~ TSNE_hA_2 = model.fit_transform(src_fx)
+	    #~ print '3'
+	    #~ TSNE_hA_3 = model.fit_transform(np.vstack((src_fx,fx,trg_fx)))
+	    print '4'
+	    TSNE_hA_4 = model.fit_transform(np.vstack((src_fx,fx,trg_fx)))
+	    
+	    #~ plt.figure(0)
+	    #~ plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = np.hstack((src_labels,src_labels)))
+	    
+	    #~ plt.figure(1)
+	    #~ plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
+	    
+	    #~ plt.figure(2)
+	    #~ plt.scatter(TSNE_hA_1[:,0], TSNE_hA_1[:,1], c = colors_12)
+	    
+	    #~ plt.figure(3)
+	    #~ plt.scatter(TSNE_hA_2[:,0], TSNE_hA_2[:,1], c = colors_12)
+	    
+	    #~ plt.figure(4)
+	    #~ plt.scatter(TSNE_hA_3[:,0], TSNE_hA_3[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)), 3 * np.ones((500,)))))
+	    
+	    #~ plt.figure(5)
+	    #~ plt.scatter(TSNE_hA_3[:,0], TSNE_hA_3[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
+		    
+	    plt.figure(6)
+	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((np.ones((1000,)), 2 * np.ones((1000,)), 3 * np.ones((1000,)))))
+	    
+	    plt.figure(7)
+	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
+		    
+	    plt.show()
 
 if __name__=='__main__':
-    
-    uspsData = scipy.io.loadmat('./usps/USPS.mat')
-    
-    print 'break'
 
+    from model import DSN
+    model = DSN(mode='train_dsn', learning_rate=0.0003)
+    solver = Solver(model)
+    solver.check_TSNE()
 
 
 
