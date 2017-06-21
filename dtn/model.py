@@ -28,6 +28,9 @@ class DSN(object):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		#~ net = slim.flatten(inputs)
 		net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		net = slim.batch_norm(net, scope='sdisc_bn1')
+		net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
+		net = slim.batch_norm(net, scope='sdisc_bn2')
 		net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		return net
 
@@ -46,6 +49,9 @@ class DSN(object):
 	with tf.variable_scope('sampler_generator', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
+		net = slim.batch_norm(net, scope='sgen_bn1')
+		net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
+		net = slim.batch_norm(net, scope='sgen_bn2')
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		return net
         	    
