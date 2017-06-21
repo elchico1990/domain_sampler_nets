@@ -49,34 +49,63 @@ class DSN(object):
 		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		return net
         	    
-    def content_extractor(self, images, reuse=False, make_preds=False, adda = False):
+    #~ def content_extractor(self, images, reuse=False, make_preds=False, adda = False):
+        #~ # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
+        
+        #~ if images.get_shape()[3] == 1:
+            #~ # For mnist dataset, replicate the gray scale image 3 times.
+            #~ images = tf.image.grayscale_to_rgb(images)
+	
+	
+        #~ with tf.variable_scope('content_extractor', reuse=reuse):
+            #~ with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
+                                 #~ stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
+				     
+		#~ if adda == True:
+		    #~ net = slim.fully_connected(images, 10, activation_fn=tf.sigmoid, scope='out')
+		    #~ return net
+	    
+		#~ net = slim.conv2d(images, 64, [3, 3], scope='enc_conv1')   # (batch_size, 16, 16, 64)
+		#~ net = slim.avg_pool2d(net,kernel_size=[2,2])
+		#~ net = slim.conv2d(net, 128, [3, 3], scope='enc_conv2')     # (batch_size, 8, 8, 128)
+		#~ net = slim.avg_pool2d(net,kernel_size=[2,2])
+		#~ net = slim.flatten(net)
+		#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='enc_fc1')
+		#~ net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='enc_fc2')
+		
+		#~ if (self.mode == 'pretrain' or make_preds):
+		    #~ net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
+		    
+		#~ return net
+
+    def content_extractor(self, images, reuse=False, make_preds=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
         if images.get_shape()[3] == 1:
             # For mnist dataset, replicate the gray scale image 3 times.
             images = tf.image.grayscale_to_rgb(images)
-	
-	
+        
         with tf.variable_scope('content_extractor', reuse=reuse):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
-				     
-		if adda == True:
-		    net = slim.fully_connected(images, 10, activation_fn=tf.sigmoid, scope='out')
+                with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train' or self.mode=='pretrain')):
+                    
+                    net = slim.conv2d(images, 64, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
+                    net = slim.batch_norm(net, scope='bn1')
+                    net = slim.conv2d(net, 128, [3, 3], scope='conv2')     # (batch_size, 8, 8, 128)
+                    net = slim.batch_norm(net, scope='bn2')
+                    net = slim.conv2d(net, 256, [3, 3], scope='conv3')     # (batch_size, 4, 4, 256)
+                    net = slim.batch_norm(net, scope='bn3')
+                    net = slim.conv2d(net, 128, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
+                    net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
+                    net = slim.flatten(net)
+		    if (self.mode == 'pretrain' or make_preds):
+			net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
 		    return net
-	    
-		net = slim.conv2d(images, 64, [3, 3], scope='enc_conv1')   # (batch_size, 16, 16, 64)
-		net = slim.avg_pool2d(net,kernel_size=[2,2])
-		net = slim.conv2d(net, 128, [3, 3], scope='enc_conv2')     # (batch_size, 8, 8, 128)
-		net = slim.avg_pool2d(net,kernel_size=[2,2])
-		net = slim.flatten(net)
-		net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='enc_fc1')
-		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='enc_fc2')
-		
-		if (self.mode == 'pretrain' or make_preds):
-		    net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
-		    
-		return net
+
+
+
         	    
     def adda_content_extractor(self, images, reuse=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
