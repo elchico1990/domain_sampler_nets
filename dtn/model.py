@@ -481,8 +481,8 @@ class DSN(object):
             self.d_loss_fake_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(2 * tf.ones([64,1]),tf.int64))
             self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            #~ self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
-            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int)
+            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
+            #~ self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int)
 	    
             
 	    # optimizer
@@ -507,7 +507,7 @@ class DSN(object):
             d_loss_src_summary = tf.summary.scalar('src_d_loss', self.d_loss_src)
             g_loss_src_summary = tf.summary.scalar('src_g_loss', self.g_loss_src)
             f_loss_src_summary = tf.summary.scalar('src_f_loss', self.f_loss_src)
-            sampled_images_summary = tf.summary.image('src_sampled_images', self.fake_images)
+            sampled_images_summary = tf.summary.image('src_sampled_images', self.fake_images, max_outputs=12)
             self.summary_op_src = tf.summary.merge([d_loss_src_summary, g_loss_src_summary, 
                                                     f_loss_src_summary, sampled_images_summary])
             
@@ -524,7 +524,7 @@ class DSN(object):
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
             
 	    self.g_loss_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_trg, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) * 30
+            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) * 15
             
             # optimizer
             self.d_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)
@@ -544,8 +544,8 @@ class DSN(object):
             g_loss_trg_summary = tf.summary.scalar('trg_g_loss_fake', self.g_loss_trg)
             g_loss_const_trg_summary = tf.summary.scalar('trg_g_loss_const', self.g_loss_const_trg)
             g_loss_trg_summary = tf.summary.scalar('trg_g_loss', self.g_loss_trg)
-            origin_images_summary = tf.summary.image('trg_origin_images', self.trg_images)
-            sampled_images_summary = tf.summary.image('trg_reconstructed_images', self.reconst_images_trg)
+            origin_images_summary = tf.summary.image('trg_origin_images', self.trg_images, max_outputs=6)
+            sampled_images_summary = tf.summary.image('trg_reconstructed_images', self.reconst_images_trg, max_outputs=6)
             self.summary_op_trg = tf.summary.merge([d_loss_trg_summary, g_loss_trg_summary, 
                                                     d_loss_fake_trg_summary, d_loss_real_trg_summary,
                                                     g_loss_const_trg_summary,

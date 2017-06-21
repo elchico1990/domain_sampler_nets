@@ -17,7 +17,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/model-1000', pretrained_sampler='model/sampler-45000', 
+                 model_save_path='model', pretrained_model='model/model-30000', pretrained_sampler='model/sampler-40000', 
 		 test_model='model/dtn-1000', adda_model='model/adda', pretrained_adda_model='model/pre_adda-33000'):
         
         self.model = model
@@ -534,6 +534,8 @@ class Solver(object):
 		
 		# Training G to fool D in classifying images generated from RSC
 		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
 		
 		# Forcing hidden representation of images generated from SRC to 
 	        # be close to hidden representation used as starting point
@@ -543,6 +545,7 @@ class Solver(object):
 		sess.run(model.d_train_op_trg, feed_dict)
 		
 		# Training G to fool D in classifying images generated from TRG
+		sess.run(model.g_train_op_trg, feed_dict)
 		sess.run(model.g_train_op_trg, feed_dict)
 		
 		# Forcing images generated from TRG to be close to images
@@ -698,7 +701,7 @@ class Solver(object):
 	    #~ print '3'
 	    #~ TSNE_hA_3 = model.fit_transform(np.vstack((src_fx,fx,trg_fx)))
 	    print '4'
-	    TSNE_hA_4 = model.fit_transform(np.vstack((src_fx,trg_fx)))
+	    TSNE_hA_4 = model.fit_transform(np.vstack((src_fx,fx,trg_fx)))
 	    
 	    #~ plt.figure(0)
 	    #~ plt.scatter(TSNE_hA_0[:,0], TSNE_hA_0[:,1], c = np.hstack((src_labels,src_labels)))
@@ -719,10 +722,10 @@ class Solver(object):
 	    #~ plt.scatter(TSNE_hA_3[:,0], TSNE_hA_3[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
 		    
 	    plt.figure(6)
-	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((np.ones((1000,)), 3 * np.ones((1000,)))))
+	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((np.ones((1000,)), 2 * np.ones((1000,)), 3 * np.ones((1000,)))))
 	    
 	    plt.figure(7)
-	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((src_labels,trg_labels)))
+	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
 		    
 	    plt.show()
 
