@@ -26,13 +26,16 @@ class DSN(object):
 	    
 	with tf.variable_scope('sampler_discriminator',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
-		#~ net = slim.flatten(inputs)
-		net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-		net = slim.batch_norm(net, scope='sdisc_bn1')
-		net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-		net = slim.batch_norm(net, scope='sdisc_bn2')
-		net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
-		return net
+		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+                                    activation_fn=tf.nn.relu, is_training=True):
+                    
+		    #~ net = slim.flatten(inputs)
+		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		    net = slim.batch_norm(net, scope='sdisc_bn1')
+		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
+		    net = slim.batch_norm(net, scope='sdisc_bn2')
+		    net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
+		    return net
 
     def sampler_generator(self, z, y, reuse=False):
 	'''
@@ -48,41 +51,17 @@ class DSN(object):
 	
 	with tf.variable_scope('sampler_generator', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
-		net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
-		net = slim.batch_norm(net, scope='sgen_bn1')
-		net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
-		net = slim.batch_norm(net, scope='sgen_bn2')
-		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
-		return net
-        	    
-    #~ def content_extractor(self, images, reuse=False, make_preds=False, adda = False):
-        #~ # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
-        
-        #~ if images.get_shape()[3] == 1:
-            #~ # For mnist dataset, replicate the gray scale image 3 times.
-            #~ images = tf.image.grayscale_to_rgb(images)
-	
-	
-        #~ with tf.variable_scope('content_extractor', reuse=reuse):
-            #~ with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
-                                 #~ stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
-				     
-		#~ if adda == True:
-		    #~ net = slim.fully_connected(images, 10, activation_fn=tf.sigmoid, scope='out')
-		    #~ return net
-	    
-		#~ net = slim.conv2d(images, 64, [3, 3], scope='enc_conv1')   # (batch_size, 16, 16, 64)
-		#~ net = slim.avg_pool2d(net,kernel_size=[2,2])
-		#~ net = slim.conv2d(net, 128, [3, 3], scope='enc_conv2')     # (batch_size, 8, 8, 128)
-		#~ net = slim.avg_pool2d(net,kernel_size=[2,2])
-		#~ net = slim.flatten(net)
-		#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='enc_fc1')
-		#~ net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='enc_fc2')
 		
-		#~ if (self.mode == 'pretrain' or make_preds):
-		    #~ net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
-		    
-		#~ return net
+		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+                                    activation_fn=tf.nn.relu, is_training=True):
+                    
+		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
+		    net = slim.batch_norm(net, scope='sgen_bn1')
+		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
+		    net = slim.batch_norm(net, scope='sgen_bn2')
+		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
+		    return net
+     
 
     def content_extractor(self, images, reuse=False, make_preds=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
@@ -95,7 +74,7 @@ class DSN(object):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train' or self.mode=='pretrain')):
+                                    activation_fn=tf.nn.relu, is_training=True):
                     
                     net = slim.conv2d(images, 64, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
                     net = slim.batch_norm(net, scope='bn1')
