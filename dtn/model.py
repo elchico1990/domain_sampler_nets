@@ -27,7 +27,7 @@ class DSN(object):
 	with tf.variable_scope('sampler_discriminator',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=True):
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    #~ net = slim.flatten(inputs)
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
@@ -53,7 +53,7 @@ class DSN(object):
 	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=True):
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		    net = slim.batch_norm(net, scope='sgen_bn1')
@@ -62,7 +62,6 @@ class DSN(object):
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
      
-
     def content_extractor(self, images, reuse=False, make_preds=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
@@ -74,7 +73,7 @@ class DSN(object):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=True):
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='pretrain')):
                     
                     net = slim.conv2d(images, 64, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
                     net = slim.batch_norm(net, scope='bn1')
@@ -89,43 +88,6 @@ class DSN(object):
 			net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
 		    return net
 
-
-
-        	    
-    def adda_content_extractor(self, images, reuse=False):
-        # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
-        
-        if images.get_shape()[3] == 1:
-            # For mnist dataset, replicate the gray scale image 3 times.
-            images = tf.image.grayscale_to_rgb(images)
-	
-	
-        with tf.variable_scope('adda_content_extractor', reuse=reuse):
-            with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
-                                 stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
-	    
-		net = slim.conv2d(images, 64, [3, 3], scope='adda_conv1')   # (batch_size, 16, 16, 64)
-		net = slim.avg_pool2d(net,kernel_size=[2,2])
-		net = slim.conv2d(net, 128, [3, 3], scope='adda_conv2')     # (batch_size, 8, 8, 128)
-		net = slim.avg_pool2d(net,kernel_size=[2,2])
-		net = slim.flatten(net)
-		net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='adda_fc1')
-		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='adda_fc2')
-		
-		if self.mode == 'adda_pretrain':
-		    net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='adda_out')
-		    
-		return net
-    
-    def adda_discriminator(self, inputs, reuse=False):
-	
-	with tf.variable_scope('adda_discriminator',reuse=reuse):
-	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
-		net = slim.fully_connected(inputs, 1024, activation_fn = tf.tanh, scope='adda_disc_fc1')
-		net = slim.fully_connected(net, 1024, activation_fn = tf.tanh, scope='adda_disc_fc2')
-		net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='adda_disc_prob')
-		return net
- 
     def generator(self, inputs, noise, reuse=False):
         # inputs: (batch, 1, 1, 128)
 	
@@ -196,127 +158,6 @@ class DSN(object):
             loss_summary = tf.summary.scalar('classification_loss', self.loss)
             accuracy_summary = tf.summary.scalar('accuracy', self.accuracy)
             self.summary_op = tf.summary.merge([loss_summary, accuracy_summary])
-	
-        if self.mode == 'pretrain_da':
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
-            self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
-            
-            # logits and accuracy
-            self.logits = self.content_extractor(self.src_images, make_preds = True)
-            self.pred = tf.argmax(self.logits, 1)
-            self.correct_pred = tf.equal(self.pred, self.src_labels)
-            self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
-
-            
-	    self.fx_src = self.content_extractor(self.src_images, reuse=True)
-            self.fx_trg = self.content_extractor(self.trg_images, reuse=True)
-            
-	    self.logit_trg = self.adda_discriminator(self.fx_trg)
-	    self.logit_src = self.adda_discriminator(self.fx_src, reuse=True)
-	    
-	    # loss and train op
-            self.f_loss = slim.losses.sparse_softmax_cross_entropy(self.logits, self.src_labels)
-            
-	    self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logit_src, tf.ones_like(self.logit_src))
-	    self.d_loss_trg = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.zeros_like(self.logit_trg))
-	    
-	    #~ self.d_loss_src = tf.reduce_mean(tf.square(self.logit_src - tf.ones_like(self.logit_trg)))
-	    #~ self.d_loss_trg = tf.reduce_mean(tf.square(self.logit_trg - tf.zeros_like(self.logit_trg)))
-	    
-	    self.d_loss = 1. * self.d_loss_src + 1. * self.d_loss_trg
-	    
-            self.enc_loss = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.ones_like(self.logit_trg))
-            
-	    #~ self.enc_loss = tf.reduce_mean(tf.square(self.logit_trg - tf.ones_like(self.logit_trg)))
-            
-	    
-	    
-	    self.f_optimizer = tf.train.AdamOptimizer(0.001) 
-            self.d_optimizer = tf.train.AdamOptimizer(0.001)
-	    self.enc_optimizer = tf.train.AdamOptimizer(0.0001)
-	     
-	    t_vars = tf.trainable_variables()
-	    d_vars = [var for var in t_vars if 'adda_discriminator' in var.name]
-	    f_vars = [var for var in t_vars if 'content_extractor' in var.name]
-	    enc_vars = [var for var in t_vars if 'enc_' in var.name]
-	    
-	    # train op
-	    self.f_train_op = slim.learning.create_train_op(self.f_loss, self.f_optimizer, variables_to_train=f_vars)
-	    self.d_train_op = slim.learning.create_train_op(self.d_loss, self.d_optimizer, variables_to_train=d_vars)
-	    self.enc_train_op = slim.learning.create_train_op(self.enc_loss, self.enc_optimizer, variables_to_train=enc_vars)
-	    
-	    # summary op
-	    f_loss_summary = tf.summary.scalar('classification_loss', self.f_loss)
-            d_loss_summary = tf.summary.scalar('d_loss', self.d_loss)
-	    enc_loss_summary = tf.summary.scalar('enc_loss', self.enc_loss)
-	    self.summary_op = tf.summary.merge([f_loss_summary, d_loss_summary, enc_loss_summary])
-
-	    for var in tf.trainable_variables():
-		tf.summary.histogram(var.op.name, var)
-        
-        if self.mode == 'adda_pretrain':
-            self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
-            
-            # logits and accuracy
-            self.logits = self.adda_content_extractor(self.images)
-            self.pred = tf.argmax(self.logits, 1)
-            self.correct_pred = tf.equal(self.pred, self.labels)
-            self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
-
-            # loss and train op
-            self.loss = slim.losses.sparse_softmax_cross_entropy(self.logits, self.labels)
-            self.optimizer = tf.train.AdamOptimizer(0.0001) 
-            self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
-            
-            # summary op
-            loss_summary = tf.summary.scalar('classification_loss', self.loss)
-            accuracy_summary = tf.summary.scalar('accuracy', self.accuracy)
-            self.summary_op = tf.summary.merge([loss_summary, accuracy_summary])
-	
-        elif self.mode == 'adda_train':
-            
-	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
-	    
-            self.fx_src = self.content_extractor(self.src_images)
-            self.fx_trg = self.adda_content_extractor(self.trg_images)
-            #~ self.fx_trg = self.content_extractor(self.trg_images, reuse=True)
-            
-	    self.logit_trg = self.adda_discriminator(self.fx_trg)
-	    self.logit_src = self.adda_discriminator(self.fx_src, reuse=True)
-	    
-	    self.d_loss_src = slim.losses.sigmoid_cross_entropy(self.logit_src, tf.ones_like(self.logit_src))
-	    self.d_loss_trg = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.zeros_like(self.logit_trg))
-	    
-	    #~ self.d_loss_src = tf.reduce_mean(tf.square(self.logit_src - tf.ones_like(self.logit_trg)))
-	    #~ self.d_loss_trg = tf.reduce_mean(tf.square(self.logit_trg - tf.zeros_like(self.logit_trg)))
-	    
-	    self.d_loss = .5 * self.d_loss_src + .5 * self.d_loss_trg
-	    
-            self.enc_loss = slim.losses.sigmoid_cross_entropy(self.logit_trg, tf.ones_like(self.logit_trg))
-            
-	    #~ self.enc_loss = tf.reduce_mean(tf.square(self.logit_trg - tf.ones_like(self.logit_trg)))
-            
-	    self.d_optimizer = tf.train.GradientDescentOptimizer(0.001)
-	    self.enc_optimizer = tf.train.AdamOptimizer(0.00001)
-	     
-	    t_vars = tf.trainable_variables()
-	    d_vars = [var for var in t_vars if 'adda_discriminator' in var.name]
-	    enc_vars = [var for var in t_vars if 'adda_content_extractor' in var.name]
-	    
-	    # train op
-	    self.d_train_op = slim.learning.create_train_op(self.d_loss, self.d_optimizer, variables_to_train=d_vars)
-	    self.enc_train_op = slim.learning.create_train_op(self.enc_loss, self.enc_optimizer, variables_to_train=enc_vars)
-	    
-	    # summary op
-	    d_loss_summary = tf.summary.scalar('d_loss', self.d_loss)
-	    enc_loss_summary = tf.summary.scalar('enc_loss', self.enc_loss)
-	    self.summary_op = tf.summary.merge([d_loss_summary, enc_loss_summary])
-
-	    for var in tf.trainable_variables():
-		tf.summary.histogram(var.op.name, var)
 	
 	elif self.mode == 'train_sampler':
 				
@@ -495,8 +336,8 @@ class DSN(object):
             self.d_loss_fake_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(2 * tf.ones([64,1]),tf.int64))
             self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) 
-            #~ self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int)
+            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 10
+            #~ self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) * 10.
 	    
             
 	    # optimizer

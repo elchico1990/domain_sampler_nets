@@ -17,7 +17,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/model-14000', pretrained_sampler='model/sampler-123000', 
+                 model_save_path='model', pretrained_model='model/model-14000', pretrained_sampler='model/sampler-21000', 
 		 test_model='model/dtn-1000', adda_model='model/adda', pretrained_adda_model='model/pre_adda-33000'):
         
         self.model = model
@@ -537,18 +537,23 @@ class Solver(object):
 		sess.run(model.g_train_op_src, feed_dict) 
 		sess.run(model.g_train_op_src, feed_dict) 
 		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.g_train_op_src, feed_dict) 
 		
 		# Forcing hidden representation of images generated from SRC to 
 	        # be close to hidden representation used as starting point
+		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
+		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
+		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
+		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
+		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
 		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
 		
 		# Training D to classufy well images generated from TRG
 		sess.run(model.d_train_op_trg, feed_dict)
 		
 		# Training G to fool D in classifying images generated from TRG
-		sess.run(model.g_train_op_trg, feed_dict)
-		sess.run(model.g_train_op_trg, feed_dict)
-		sess.run(model.g_train_op_trg, feed_dict)
 		sess.run(model.g_train_op_trg, feed_dict)
 		
 		# Forcing images generated from TRG to be close to images
