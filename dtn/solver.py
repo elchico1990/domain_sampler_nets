@@ -199,9 +199,7 @@ class Solver(object):
 		    Z_samples = utils.sample_Z(batch_size, noise_dim, 'uniform')
 
 		    feed_dict = {model.noise: Z_samples, model.images: source_images[start:end], model.labels_real: source_labels[start:end], model.labels_fake: labels_fake, model.labels_real_oh: source_labels_oh[start:end], model.labels_fake_oh: labels_fake_oh}
-
-		    #~ a,b,c,d = sess.run([model.logits_real,model.logits_fake,model.labels_real,model.labels_fake], feed_dict)
-		    		    
+	    
 		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
 		    avg_D_real = sess.run(model.logits_real, feed_dict)
 		    
@@ -214,7 +212,7 @@ class Solver(object):
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
 				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
-			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
+			print 'avg_D_fake',str(avg_D_fake[:,10].mean()),'avg_D_real',str(avg_D_real[:,10].mean())
 			
                     if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 

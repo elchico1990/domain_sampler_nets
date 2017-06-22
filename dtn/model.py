@@ -177,19 +177,19 @@ class DSN(object):
 	    #~ self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_real, labels=tf.ones_like(self.logits_real)))
 	    #~ self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_fake, labels=tf.zeros_like(self.logits_fake)))
 	    
-	    self.d_loss_real = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
-            self.d_loss_fake = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
+	    #~ self.d_loss_real = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
+            #~ self.d_loss_fake = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
            
-	    #~ self.d_loss_real = slim.losses.sparse_softmax_cross_entropy(self.logits_real, self.labels_real)
-	    #~ self.d_loss_fake = slim.losses.sparse_softmax_cross_entropy(self.logits_fake, self.labels_fake)
+	    self.d_loss_real = slim.losses.sparse_softmax_cross_entropy(self.logits_real, self.labels_real)
+	    self.d_loss_fake = slim.losses.sparse_softmax_cross_entropy(self.logits_fake, self.labels_fake)
             
 	    self.d_loss = self.d_loss_real + self.d_loss_fake
 	    
 	    #~ self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_fake, labels=tf.ones_like(self.logits_fake)))
 	    
-	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
+	    #~ self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    #~ self.g_loss = slim.losses.sparse_softmax_cross_entropy(self.logits_fake, self.labels_real)
+	    self.g_loss = slim.losses.sparse_softmax_cross_entropy(self.logits_fake, self.labels_real)
             
 	    self.d_optimizer = tf.train.AdamOptimizer(0.0001)
 	    self.g_optimizer = tf.train.AdamOptimizer(0.0001)
