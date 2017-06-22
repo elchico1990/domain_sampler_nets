@@ -319,12 +319,7 @@ class Solver(object):
             variables_to_restore = slim.get_model_variables(scope='content_extractor')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
-	                
-	    #~ print ('Loading ADDA pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='adda_content_extractor')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_adda_model)
-            
+	    
             print ('Loading sampler.')
             variables_to_restore = slim.get_model_variables(scope='sampler_generator')
             restorer = tf.train.Saver(variables_to_restore)
@@ -346,30 +341,18 @@ class Solver(object):
                 src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],11)
 		src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100,'uniform')
-		noise = utils.sample_Z(self.batch_size,100,'uniform')
 		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
                 		
-		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images, model.noise: noise}
+		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images}
 		
 		# Training D to classify well images generated from SRC
 		sess.run(model.d_train_op_src, feed_dict) 
 		
 		# Training G to fool D in classifying images generated from RSC
 		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
 		
 		# Forcing hidden representation of images generated from SRC to 
 	        # be close to hidden representation used as starting point
-		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
-		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
-		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
-		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
-		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
 		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
 		
 		# Training D to classufy well images generated from TRG
@@ -508,7 +491,7 @@ class Solver(object):
 	    
 	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:1000], model.trg_images: target_images[:1000]}
 	    
-	    src_fx, trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.fx], feed_dict)
+	    src_fx, trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.fgfx], feed_dict)
 	    
 	    src_labels = np.argmax(src_labels,1)
 	    trg_labels = np.argmax(trg_labels,1)
@@ -567,20 +550,3 @@ if __name__=='__main__':
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		    

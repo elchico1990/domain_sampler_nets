@@ -31,6 +31,7 @@ class DSN(object):
                     
 		    #~ net = slim.flatten(inputs)
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 
@@ -85,10 +86,8 @@ class DSN(object):
 			net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
 		    return net
 
-    def generator(self, inputs, noise, reuse=False):
+    def generator(self, inputs, reuse=False):
         # inputs: (batch, 1, 1, 128)
-	
-	inputs = tf.concat(axis=1, values=[inputs, noise])
 	
 	if inputs.get_shape()[1] != 1:
 	    inputs = tf.expand_dims(inputs, 1)
@@ -309,7 +308,6 @@ class DSN(object):
 	
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.noise = tf.placeholder(tf.float32, [None, 100], 'noise_generator')
             self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
 	    self.src_labels_int = tf.placeholder(tf.int64, [None], 'labels_int')
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
@@ -318,7 +316,7 @@ class DSN(object):
 	    
             # source domain (svhn to mnist)
             self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    self.fake_images = self.generator(self.fx, self.noise)
+	    self.fake_images = self.generator(self.fx)
             self.logits_real_src = self.discriminator(self.src_images)
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
 	    self.predictions = self.content_extractor(self.fake_images, make_preds=True)
@@ -332,8 +330,8 @@ class DSN(object):
             self.d_loss_fake_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(2 * tf.ones([64,1]),tf.int64))
             self.d_loss_src = self.d_loss_real_src + self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 10
-            #~ self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) * 10.
+            #~ self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx)) * 10
+            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) * 10.
 	    
             
 	    # optimizer
@@ -364,7 +362,7 @@ class DSN(object):
             
             # target domain (mnist)
             self.fx_trg = self.content_extractor(self.trg_images, reuse=True)
-            self.reconst_images_trg = self.generator(self.fx_trg, self.noise, reuse=True)
+            self.reconst_images_trg = self.generator(self.fx_trg, reuse=True)
             self.logits_fake_trg = self.discriminator(self.reconst_images_trg, reuse=True)
             self.logits_real_trg = self.discriminator(self.trg_images, reuse=True)
             
