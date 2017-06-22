@@ -228,8 +228,8 @@ class DSN(object):
 	    dummy_pred = self.content_extractor(self.src_images, make_preds=True)
 	    
             # source domain (svhn to mnist)
-            self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    #~ self.fx = self.content_extractor(self.src_images, reuse=True) # instead of extracting the hidden representation from a src image, 
+            #~ self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    self.fx = self.content_extractor(self.src_images, reuse=True) # instead of extracting the hidden representation from a src image, 
 	    self.fake_images = self.generator(self.fx)
             self.logits_real_src = self.discriminator(self.src_images)
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)

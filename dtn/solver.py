@@ -320,17 +320,17 @@ class Solver(object):
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
 	    
-            print ('Loading sampler.')
-            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_sampler)
+            #~ print ('Loading sampler.')
+            #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_sampler)
 	    
             print ('Loading generator.')
             variables_to_restore = slim.get_model_variables(scope='generator')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.test_model)
 	    
-            print ('Loading disciminator.')
+            print ('Loading discriminator.')
             variables_to_restore = slim.get_model_variables(scope='discriminator')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.test_model)
@@ -433,10 +433,18 @@ class Solver(object):
         source_images, source_labels = self.load_svhn(self.svhn_dir)
 
         with tf.Session(config=self.config) as sess:
-            # load trained parameters
-            print ('loading test model..')
-            saver = tf.train.Saver()
-            saver.restore(sess, self.test_model)
+	    
+	    
+            print ('Loading sampler.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
+	    
+            print ('Loading generator.')
+            variables_to_restore = slim.get_model_variables(scope='generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.test_model)
+	    
 
 
 	    # train model for source domain S
