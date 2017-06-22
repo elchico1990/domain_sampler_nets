@@ -12,7 +12,7 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 128
+	self.hidden_repr_size = 512
 	
     def sampler_discriminator(self, x, y, reuse=False):
 	
@@ -31,9 +31,6 @@ class DSN(object):
                     
 		    #~ net = slim.flatten(inputs)
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-		    net = slim.batch_norm(net, scope='sdisc_bn1')
-		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-		    net = slim.batch_norm(net, scope='sdisc_bn2')
 		    net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 
@@ -81,7 +78,7 @@ class DSN(object):
                     net = slim.batch_norm(net, scope='bn2')
                     net = slim.conv2d(net, 256, [3, 3], scope='conv3')     # (batch_size, 4, 4, 256)
                     net = slim.batch_norm(net, scope='bn3')
-                    net = slim.conv2d(net, 128, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
+                    net = slim.conv2d(net, self.hidden_repr_size, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
                     net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
                     net = slim.flatten(net)
 		    if (self.mode == 'pretrain' or make_preds):
@@ -329,8 +326,7 @@ class DSN(object):
 
 	    self.orig_src_fx = self.content_extractor(self.src_images, reuse=True)
 	    self.orig_trg_fx = self.content_extractor(self.trg_images, reuse=True)
-	    self.adda_trg_fx = self.adda_content_extractor(self.trg_images)
-
+	    
             # loss
 	    self.d_loss_real_src = slim.losses.sparse_softmax_cross_entropy(self.logits_real_src, tf.cast(3 * tf.ones([64,1]),tf.int64))
             self.d_loss_fake_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(2 * tf.ones([64,1]),tf.int64))
@@ -409,10 +405,3 @@ class DSN(object):
                 tf.summary.histogram(var.op.name, var)  
 	    
 	    
-	    
-	    
-	    
-	    
-	    
-
-
