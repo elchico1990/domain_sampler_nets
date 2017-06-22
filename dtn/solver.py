@@ -493,15 +493,10 @@ class Solver(object):
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
 	    
-	    #~ print ('Loading ADDA encoder.')
-            #~ variables_to_restore = slim.get_model_variables(scope='adda_content_extractor')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.adda_model)
-            
-            #~ print ('Loading sampler.')
-            #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_sampler)
+            print ('Loading sampler.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
 
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
