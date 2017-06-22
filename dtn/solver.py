@@ -442,9 +442,8 @@ class Solver(object):
 	    # train model for source domain S
 	    src_labels = utils.one_hot(source_labels[:1000],11)
 	    src_noise = utils.sample_Z(1000,100,'uniform')
-	    noise = utils.sample_Z(1000,100,'uniform')
 
-	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.noise: noise}
+	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
 	    samples = sess.run(model.sampled_images, feed_dict)
 

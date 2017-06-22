@@ -212,12 +212,11 @@ class DSN(object):
         
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.noise = tf.placeholder(tf.float32, [None, 100], 'noise_generator')
             self.src_labels = tf.placeholder(tf.float32, [None, 11], 'labels')
             
             # source domain (svhn to mnist)
             self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    self.sampled_images = self.generator(self.fx, self.noise)
+	    self.sampled_images = self.generator(self.fx)
 
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
