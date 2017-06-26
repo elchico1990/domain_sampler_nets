@@ -216,11 +216,20 @@ class DSN(object):
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
+	    alfa1 = 15
+	    alfa2 = 0
+	    beta = 15
+	    DSN = False
+	    
 	    dummy_pred = self.content_extractor(self.src_images, make_preds=True)
 	    
             # source domain (svhn to mnist)
-            self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    #~ self.fx = self.content_extractor(self.src_images, reuse=True) # instead of extracting the hidden representation from a src image, 
+            
+	    if DSN:
+		self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    else:
+		self.fx = self.content_extractor(self.src_images, reuse=True) # instead of extracting the hidden representation from a src image, 
+	    
 	    self.fake_images = self.generator(self.fx)
             self.logits_real_src = self.discriminator(self.src_images)
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
@@ -235,9 +244,9 @@ class DSN(object):
             self.d_loss_fake_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(2 * tf.ones([64,1]),tf.int64))
             self.d_loss_src = self.d_loss_fake_src  
 	    self.g_loss_src = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_src, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            #~ self.f_loss_src = tf.reduce_mean(tf.square(self.fx - self.fgfx))
-            self.f_loss_src = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) 
-	    
+            self.f_loss_src_1 = tf.reduce_mean(tf.square(self.fx - self.fgfx))
+            self.f_loss_src_2 = slim.losses.sparse_softmax_cross_entropy(self.predictions, self.src_labels_int) 
+	    self.f_loss_src = alfa1 * self.f_loss_src_1 + alfa2 * self.f_loss_src_2 
             
 	    # optimizer
             self.d_optimizer_src = tf.train.AdamOptimizer(self.learning_rate)
@@ -278,7 +287,7 @@ class DSN(object):
             self.d_loss_trg = self.d_loss_fake_trg + self.d_loss_real_trg
             
 	    self.g_loss_trg = slim.losses.sparse_softmax_cross_entropy(self.logits_fake_trg, tf.cast(0 * tf.ones([64,1]),tf.int64))
-            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg))
+            self.g_loss_const_trg = tf.reduce_mean(tf.square(self.trg_images - self.reconst_images_trg)) * beta
             
             # optimizer
             self.d_optimizer_trg = tf.train.AdamOptimizer(self.learning_rate)

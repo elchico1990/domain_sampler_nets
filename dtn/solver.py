@@ -219,83 +219,6 @@ class Solver(object):
                     if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
 
-    def train(self):
-        # load svhn dataset
-        svhn_images, _ = self.load_svhn(self.svhn_dir, split='train')
-        mnist_images, _ = self.load_mnist(self.mnist_dir, split='train')
-
-        # build a graph
-        model = self.model
-        model.build_model()
-
-        # make directory if not exists
-        if tf.gfile.Exists(self.log_dir):
-            tf.gfile.DeleteRecursively(self.log_dir)
-        tf.gfile.MakeDirs(self.log_dir)
-
-        with tf.Session(config=self.config) as sess:
-            # initialize G and D
-            tf.global_variables_initializer().run()
-            # restore variables of F
-            print ('loading pretrained model F..')
-            variables_to_restore = slim.get_model_variables(scope='content_extractor')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
-            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-            saver = tf.train.Saver()
-
-            print ('start training..!')
-            f_interval = 15
-            for step in range(self.train_iter+1):
-                
-                i = step % int(svhn_images.shape[0] / self.batch_size)
-                # train the model for source domain S
-                src_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
-                feed_dict = {model.src_images: src_images}
-                
-                sess.run(model.d_train_op_src, feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict)
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict) 
-                sess.run([model.g_train_op_src], feed_dict)
-                
-                if step > 1600:
-                    f_interval = 30
-                
-                if i % f_interval == 0:
-                    sess.run(model.f_train_op_src, feed_dict)
-                
-                if (step+1) % 10 == 0:
-                    summary, dl, gl, fl = sess.run([model.summary_op_src, \
-                        model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
-                    summary_writer.add_summary(summary, step)
-                    print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl, fl))
-                
-                # train the model for target domain T
-                j = step % int(mnist_images.shape[0] / self.batch_size)
-                trg_images = mnist_images[j*self.batch_size:(j+1)*self.batch_size]
-                feed_dict = {model.src_images: src_images, model.trg_images: trg_images}
-                sess.run(model.d_train_op_trg, feed_dict)
-                sess.run(model.d_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-                sess.run(model.g_train_op_trg, feed_dict)
-
-                if (step+1) % 10 == 0:
-                    summary, dl, gl = sess.run([model.summary_op_trg, \
-                        model.d_loss_trg, model.g_loss_trg], feed_dict)
-                    summary_writer.add_summary(summary, step)
-                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl))
-
-                if (step+1) % 200 == 0:
-                    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
-                    print ('model/dtn-%d saved' %(step+1))
-    
     def train_dsn(self):
         
 	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
@@ -327,15 +250,15 @@ class Solver(object):
             #~ restorer = tf.train.Saver(variables_to_restore)
             #~ restorer.restore(sess, self.pretrained_sampler)
 	    
-            print ('Loading generator.')
-            variables_to_restore = slim.get_model_variables(scope='generator')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.test_model)
+            #~ print ('Loading generator.')
+            #~ variables_to_restore = slim.get_model_variables(scope='generator')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.test_model)
 	    
-            print ('Loading discriminator.')
-            variables_to_restore = slim.get_model_variables(scope='discriminator')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.test_model)
+            #~ print ('Loading discriminator.')
+            #~ variables_to_restore = slim.get_model_variables(scope='discriminator')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.test_model)
 	    
 
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
@@ -363,11 +286,10 @@ class Solver(object):
 		
 		# Training G to fool D in classifying images generated from RSC
 		sess.run(model.g_train_op_src, feed_dict) 
-		sess.run(model.g_train_op_src, feed_dict) 
 		
 		# Forcing hidden representation of images generated from SRC to 
 	        # be close to hidden representation used as starting point
-		sess.run(model.f_train_op_src, feed_dict) # FORCING LABELS NOW
+		sess.run(model.f_train_op_src, feed_dict) 
 		
 		# Training D to classufy well images generated from TRG
 		sess.run(model.d_train_op_trg, feed_dict)
@@ -398,34 +320,7 @@ class Solver(object):
 
                 if (step+1) % 500 == 0:
                     saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
-        
-    def eval(self):
-        # build model
-        model = self.model
-        model.build_model()
-
-        # load svhn dataset
-        svhn_images, _ = self.load_svhn(self.svhn_dir)
-
-        with tf.Session(config=self.config) as sess:
-            # load trained parameters
-            print ('loading test model..')
-            saver = tf.train.Saver()
-            saver.restore(sess, self.test_model)
-
-            print ('start sampling..!')
-            for i in range(self.sample_iter):
-                # train model for source domain S
-                batch_images = svhn_images[i*self.batch_size:(i+1)*self.batch_size]
-                feed_dict = {model.images: batch_images}
-                sampled_batch_images = sess.run(model.sampled_images, feed_dict)
-
-                # merge and save source images and sampled target images
-                merged = self.merge_images(batch_images, sampled_batch_images)
-                path = os.path.join(self.sample_save_path, 'sample-%d-to-%d.png' %(i*self.batch_size, (i+1)*self.batch_size))
-                scipy.misc.imsave(path, merged)
-                print ('saved %s' %path)
-	    
+            
     def eval_dsn(self):
         # build model
         model = self.model
