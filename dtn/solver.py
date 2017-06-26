@@ -205,6 +205,8 @@ class Solver(object):
 		    
 		    
 		    sess.run(model.d_train_op, feed_dict)
+		    sess.run(model.d_train_op, feed_dict)
+		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
 		    if (t+1) % 100 == 0:
@@ -490,10 +492,10 @@ class Solver(object):
             #~ restorer = tf.train.Saver(variables_to_restore)
             #~ restorer.restore(sess, self.adda_model)
             
-            print ('Loading pretrained model.')
-            variables_to_restore = slim.get_model_variables(scope='content_extractor')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
+            #~ print ('Loading pretrained model.')
+            #~ variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_model)
 	    
             print ('Loading sampler.')
             variables_to_restore = slim.get_model_variables(scope='sampler_generator')

@@ -1,3 +1,4 @@
+
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
@@ -96,15 +97,17 @@ class DSN(object):
         with tf.variable_scope('generator', reuse=reuse):
             with slim.arg_scope([slim.conv2d_transpose], padding='SAME', activation_fn=tf.nn.tanh,           
                                  stride=2, weights_initializer=tf.contrib.layers.xavier_initializer()):
+                with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+                                     activation_fn=tf.tanh, is_training=(self.mode=='train_dsn')):
 
-		net = slim.conv2d_transpose(inputs, 512, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
-		net = slim.dropout(net, 0.5, scope='dropout1')
-		net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 8, 8, 256)
-		net = slim.dropout(net, 0.5, scope='dropout2')
-		net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 16, 16, 128)
-		net = slim.dropout(net, 0.5, scope='dropout3')
-		net = slim.conv2d_transpose(net, 1, [3, 3], scope='conv_transpose4')   # (batch_size, 32, 32, 1)
-		return net
+                    net = slim.conv2d_transpose(inputs, 512, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
+                    net = slim.batch_norm(net, scope='bn1')
+                    net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 8, 8, 256)
+                    net = slim.batch_norm(net, scope='bn2')
+                    net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 16, 16, 128)
+                    net = slim.batch_norm(net, scope='bn3')
+                    net = slim.conv2d_transpose(net, 1, [3, 3], scope='conv_transpose4')   # (batch_size, 32, 32, 1)
+                    return net
     
     def discriminator(self, images, reuse=False):
 	
@@ -128,7 +131,7 @@ class DSN(object):
                     net = slim.flatten(net)
 		    net = slim.fully_connected(net,3,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
                     return net
-                
+	    
     def build_model(self):
         
         if self.mode == 'pretrain':
@@ -165,26 +168,16 @@ class DSN(object):
 	    self.fx = self.content_extractor(self.images)
 	    self.fzy = self.sampler_generator(self.noise, self.labels_real_oh) 
 
-	    self.logits_real = self.sampler_discriminator(self.fx,self.labels_real_oh) 
+	    self.logits_real = self.sampler_discriminator(self.fx,self.labels_real_oh, reuse=False) 
 	    self.logits_fake = self.sampler_discriminator(self.fzy,self.labels_real_oh, reuse=True)
 	    
 	    self.pred_real = tf.argmax(self.logits_real, 1) 
 	    self.pred_fake = tf.argmax(self.logits_fake, 1) 
 	  
-	    #~ self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_real, labels=tf.ones_like(self.logits_real)))
-	    #~ self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_fake, labels=tf.zeros_like(self.logits_fake)))
-	    
-	    #~ self.d_loss_real = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
-            #~ self.d_loss_fake = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
-           
 	    self.d_loss_real = slim.losses.sparse_softmax_cross_entropy(self.logits_real, self.labels_real)
 	    self.d_loss_fake = slim.losses.sparse_softmax_cross_entropy(self.logits_fake, self.labels_fake)
             
 	    self.d_loss = self.d_loss_real + self.d_loss_fake
-	    
-	    #~ self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits_fake, labels=tf.ones_like(self.logits_fake)))
-	    
-	    #~ self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
 	    self.g_loss = slim.losses.sparse_softmax_cross_entropy(self.logits_fake, self.labels_real)
             
@@ -226,8 +219,8 @@ class DSN(object):
 	    dummy_pred = self.content_extractor(self.src_images, make_preds=True)
 	    
             # source domain (svhn to mnist)
-            #~ self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    self.fx = self.content_extractor(self.src_images, reuse=True) # instead of extracting the hidden representation from a src image, 
+            self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    #~ self.fx = self.content_extractor(self.src_images, reuse=True) # instead of extracting the hidden representation from a src image, 
 	    self.fake_images = self.generator(self.fx)
             self.logits_real_src = self.discriminator(self.src_images)
             self.logits_fake_src = self.discriminator(self.fake_images, reuse=True)
