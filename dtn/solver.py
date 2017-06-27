@@ -100,14 +100,6 @@ class Solver(object):
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
 	    
-	    
-	    
-	    #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='content_extractor')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_model)
-	    
-	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
 	    epochs = 200
@@ -148,7 +140,7 @@ class Solver(object):
 	print 'Training sampler.'
         # load svhn dataset
         source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	source_labels_oh = utils.one_hot(source_labels, 11)
+	source_labels = utils.one_hot(source_labels, 10)
 	
 	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
 	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
@@ -171,7 +163,7 @@ class Solver(object):
             tf.global_variables_initializer().run()
             # restore variables of F
             print ('Loading pretrained model.')
-            variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            variables_to_restore = slim.get_model_variables(scope='encoder')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
             # restore variables of F
@@ -184,10 +176,6 @@ class Solver(object):
 		 	    
 	    t = 0
 	    
-	    labels_fake_oh = np.zeros((batch_size,11))
-	    labels_fake_oh[:,10] = 1
-	    labels_fake = np.argmax(labels_fake_oh,1)
-	    
 	    for i in range(epochs):
 		
 		#~ print 'Epoch',str(i)
@@ -198,11 +186,12 @@ class Solver(object):
 
 		    Z_samples = utils.sample_Z(batch_size, noise_dim, 'uniform')
 
-		    feed_dict = {model.noise: Z_samples, model.images: source_images[start:end], model.labels_real: source_labels[start:end], model.labels_fake: labels_fake, model.labels_real_oh: source_labels_oh[start:end], model.labels_fake_oh: labels_fake_oh}
+		    feed_dict = {model.noise: Z_samples, model.images: source_images[start:end], model.labels: source_labels[start:end]}
 	    
 		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
 		    avg_D_real = sess.run(model.logits_real, feed_dict)
 		    
+		    #~ a,b,c,d = sess.run([model.logits_fake,model.logits_real,model.labels_fake,model.labels_real], feed_dict)
 		    
 		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
@@ -212,7 +201,7 @@ class Solver(object):
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
 				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
-			print 'avg_D_fake',str(avg_D_fake[:,10].mean()),'avg_D_real',str(avg_D_real[:,10].mean())
+			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
                     if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
@@ -379,16 +368,11 @@ class Solver(object):
         with tf.Session(config=self.config) as sess:
             # initialize G and D
             tf.global_variables_initializer().run()
-            # restore variables of F
-            #~ print ('Loading ADDA encoder.')
-            #~ variables_to_restore = slim.get_model_variables(scope='target_encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.adda_model)
-            
-            #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='content_extractor')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_model)
+	    
+            print ('Loading pretrained model.')
+            variables_to_restore = slim.get_model_variables(scope='encoder')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_model)
 	    
             print ('Loading sampler.')
             variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -403,8 +387,8 @@ class Solver(object):
             saver = tf.train.Saver()
 
    
-	    src_labels = utils.one_hot(source_labels[:500],11)
-	    trg_labels = utils.one_hot(target_labels[:500],11)
+	    src_labels = utils.one_hot(source_labels[:500],10)
+	    trg_labels = utils.one_hot(target_labels[:500],10)
 	    src_noise = utils.sample_Z(500,100,'uniform')
 	    
 	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:500], model.trg_images: target_images[:500]}
@@ -419,32 +403,32 @@ class Solver(object):
 	    model = TSNE(n_components=2, random_state=0)
 
 	    print '4'
-	    TSNE_hA_4 = model.fit_transform(np.vstack((src_fx,fx,trg_fx)))
+	    TSNE_hA_4 = model.fit_transform(np.vstack((src_fx,fx)))
 
-	    print '5'
-	    TSNE_hA_5 = model.fit_transform(np.vstack((src_fx,fgfx,trg_fx)))
+	    #~ print '5'
+	    #~ TSNE_hA_5 = model.fit_transform(np.vstack((src_fx,fgfx,trg_fx)))
 
-	    print '6'
-	    TSNE_hA_6 = model.fit_transform(np.vstack((fx,fgfx)))
-		    
-	    plt.figure(4)
-	    plt.scatter(TSNE_hA_6[:,0], TSNE_hA_6[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
-	    
-	    plt.figure(5)
-	    plt.scatter(TSNE_hA_6[:,0], TSNE_hA_6[:,1], c = np.hstack((src_labels,src_labels)))
-		    
+	    #~ print '6'
+	    #~ TSNE_hA_6 = model.fit_transform(np.vstack((fx,fgfx)))
+		   
 	    plt.figure(6)
-	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)), 3 * np.ones((500,)))))
+	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
 	    
 	    plt.figure(7)
-	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
+	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((src_labels,src_labels)))
 		    
-	    plt.figure(8)
-	    plt.scatter(TSNE_hA_5[:,0], TSNE_hA_5[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)), 3 * np.ones((500,)))))
+	    #~ plt.figure(8)
+	    #~ plt.scatter(TSNE_hA_5[:,0], TSNE_hA_5[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)), 3 * np.ones((500,)))))
 	    
-	    plt.figure(9)
-	    plt.scatter(TSNE_hA_5[:,0], TSNE_hA_5[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
-		    
+	    #~ plt.figure(9)
+	    #~ plt.scatter(TSNE_hA_5[:,0], TSNE_hA_5[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
+		  
+	    #~ plt.figure(10)
+	    #~ plt.scatter(TSNE_hA_6[:,0], TSNE_hA_6[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
+	    
+	    #~ plt.figure(11)
+	    #~ plt.scatter(TSNE_hA_6[:,0], TSNE_hA_6[:,1], c = np.hstack((src_labels,src_labels)))
+		       
 	    plt.show()
 
 if __name__=='__main__':
