@@ -168,10 +168,10 @@ class Solver(object):
             restorer.restore(sess, self.pretrained_model)
             # restore variables of F
 	    
-            print ('Loading sampler.')
-            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_sampler)
+            #~ print ('Loading sampler.')
+            #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_sampler)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
@@ -358,62 +358,38 @@ class Solver(object):
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_sampler)
 	    
-            #~ print ('Loading test model.')
-            #~ saver = tf.train.Saver()
-            #~ saver.restore(sess, self.test_model)
-
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
    
 	    src_labels = utils.one_hot(source_labels[:1000],10)
-	    trg_labels = utils.one_hot(target_labels[:1000],10)
 	    src_noise = utils.sample_Z(1000,100,'uniform')
 	    
-	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:1000], model.trg_images: target_images[:1000]}
 	    
-	    src_fx, trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.fzy], feed_dict)
+	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:1000]}
+	    
+	    fx, fx_src = sess.run([model.fx, model.fx_src], feed_dict)
 	    
 	    src_labels = np.argmax(src_labels,1)
-	    trg_labels = np.argmax(trg_labels,1)
 
 	    print 'Computing T-SNE.'
 
 	    model = TSNE(n_components=2, random_state=0)
 
-	    print '4'
-	    TSNE_hA_4 = model.fit_transform(np.vstack((src_fx,fx)))
-
-	    #~ print '5'
-	    #~ TSNE_hA_5 = model.fit_transform(np.vstack((src_fx,fgfx,trg_fx)))
-
-	    #~ print '6'
-	    #~ TSNE_hA_6 = model.fit_transform(np.vstack((fx,fgfx)))
+	    TSNE_hA = model.fit_transform(np.vstack((fx_src,fx)))
 		   
-	    plt.figure(6)
-	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((np.ones((1000,)), 2 * np.ones((1000,)))))
+	    plt.figure(0)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((1000,)), 2 * np.ones((1000,)))))
 	    
-	    plt.figure(7)
-	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((src_labels,src_labels)))
+	    plt.figure(1)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)))
 		    
-	    #~ plt.figure(8)
-	    #~ plt.scatter(TSNE_hA_5[:,0], TSNE_hA_5[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)), 3 * np.ones((500,)))))
-	    
-	    #~ plt.figure(9)
-	    #~ plt.scatter(TSNE_hA_5[:,0], TSNE_hA_5[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
-		  
-	    #~ plt.figure(10)
-	    #~ plt.scatter(TSNE_hA_6[:,0], TSNE_hA_6[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
-	    
-	    #~ plt.figure(11)
-	    #~ plt.scatter(TSNE_hA_6[:,0], TSNE_hA_6[:,1], c = np.hstack((src_labels,src_labels)))
-		       
 	    plt.show()
 
 if __name__=='__main__':
 
     from model import DSN
-    model = DSN(mode='train_dsn', learning_rate=0.0003)
+    model = DSN(mode='eval_dsn', learning_rate=0.0003)
     solver = Solver(model)
     solver.check_TSNE()
 

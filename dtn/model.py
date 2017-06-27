@@ -20,8 +20,8 @@ class DSN(object):
 	
 	#~ x = tf.reshape(x,[-1,128])
 	
-	#~ inputs = tf.concat(axis=1, values=[x, tf.cast(y,tf.float32)])
-	inputs = x
+	inputs = tf.concat(axis=1, values=[x, tf.cast(y,tf.float32)])
+	#~ inputs = x
 	
 	
 	    
@@ -45,8 +45,8 @@ class DSN(object):
 	in equal ratios.  
 	'''
 	
-	#~ inputs = tf.concat(axis=1, values=[z, tf.cast(y,tf.float32)])
-	inputs = z
+	inputs = tf.concat(axis=1, values=[z, tf.cast(y,tf.float32)])
+	#~ inputs = z
 	
 	with tf.variable_scope('sampler_generator', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
@@ -98,7 +98,7 @@ class DSN(object):
                     
 		    #~ net = slim.flatten(inputs)
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-		    net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
+		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 	    
     def G(self, inputs, reuse=False):
@@ -143,7 +143,7 @@ class DSN(object):
                     net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 4, 4, 512)
                     net = slim.batch_norm(net, scope='bn3')
                     net = slim.flatten(net)
-		    net = slim.fully_connected(net,3,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
+		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
                     return net
 	    
     def build_model(self):
@@ -217,9 +217,11 @@ class DSN(object):
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images')
             
             # source domain (svhn to mnist)
             self.fx = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+            self.fx_src = self.E(self.src_images) # instead of extracting the hidden representation from a src image, 
 	    self.sampled_images = self.G(self.fx)
 
 	elif self.mode == 'train_dsn':
@@ -248,7 +250,7 @@ class DSN(object):
 	    
 	    self.DE_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_E_real, tf.ones_like(self.logits_E_real))
 	    self.DE_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_E_fake, tf.zeros_like(self.logits_E_fake))
-	    self.DE_loss = self.DE_loss_real + self.DE_loss_real 
+	    self.DE_loss = self.DE_loss_real + self.DE_loss_fake 
 	    self.E_loss = slim.losses.sigmoid_cross_entropy(self.logits_E_fake, tf.ones_like(self.logits_E_fake))
 	    
 	    # G losses
