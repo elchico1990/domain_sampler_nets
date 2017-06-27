@@ -387,11 +387,11 @@ class Solver(object):
             saver = tf.train.Saver()
 
    
-	    src_labels = utils.one_hot(source_labels[:500],10)
-	    trg_labels = utils.one_hot(target_labels[:500],10)
-	    src_noise = utils.sample_Z(500,100,'uniform')
+	    src_labels = utils.one_hot(source_labels[:1000],10)
+	    trg_labels = utils.one_hot(target_labels[:1000],10)
+	    src_noise = utils.sample_Z(1000,100,'uniform')
 	    
-	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:500], model.trg_images: target_images[:500]}
+	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:1000], model.trg_images: target_images[:1000]}
 	    
 	    src_fx, trg_fx, fgfx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.fgfx, model.fx], feed_dict)
 	    
@@ -412,7 +412,7 @@ class Solver(object):
 	    #~ TSNE_hA_6 = model.fit_transform(np.vstack((fx,fgfx)))
 		   
 	    plt.figure(6)
-	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
+	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((np.ones((1000,)), 2 * np.ones((1000,)))))
 	    
 	    plt.figure(7)
 	    plt.scatter(TSNE_hA_4[:,0], TSNE_hA_4[:,1], c = np.hstack((src_labels,src_labels)))
