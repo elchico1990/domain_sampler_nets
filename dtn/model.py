@@ -14,7 +14,7 @@ class DSN(object):
         self.mode = mode
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 512
-	
+    
     def sampler_discriminator(self, x, y, reuse=False):
 	
 	
@@ -31,7 +31,6 @@ class DSN(object):
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    #~ net = slim.flatten(inputs)
-		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
@@ -59,8 +58,7 @@ class DSN(object):
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
 		    net = slim.batch_norm(net, scope='sgen_bn2')
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
-		    return net
-     
+		    return net 
     def content_extractor(self, images, reuse=False, make_preds=False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
@@ -216,10 +214,10 @@ class DSN(object):
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
-	    alfa1 = 15
-	    alfa2 = 0
-	    beta = 15
-	    DSN = False
+	    alfa1 = 0.1
+	    alfa2 = 0.1
+	    beta = 1
+	    DSN = True
 	    
 	    dummy_pred = self.content_extractor(self.src_images, make_preds=True)
 	    

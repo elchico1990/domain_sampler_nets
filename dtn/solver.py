@@ -205,8 +205,6 @@ class Solver(object):
 		    
 		    
 		    sess.run(model.d_train_op, feed_dict)
-		    sess.run(model.d_train_op, feed_dict)
-		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
 		    if (t+1) % 100 == 0:
@@ -397,9 +395,9 @@ class Solver(object):
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_sampler)
 	    
-            print ('Loading test model.')
-            saver = tf.train.Saver()
-            saver.restore(sess, self.test_model)
+            #~ print ('Loading test model.')
+            #~ saver = tf.train.Saver()
+            #~ saver.restore(sess, self.test_model)
 
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
@@ -452,7 +450,7 @@ class Solver(object):
 if __name__=='__main__':
 
     from model import DSN
-    model = DSN(mode='eval_dsn', learning_rate=0.0003)
+    model = DSN(mode='train_dsn', learning_rate=0.0003)
     solver = Solver(model)
     solver.check_TSNE()
 
