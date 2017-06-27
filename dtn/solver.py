@@ -154,7 +154,7 @@ class Solver(object):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 	
-	batch_size = 64
+	batch_size = self.batch_size
 	noise_dim = 100
 	epochs = 300
 
@@ -167,6 +167,11 @@ class Solver(object):
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
             # restore variables of F
+	    
+            print ('Loading sampler.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
@@ -227,25 +232,15 @@ class Solver(object):
             tf.global_variables_initializer().run()
             # restore variables of F
             
-            print ('Loading pretrained model F.')
-            variables_to_restore = slim.get_model_variables(scope='content_extractor')
+            print ('Loading pretrained encoder.')
+            variables_to_restore = slim.get_model_variables(scope='encoder')
             restorer = tf.train.Saver(variables_to_restore)
             restorer.restore(sess, self.pretrained_model)
 	    
-            #~ print ('Loading sampler.')
-            #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_sampler)
-	    
-            #~ print ('Loading generator.')
-            #~ variables_to_restore = slim.get_model_variables(scope='generator')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.test_model)
-	    
-            #~ print ('Loading discriminator.')
-            #~ variables_to_restore = slim.get_model_variables(scope='discriminator')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.test_model)
+            print ('Loading sample generator.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
 	    
 
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
@@ -261,49 +256,29 @@ class Solver(object):
                 j = step % int(target_images.shape[0] / self.batch_size)
                 
 		src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
-                src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],11)
+                src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],10)
 		src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
 		
-		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.src_labels_int: src_labels_int, model.trg_images: trg_images}
+		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
-		# Training D to classify well images generated from SRC
-		sess.run(model.d_train_op_src, feed_dict) 
+		sess.run(model.E_train_op, feed_dict) 
 		
-		# Training G to fool D in classifying images generated from RSC
-		sess.run(model.g_train_op_src, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict) 
 		
-		# Forcing hidden representation of images generated from SRC to 
-	        # be close to hidden representation used as starting point
-		sess.run(model.f_train_op_src, feed_dict) 
+		sess.run(model.G_train_op, feed_dict) 
 		
-		# Training D to classufy well images generated from TRG
-		sess.run(model.d_train_op_trg, feed_dict)
+		sess.run(model.DG_train_op, feed_dict) 
 		
-		# Training G to fool D in classifying images generated from TRG
-		sess.run(model.g_train_op_trg, feed_dict)
-		
-		# Forcing images generated from TRG to be close to images
-		# used as starting point
-		sess.run(model.g_train_op_const_trg, feed_dict)
-		
+		sess.run(model.const_train_op, feed_dict) 
 		
                 if (step+1) % 10 == 0:
 		    
-		    summary, dl, gl, fl = sess.run([model.summary_op_src, \
-                        model.d_loss_src, model.g_loss_src, model.f_loss_src], feed_dict)
+		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
                     summary_writer.add_summary(summary, step)
-                    print ('[Source] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] f_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl, fl))
-                
-                    summary, dl, gl, cl = sess.run([model.summary_op_trg, \
-                        model.d_loss_trg, model.g_loss_trg, model.g_loss_const_trg], feed_dict)
-                    summary_writer.add_summary(summary, step)
-                    print ('[Target] step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f] const_loss: [%.6f]' \
-                               %(step+1, self.train_iter, dl, gl, cl))
-
-
+                    print ('Step: [%d/%d] D: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f]' \
+                               %(step+1, self.train_iter, E, DE, G, DG, cnst))
 
                 if (step+1) % 500 == 0:
                     saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
@@ -393,7 +368,7 @@ class Solver(object):
 	    
 	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:1000], model.trg_images: target_images[:1000]}
 	    
-	    src_fx, trg_fx, fgfx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.fgfx, model.fx], feed_dict)
+	    src_fx, trg_fx, fx = sess.run([model.orig_src_fx, model.orig_trg_fx, model.fzy], feed_dict)
 	    
 	    src_labels = np.argmax(src_labels,1)
 	    trg_labels = np.argmax(trg_labels,1)
