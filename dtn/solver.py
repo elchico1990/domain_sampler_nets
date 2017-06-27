@@ -270,6 +270,10 @@ class Solver(object):
 		sess.run(model.G_train_op, feed_dict) 
 		
 		sess.run(model.DG_train_op, feed_dict) 
+		sess.run(model.DG_train_op, feed_dict) 
+		sess.run(model.DG_train_op, feed_dict) 
+		sess.run(model.DG_train_op, feed_dict) 
+		sess.run(model.DG_train_op, feed_dict) 
 		
 		sess.run(model.const_train_op, feed_dict) 
 		
