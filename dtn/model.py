@@ -43,7 +43,7 @@ class DSN(object):
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
-    def E(self, images, reuse=False, make_preds=False):
+    def E(self, images, reuse=False, make_preds=False, is_training = False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
         if images.get_shape()[3] == 1:
@@ -54,7 +54,7 @@ class DSN(object):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=(self.mode=='pretrain')):
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='pretrain' and is_training == True)):
                     
                     net = slim.conv2d(images, 64, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
                     net = slim.batch_norm(net, scope='bn1')
@@ -67,6 +67,32 @@ class DSN(object):
                     net = slim.flatten(net)
 		    if (self.mode == 'pretrain' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
+		    return net
+		    
+    def E_ADDA(self, images, reuse=False, make_preds=False, is_training = False):
+        # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
+        
+        if images.get_shape()[3] == 1:
+            # For mnist dataset, replicate the gray scale image 3 times.
+            images = tf.image.grayscale_to_rgb(images)
+        
+        with tf.variable_scope('encoder', reuse=reuse):
+            with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
+                                 stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
+                with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='pretrain_ADDA' and is_training == True)):
+                    
+                    net = slim.conv2d(images, 64, [3, 3], scope='conv1_ADDA')   # (batch_size, 16, 16, 64)
+                    net = slim.batch_norm(net, scope='bn1_ADDA')
+                    net = slim.conv2d(net, 128, [3, 3], scope='conv2_ADDA')     # (batch_size, 8, 8, 128)
+                    net = slim.batch_norm(net, scope='bn2_ADDA')
+                    net = slim.conv2d(net, 256, [3, 3], scope='conv3_ADDA')     # (batch_size, 4, 4, 256)
+                    net = slim.batch_norm(net, scope='bn3_ADDA')
+                    net = slim.conv2d(net, self.hidden_repr_size, [4, 4], padding='VALID', scope='conv4_ADDA')   # (batch_size, 1, 1, 128)
+                    net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4_ADDA')
+                    net = slim.flatten(net)
+		    if (self.mode == 'pretrain_ADDA' or make_preds):
+			net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out_ADDA')
 		    return net
 		    
     def D_e(self, inputs, y, reuse=False):
@@ -134,17 +160,24 @@ class DSN(object):
     def build_model(self):
         
         if self.mode == 'pretrain':
-            self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+            self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
+            self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
             
-            # logits and accuracy
-            self.logits = self.E(self.images)
-            self.pred = tf.argmax(self.logits, 1)
-            self.correct_pred = tf.equal(self.pred, self.labels)
-            self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
+            # logits and accuracy - src
+            self.src_logits = self.E(self.src_images, is_training = True)
+            self.src_pred = tf.argmax(self.src_logits, 1)
+            self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
+            self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
+            
+            # logits and accuracy - trg
+            self.trg_logits = self.E(self.trg_images, reuse=True)
+            self.trg_pred = tf.argmax(self.trg_logits, 1)
+            self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
+            self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 
-            # loss and train op
-            self.loss = slim.losses.sparse_softmax_cross_entropy(self.logits, self.labels)
+            self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
             self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
 	    
@@ -152,8 +185,9 @@ class DSN(object):
             
             # summary op
             loss_summary = tf.summary.scalar('classification_loss', self.loss)
-            accuracy_summary = tf.summary.scalar('accuracy', self.accuracy)
-            self.summary_op = tf.summary.merge([loss_summary, accuracy_summary])
+            src_accuracy_summary = tf.summary.scalar('src_accuracy', self.src_accuracy)
+            trg_accuracy_summary = tf.summary.scalar('trg_accuracy', self.trg_accuracy)
+            self.summary_op = tf.summary.merge([loss_summary, src_accuracy_summary, trg_accuracy_summary])
 	
 	elif self.mode == 'train_sampler':
 				
@@ -209,7 +243,6 @@ class DSN(object):
             self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
             self.fx_src = self.E(self.src_images) # instead of extracting the hidden representation from a src image, 
             self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
-	    #~ self.sampled_images = self.G(self.fx)
 
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
@@ -222,7 +255,6 @@ class DSN(object):
 	    dummy_pred = self.E(self.src_images, make_preds=True)
 	    
 	    self.orig_src_fx = self.E(self.src_images, reuse=True)
-	    
 	    
 	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
 	    self.fx = self.E(self.images, reuse=True)
