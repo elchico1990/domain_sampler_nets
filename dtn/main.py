@@ -15,21 +15,21 @@ def main(_):
     
     # create directories if not exist
     if not tf.gfile.Exists(FLAGS.model_save_path):
-        tf.gfile.MakeDirs(FLAGS.model_save_path)
+	    tf.gfile.MakeDirs(FLAGS.model_save_path)
     if not tf.gfile.Exists(FLAGS.sample_save_path):
-        tf.gfile.MakeDirs(FLAGS.sample_save_path)
+	    tf.gfile.MakeDirs(FLAGS.sample_save_path)
     
-    if FLAGS.mode == 'pretrain':
-        solver.pretrain()
+    if FLAGS.mode == 'pretrain' or FLAGS.mode == 'pretrain_ADDA':
+	    solver.pretrain()
     elif FLAGS.mode == 'train_sampler':
-        solver.train_sampler()
+	    solver.train_sampler()
     elif FLAGS.mode == 'train_dsn':
-        solver.train_dsn()
+	    solver.train_dsn()
     elif FLAGS.mode == 'eval_dsn':
-        solver.eval_dsn()
+	    solver.eval_dsn()
     else:
-		print 'Unrecognized mode.'
-        
+	    print 'Unrecognized mode.'
+	
         
 if __name__ == '__main__':
     tf.app.run()
