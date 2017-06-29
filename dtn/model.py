@@ -76,7 +76,7 @@ class DSN(object):
             # For mnist dataset, replicate the gray scale image 3 times.
             images = tf.image.grayscale_to_rgb(images)
         
-        with tf.variable_scope('encoder_ADDA', reuse=reuse):
+        with tf.variable_scope('e_ADDA', reuse=reuse):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
@@ -180,6 +180,7 @@ class DSN(object):
 		self.trg_logits = self.E_ADDA(self.trg_images, is_training = True, reuse=True)
             else:
 		self.trg_logits = self.E(self.trg_images, is_training = True, reuse=True)
+		
 	    self.trg_pred = tf.argmax(self.trg_logits, 1)
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
@@ -188,8 +189,6 @@ class DSN(object):
             self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
 	    
-	    
-            
             # summary op
             loss_summary = tf.summary.scalar('classification_loss', self.loss)
             src_accuracy_summary = tf.summary.scalar('src_accuracy', self.src_accuracy)
@@ -350,53 +349,55 @@ class DSN(object):
 	
 	elif self.mode == 'train_ADDA':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+            self.src_labels = tf.placeholder(tf.float32, [None, 10], 'src_labels')
+            self.trg_labels = tf.placeholder(tf.float32, [None, 10], 'trg_labels')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'src_svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'trg_mnist_images')
 	    
 	    self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
 	    
-	    dummy_pred = self.E(self.src_images, make_preds=True)
-	    dummy_pred = self.E_ADDA(self.trg_images, make_preds=True)
-	    
-	    
-	    self.fx_src = self.E(self.trg_images, reuse=True)   
-	    self.fx_trg = self.E_ADDA(self.src_images, reuse=True)
+	    self.fx_src = self.E(self.trg_images)   
+	    self.fx_trg = self.E_ADDA(self.src_images)
 	    
 	    # E losses
 	    
 	    self.logits_E_real = self.D_e(self.fx_src, self.src_labels)
 	    self.logits_E_fake = self.D_e(self.fx_trg, self.trg_labels, reuse=True)
-	
-	    self.DE_loss_real = tf.reduce_mean(tf.square(self.logits_E_real - tf.ones_like(self.logits_E_real)))
-	    self.DE_loss_fake = tf.reduce_mean(tf.square(self.logits_E_fake - tf.zeros_like(self.logits_E_fake)))
+
+
+	    self.DE_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_E_real, tf.ones_like(self.logits_E_real))
+	    self.DE_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_E_fake, tf.zeros_like(self.logits_E_fake))
+	    #~ self.DE_loss_real = tf.reduce_mean(tf.square(self.logits_E_real - tf.ones_like(self.logits_E_real)))
+	    #~ self.DE_loss_fake = tf.reduce_mean(tf.square(self.logits_E_fake - tf.zeros_like(self.logits_E_fake)))
 	    
 	    self.DE_loss = self.DE_loss_real + self.DE_loss_fake 
+
+	    self.E_loss = slim.losses.sigmoid_cross_entropy(self.logits_E_fake, tf.ones_like(self.logits_E_fake))
+	    #~ self.E_loss = tf.reduce_mean(tf.square(self.logits_E_fake - tf.ones_like(self.logits_E_fake)))
 	    
-	    self.E_loss = tf.reduce_mean(tf.square(self.logits_E_fake - tf.ones_like(self.logits_E_fake)))
 	    
-	  
 	    # Optimizers
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10)
             
             t_vars = tf.trainable_variables()
-            E_vars = [var for var in t_vars if 'encoder' in var.name]
+            E_vars = [var for var in t_vars if 'e_ADDA' in var.name]
             DE_vars = [var for var in t_vars if 'disc_e' in var.name]
             
             # train op
             with tf.variable_scope('training_op',reuse=False):
                 self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
                 self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
-                
+	    
             # summary op
             E_loss_summary = tf.summary.scalar('E_loss', self.E_loss)
             DE_loss_summary = tf.summary.scalar('DE_loss', self.DE_loss)
             self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary])
             
-
+	    
             for var in tf.trainable_variables():
                 tf.summary.histogram(var.op.name, var)  
+	    
 	    
 	    
