@@ -8,7 +8,7 @@ import cPickle
 
 
 class DSN(object):
-    """Domain Sampler Network
+    """Domain Sampler Net
     """
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
