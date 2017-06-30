@@ -227,6 +227,11 @@ class DSN(object):
 	    self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
 	    
+	    #~ self.images = self.trg_images
+	    #~ self.labels = self.trg_labels
+	    
+	    
+	    
 	    self.orig_src_fx = self.E(self.src_images, reuse=True)
 	    
 	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 

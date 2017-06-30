@@ -20,7 +20,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/model_9000', pretrained_sampler='model/sampler_28000', 
+                 model_save_path='model', pretrained_model='model/model_20000', pretrained_sampler='model/sampler_28000', 
 		 test_model='model/dtn'):
         
         self.model = model
@@ -264,6 +264,8 @@ class Solver(object):
 		G_loss = 1.
 		DG_loss = 1.
 		
+		self.train_iter = 10000000
+		
 		for step in range(self.train_iter+1):
 		    
 		    trg_count += 1
@@ -464,7 +466,7 @@ class Solver(object):
 		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
 	
-		#~ time.sleep(30)
+		time.sleep(50)
 		    
 if __name__=='__main__':
 
