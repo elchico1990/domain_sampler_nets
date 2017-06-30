@@ -133,8 +133,8 @@ class DSN(object):
     def build_model(self):
         
         if self.mode == 'pretrain' or self.mode == 'test':
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
             
@@ -162,7 +162,7 @@ class DSN(object):
 	
 	elif self.mode == 'train_sampler':
 				
-	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
 	    self.labels = tf.placeholder(tf.int64, [None, 10], 'labels_real')
 	    
@@ -218,13 +218,13 @@ class DSN(object):
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
-	    self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
+	    self.images = tf.concat(axis=0, values=[tf.image.grayscale_to_rgb(self.src_images), self.trg_images])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
 	    
 	    #~ self.images = self.trg_images

@@ -20,7 +20,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/model_20000', pretrained_sampler='model/sampler_28000', 
+                 model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn'):
         
         self.model = model
@@ -90,11 +90,11 @@ class Solver(object):
 
     def pretrain(self):
         # load svhn dataset
-        src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-        src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+        src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+        src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
 
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+        trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='train')
+        trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
 
         # build a graph
         model = self.model
@@ -148,7 +148,7 @@ class Solver(object):
 	
 	print 'Training sampler.'
         # load svhn dataset
-        source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+        source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	source_labels = utils.one_hot(source_labels, 10)
 	
 	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
@@ -217,9 +217,9 @@ class Solver(object):
 
     def train_dsn(self):
         
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
 	
 
         # build a graph
@@ -353,9 +353,9 @@ class Solver(object):
 
     def check_TSNE(self):
 	
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
 	
 
         # build a graph
@@ -424,11 +424,11 @@ class Solver(object):
     def test(self):
 	
 	# load svhn dataset
-	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+	src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
 
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
 
 	# build a graph
 	model = self.model
