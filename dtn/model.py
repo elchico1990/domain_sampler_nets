@@ -73,7 +73,8 @@ class DSN(object):
 	
 	#~ x = tf.reshape(x,[-1,128])
 	
-	inputs = tf.concat(axis=1, values=[inputs, tf.cast(y,tf.float32)])
+	if self.mode == 'train_sampler':
+	    inputs = tf.concat(axis=1, values=[inputs, tf.cast(y,tf.float32)])
 	
 	
 	with tf.variable_scope('disc_e',reuse=reuse):
@@ -139,21 +140,13 @@ class DSN(object):
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
             
-            # logits and accuracy - src
-            #~ if self.mode == 'pretrain_ADDA':
-		#~ self.src_logits = self.E_ADDA(self.src_images, is_training = True)
-            #~ else:
 	    self.src_logits = self.E(self.src_images, is_training = True)
 		
 	    self.src_pred = tf.argmax(self.src_logits, 1)
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
             
-            # logits and accuracy - trg
-            #~ if self.mode == 'pretrain_ADDA':
-		#~ self.trg_logits = self.E_ADDA(self.trg_images, is_training = True, reuse=True)
-            #~ else:
-	    self.trg_logits = self.E(self.trg_images, is_training = True, reuse=True)
+            self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
 		
 	    self.trg_pred = tf.argmax(self.trg_logits, 1)
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)

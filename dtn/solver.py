@@ -10,6 +10,7 @@ import cPickle
 import time
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 import utils
 
@@ -19,7 +20,7 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/model_54000', pretrained_sampler='model/sampler', 
+                 model_save_path='model', pretrained_model='model/model_9000', pretrained_sampler='model/sampler_28000', 
 		 test_model='model/dtn'):
         
         self.model = model
@@ -110,7 +111,7 @@ class Solver(object):
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-	    epochs = 10
+	    epochs = 100
 	    
 	    t = 0
 
@@ -142,49 +143,6 @@ class Solver(object):
 		    if (t+1) % 1000 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
-
-    def test(self):
-	
-	# load svhn dataset
-	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
-
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-
-	# build a graph
-	model = self.model
-	model.build_model()
-		
-	self.config = tf.ConfigProto(device_count = {'GPU': 0})
-	
-	with tf.Session(config=self.config) as sess:
-	    tf.global_variables_initializer().run()
-	    saver = tf.train.Saver()
-	    
-	    t = 0
-	    
-	    while(True):
-		
-		print ('Loading pretrained model.')
-		variables_to_restore = slim.get_model_variables(scope='encoder')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
-		
-		t+=1
-    
-		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
-		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-						  model.src_labels: src_test_labels[src_rand_idxs],
-						  model.trg_images: trg_test_images[trg_rand_idxs], 
-						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-		print ('Step: [%d/%d] src test acc [%.2f] trg test acc [%.2f]' \
-			   %(t+1, self.pretrain_iter, test_src_acc, test_trg_acc))
-	
-		time.sleep(30)
-		    
 	    
     def train_sampler(self):
 	
@@ -323,7 +281,6 @@ class Solver(object):
 		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		    
 		    sess.run(model.E_train_op, feed_dict) 
-		    
 		    sess.run(model.DE_train_op, feed_dict) 
 		    
 		    #~ if G_loss > 0.25:
@@ -419,7 +376,7 @@ class Solver(object):
             print ('Loading pretrained model.')
             variables_to_restore = slim.get_model_variables(scope='encoder')
             restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.test_model)
+            restorer.restore(sess, self.pretrained_model)
 	    
             
             print ('Loading sampler.')
@@ -451,16 +408,64 @@ class Solver(object):
 	    TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
 	    #~ TSNE_hA = model.fit_transform(np.vstack((fx_src,fx_trg)))
 		   
+	  
 	    plt.figure(2)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=1)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
 	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
 	    
 	    plt.figure(3)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels,trg_labels)), s=1)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
 	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,trg_labels)))
-		    
+		        
 	    plt.show()
 
+    def test(self):
+	
+	# load svhn dataset
+	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
+	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+
+	# build a graph
+	model = self.model
+	model.build_model()
+		
+	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	
+	with tf.Session(config=self.config) as sess:
+	    tf.global_variables_initializer().run()
+	    saver = tf.train.Saver()
+	    
+	    t = 0
+	    
+	    while(True):
+		
+		print ('Loading pretrained model.')
+		variables_to_restore = slim.get_model_variables(scope='encoder')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.pretrained_model)
+		
+		t+=1
+    
+		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
+		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
+		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
+				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
+						  model.src_labels: src_test_labels[src_rand_idxs],
+						  model.trg_images: trg_test_images[trg_rand_idxs], 
+						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
+								  model.src_labels: src_labels[:20000],
+						                  model.trg_images: trg_test_images[trg_rand_idxs], 
+								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+						  
+		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
+			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
+	
+		#~ time.sleep(30)
+		    
 if __name__=='__main__':
 
     from model import DSN
