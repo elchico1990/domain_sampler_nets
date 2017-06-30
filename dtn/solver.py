@@ -7,6 +7,8 @@ import scipy.io
 import scipy.misc
 import cPickle
 
+import time
+
 import matplotlib.pyplot as plt
 
 import utils
@@ -17,8 +19,8 @@ class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
-		 test_model='model/dtn', model_ADDA='model/ADDA', pretrained_model_ADDA='model/model_ADDA'):
+                 model_save_path='model', pretrained_model='model/model_54000', pretrained_sampler='model/sampler', 
+		 test_model='model/dtn'):
         
         self.model = model
         self.batch_size = batch_size
@@ -34,8 +36,6 @@ class Solver(object):
         self.pretrained_model = pretrained_model
 	self.pretrained_sampler = pretrained_sampler
         self.test_model = test_model
-        self.model_ADDA = model_ADDA
-        self.pretrained_model_ADDA = pretrained_model_ADDA
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
 
@@ -99,9 +99,6 @@ class Solver(object):
         model = self.model
         model.build_model()
 	
-	#~ self.config = tf.ConfigProto(device_count = {'GPU': 0})
-
-        
         with tf.Session(config=self.config) as sess:
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
@@ -113,19 +110,19 @@ class Solver(object):
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-	    epochs = 40
+	    epochs = 10
 	    
 	    t = 0
 
 	    for i in range(epochs):
+		
+		print 'Epoch',str(i)
 		
 		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
 		    
 		    t+=1
 		       
 		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]}
-		    
-		    #~ a,b = sess.run([model.labels, model.logits], feed_dict)
 		    
 		    sess.run(model.train_op, feed_dict) 
 
@@ -141,13 +138,54 @@ class Solver(object):
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
+			
+		    if (t+1) % 1000 == 0:
+			#~ print 'Saved.'
+			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 
-		    if (t+1) % 500 == 0:
-			if self.model.mode == 'pretrain':  
-			    saver.save(sess, os.path.join(self.model_save_path, 'model')) 
-			else:
-			    saver.save(sess, os.path.join(self.model_save_path, 'model_ADDA'))
+    def test(self):
+	
+	# load svhn dataset
+	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
+	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+
+	# build a graph
+	model = self.model
+	model.build_model()
+		
+	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	
+	with tf.Session(config=self.config) as sess:
+	    tf.global_variables_initializer().run()
+	    saver = tf.train.Saver()
+	    
+	    t = 0
+	    
+	    while(True):
+		
+		print ('Loading pretrained model.')
+		variables_to_restore = slim.get_model_variables(scope='encoder')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.test_model)
+		
+		t+=1
+    
+		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
+		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
+		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
+				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
+						  model.src_labels: src_test_labels[src_rand_idxs],
+						  model.trg_images: trg_test_images[trg_rand_idxs], 
+						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		print ('Step: [%d/%d] src test acc [%.2f] trg test acc [%.2f]' \
+			   %(t+1, self.pretrain_iter, test_src_acc, test_trg_acc))
+	
+		time.sleep(30)
 		    
+	    
     def train_sampler(self):
 	
 	print 'Training sampler.'
@@ -219,84 +257,6 @@ class Solver(object):
                     if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
 
-    def train_ADDA(self):
-        
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
-	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	
-
-        # build a graph
-        model = self.model
-        model.build_model()
-
-        # make directory if not exists
-        if tf.gfile.Exists(self.log_dir):
-            tf.gfile.DeleteRecursively(self.log_dir)
-        tf.gfile.MakeDirs(self.log_dir)
-
-	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
-	    with tf.device('/gpu:2'):
-			    
-		# initialize G and D
-		tf.global_variables_initializer().run()
-		# restore variables of F
-		
-		print ('Loading pretrained encoder ADDA.')
-		variables_to_restore = slim.get_model_variables(scope='e_ADDA')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_model_ADDA)
-		
-		print ('Loading pretrained encoder.')
-		variables_to_restore = slim.get_model_variables(scope='encoder')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_model)
-		
-		print ('Loading pretrained encoder disc.')
-		variables_to_restore = slim.get_model_variables(scope='disc_e')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_sampler)
-			
-
-		summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-		saver = tf.train.Saver()
-
-		print ('Start training.')
-		trg_count = 0
-		t = 0
-		
-		for step in range(self.train_iter+1):
-		    
-		    trg_count += 1
-		    t+=1
-		    
-		    i = step % int(source_images.shape[0] / self.batch_size)
-		    j = step % int(target_images.shape[0] / self.batch_size)
-		    
-		    src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
-		    src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],10)
-		    trg_labels = utils.one_hot(target_labels[j*self.batch_size:(j+1)*self.batch_size],10)
-		    src_noise = utils.sample_Z(self.batch_size,100,'uniform')
-		    trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
-		    
-		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
-		    
-		    sess.run(model.E_train_op, feed_dict) 
-		    sess.run(model.E_train_op, feed_dict) 
-		    sess.run(model.DE_train_op, feed_dict) 
-		    
-		    logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
-		    
-		    if (step+1) % 20 == 0:
-			
-			summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
-			summary_writer.add_summary(summary, step)
-			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
-				   %(step+1, self.train_iter, E, DE, logits_E_real.mean(), logits_E_fake.mean()))
-
-		    if (step+1) % 500 == 0:
-			saver.save(sess, os.path.join(self.model_save_path, 'ADDA'))
-
     def train_dsn(self):
         
 	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
@@ -323,12 +283,12 @@ class Solver(object):
 		print ('Loading pretrained encoder.')
 		variables_to_restore = slim.get_model_variables(scope='encoder')
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
+		restorer.restore(sess, self.pretrained_model)
 		
-		print ('Loading pretrained encoder disc.')
-		variables_to_restore = slim.get_model_variables(scope='disc_e')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
+		#~ print ('Loading pretrained encoder disc.')
+		#~ variables_to_restore = slim.get_model_variables(scope='disc_e')
+		#~ restorer = tf.train.Saver(variables_to_restore)
+		#~ restorer.restore(sess, self.pretrained_sampler)
 		
 		print ('Loading sample generator.')
 		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -471,7 +431,7 @@ class Solver(object):
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    n_samples = 1000
+	    n_samples = 500
    
 	    src_labels = utils.one_hot(source_labels[:n_samples],10)
 	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
@@ -491,12 +451,12 @@ class Solver(object):
 	    TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
 	    #~ TSNE_hA = model.fit_transform(np.vstack((fx_src,fx_trg)))
 		   
-	    plt.figure(0)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))))
+	    plt.figure(2)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=1)
 	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
 	    
-	    plt.figure(1)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels,trg_labels)))
+	    plt.figure(3)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels,trg_labels)), s=1)
 	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,trg_labels)))
 		    
 	    plt.show()

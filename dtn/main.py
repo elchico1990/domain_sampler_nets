@@ -19,16 +19,16 @@ def main(_):
     if not tf.gfile.Exists(FLAGS.sample_save_path):
 	    tf.gfile.MakeDirs(FLAGS.sample_save_path)
     
-    if FLAGS.mode == 'pretrain' or FLAGS.mode == 'pretrain_ADDA':
+    if FLAGS.mode == 'pretrain':
 	    solver.pretrain()
     elif FLAGS.mode == 'train_sampler':
 	    solver.train_sampler()
     elif FLAGS.mode == 'train_dsn':
 	    solver.train_dsn()
-    elif FLAGS.mode == 'train_ADDA':
-	    solver.train_ADDA()
     elif FLAGS.mode == 'eval_dsn':
 	    solver.eval_dsn()
+    elif FLAGS.mode == 'test':
+	    solver.test()
     else:
 	    print 'Unrecognized mode.'
 	
