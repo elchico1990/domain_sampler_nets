@@ -376,7 +376,7 @@ class Solver(object):
             print ('Loading pretrained model.')
             variables_to_restore = slim.get_model_variables(scope='encoder')
             restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
+            restorer.restore(sess, self.test_model)
 	    
             
             print ('Loading sampler.')
@@ -445,7 +445,7 @@ class Solver(object):
 		print ('Loading pretrained model.')
 		variables_to_restore = slim.get_model_variables(scope='encoder')
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_model)
+		restorer.restore(sess, self.test_model)
 		
 		t+=1
     

@@ -222,7 +222,7 @@ class DSN(object):
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
-	    self.trg_labels = tf.one_hot(tf.argmax(trg_labels,1),10)
+	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
 	    self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
@@ -242,7 +242,7 @@ class DSN(object):
 	    
 	    # E losses
 	    
-	    self.logits_E_real = self.D_e(self.fzy, self.labels)
+	    self.logits_E_real = self.D_e(self.fzy, self.src_labels)
 	    self.logits_E_fake = self.D_e(self.fx, self.labels, reuse=True)
 	    
 	    
