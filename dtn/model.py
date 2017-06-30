@@ -73,9 +73,7 @@ class DSN(object):
 	
 	#~ x = tf.reshape(x,[-1,128])
 	
-	if self.mode == 'train_sampler':
-	    inputs = tf.concat(axis=1, values=[inputs, tf.cast(y,tf.float32)])
-	
+	inputs = tf.concat(axis=1, values=[inputs, tf.cast(y,tf.float32)])
 	
 	with tf.variable_scope('disc_e',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
@@ -223,9 +221,11 @@ class DSN(object):
 	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
-	    self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
+	    self.trg_labels = self.E(self.trg_images, make_preds=True)
+	    self.trg_labels = tf.one_hot(tf.argmax(trg_labels,1),10)
 	    
-	    dummy_pred = self.E(self.src_images, make_preds=True)
+	    self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
+	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
 	    
 	    self.orig_src_fx = self.E(self.src_images, reuse=True)
 	    
@@ -242,8 +242,8 @@ class DSN(object):
 	    
 	    # E losses
 	    
-	    self.logits_E_real = self.D_e(self.fzy, self.src_labels)
-	    self.logits_E_fake = self.D_e(self.fx, self.src_labels, reuse=True)
+	    self.logits_E_real = self.D_e(self.fzy, self.labels)
+	    self.logits_E_fake = self.D_e(self.fx, self.labels, reuse=True)
 	    
 	    
 	    

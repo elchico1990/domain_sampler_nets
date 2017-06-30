@@ -243,10 +243,10 @@ class Solver(object):
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_model)
 		
-		#~ print ('Loading pretrained encoder disc.')
-		#~ variables_to_restore = slim.get_model_variables(scope='disc_e')
-		#~ restorer = tf.train.Saver(variables_to_restore)
-		#~ restorer.restore(sess, self.pretrained_sampler)
+		print ('Loading pretrained encoder disc.')
+		variables_to_restore = slim.get_model_variables(scope='disc_e')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.pretrained_sampler)
 		
 		print ('Loading sample generator.')
 		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
