@@ -29,6 +29,8 @@ def main(_):
 	    solver.eval_dsn()
     elif FLAGS.mode == 'test':
 	    solver.test()
+    elif FLAGS.mode == 'test_knn':
+	    solver.test()
     else:
 	    print 'Unrecognized mode.'
 	

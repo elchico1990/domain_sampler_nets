@@ -6,6 +6,7 @@ import numpy as np
 
 import cPickle
 
+from utils import knn
 
 class DSN(object):
     """Domain Sampler Net
@@ -140,6 +141,8 @@ class DSN(object):
             self.trg_labels = tf.placeholder(tf.int64, [None], 'usps_labels')
             
 	    self.src_logits = self.E(self.src_images, is_training = True)
+	    
+	    
 		
 	    self.src_pred = tf.argmax(self.src_logits, 1)
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
@@ -148,6 +151,7 @@ class DSN(object):
             self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
 		
 	    self.trg_pred = tf.argmax(self.trg_logits, 1)
+	    
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 
@@ -160,6 +164,26 @@ class DSN(object):
             src_accuracy_summary = tf.summary.scalar('src_accuracy', self.src_accuracy)
             trg_accuracy_summary = tf.summary.scalar('trg_accuracy', self.trg_accuracy)
             self.summary_op = tf.summary.merge([loss_summary, src_accuracy_summary, trg_accuracy_summary])
+	    
+        if self.mode == 'test_knn':
+            self.src_images = tf.placeholder(tf.float32, [32, 32, 1], 'mnist_images')
+            self.trg_images = tf.placeholder(tf.float32, [32, 32, 1], 'usps_images')
+            self.src_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
+            
+	    self.src_logits = self.E(self.src_images, make_preds=True)
+	    self.fx_src = self.E(self.src_images, reuse=True)
+	    self.fx_trg = self.E(self.trg_images, reuse=True)
+	    
+            
+	    self.trg_pred = knn(self.fx_trg, self.fx_trg, self.src_labels, K = 5)
+
+            
+            # summary op
+            loss_summary = tf.summary.scalar('classification_loss', self.loss)
+            src_accuracy_summary = tf.summary.scalar('src_accuracy', self.src_accuracy)
+            trg_accuracy_summary = tf.summary.scalar('trg_accuracy', self.trg_accuracy)
+            self.summary_op = tf.summary.merge([loss_summary, src_accuracy_summary, trg_accuracy_summary])
+	    
 	
 	elif self.mode == 'train_sampler':
 				
@@ -238,6 +262,9 @@ class DSN(object):
 	    
 	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
 	    self.fx = self.E(self.images, reuse=True)
+	    
+	    self.trg_pred_knn = knn(self.fx, self.fzy, self.src_labels, K = 5)
+	    
 	    
 	    self.GE_trg = self.G(self.E(self.trg_images, reuse=True))
 	    #~ self.GE_trg = self.G(self.E(self.GE_trg, reuse=True), reuse=True)

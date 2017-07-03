@@ -309,7 +309,7 @@ class Solver(object):
 		    
 		    #~ sess.run(model.const_train_op, feed_dict)
 		    
-		    logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
+		    trg_pred_knn, logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.trg_pred_knn, model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		    
 		    if (step+1) % 10 == 0:
 			
@@ -477,11 +477,12 @@ class Solver(object):
     
 		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
 		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-						  model.src_labels: src_test_labels[src_rand_idxs],
-						  model.trg_images: trg_test_images[trg_rand_idxs], 
-						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		trg_pred_knn, test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.trg_pred_knn, model.src_accuracy, model.trg_accuracy, model.loss], 
+											   feed_dict={model.src_images: src_test_images[src_rand_idxs], 
+												      model.src_labels: src_test_labels[src_rand_idxs],
+												      model.trg_images: trg_test_images[trg_rand_idxs], 
+												      model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		
 		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:1000], 
 								  model.src_labels: src_labels[:1000],
 						                  model.trg_images: trg_test_images[trg_rand_idxs], 
