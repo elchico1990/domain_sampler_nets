@@ -93,8 +93,19 @@ class Solver(object):
         src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
         src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
 
-        trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='train')
-        trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
+        trg_images, trg_labels = self.load_usps(self.usps_dir)
+        trg_test_images, trg_test_labels = self.load_usps(self.usps_dir)
+	trg_labels = np.squeeze(trg_labels.T)
+	trg_test_labels = np.squeeze(trg_test_labels.T)
+	trg_labels-=1
+	trg_labels[trg_labels==255] = 9
+	trg_test_labels-=1
+	trg_test_labels[trg_labels==255] = 9
+	
+	#~ for i in range(80):
+	    #~ print trg_labels[i]
+	    #~ plt.imshow(np.squeeze(trg_images[i]))
+	    #~ plt.show()
 
         # build a graph
         model = self.model
@@ -117,20 +128,21 @@ class Solver(object):
 
 	    for i in range(epochs):
 		
-		print 'Epoch',str(i)
+		#~ print 'Epoch',str(i)
 		
 		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
 		    
 		    t+=1
+		    
 		       
-		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]}
+		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[:3], model.trg_labels: trg_labels[:3]}
 		    
 		    sess.run(model.train_op, feed_dict) 
 
 		    if (t+1) % 500 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:64]
-			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:64]
+			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
+			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
 			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
 					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 							  model.src_labels: src_test_labels[src_rand_idxs],
@@ -140,7 +152,7 @@ class Solver(object):
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
 			
-		    if (t+1) % 1000 == 0:
+		    if (t+1) % 500 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 	    
@@ -219,7 +231,7 @@ class Solver(object):
         
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
 	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
+	target_images, target_labels = self.load_usps(self.usps_dir)
 	
 
         # build a graph
@@ -273,6 +285,8 @@ class Solver(object):
 		    
 		    i = step % int(source_images.shape[0] / self.batch_size)
 		    j = step % int(target_images.shape[0] / self.batch_size)
+		    
+		    
 		    
 		    src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
 		    src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],10)
@@ -355,8 +369,11 @@ class Solver(object):
 	
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
 	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
+	target_images, target_labels = self.load_usps(self.usps_dir)
 	
+	target_labels = np.squeeze(target_labels.T)
+	target_labels-=1
+	target_labels[target_labels==255] = 9
 
         # build a graph
         model = self.model
@@ -427,8 +444,15 @@ class Solver(object):
 	src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
 	src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
 
-	trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	trg_images, trg_labels = self.load_usps(self.usps_dir)
+	trg_test_images, trg_test_labels = self.load_usps(self.usps_dir)
+	
+	trg_labels = np.squeeze(trg_labels.T)
+	trg_test_labels = np.squeeze(trg_test_labels.T)
+	trg_labels-=1
+	trg_labels[trg_labels==255] = 9
+	trg_test_labels-=1
+	trg_test_labels[trg_labels==255] = 9
 
 	# build a graph
 	model = self.model
@@ -458,15 +482,15 @@ class Solver(object):
 						  model.src_labels: src_test_labels[src_rand_idxs],
 						  model.trg_images: trg_test_images[trg_rand_idxs], 
 						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
-								  model.src_labels: src_labels[:20000],
+		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:1000], 
+								  model.src_labels: src_labels[:1000],
 						                  model.trg_images: trg_test_images[trg_rand_idxs], 
 								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
 						  
 		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
 	
-		time.sleep(50)
+		time.sleep(20)
 		    
 if __name__=='__main__':
 
@@ -474,6 +498,10 @@ if __name__=='__main__':
     model = DSN(mode='eval_dsn', learning_rate=0.0003)
     solver = Solver(model)
     solver.check_TSNE()
+
+
+
+
 
 
 
