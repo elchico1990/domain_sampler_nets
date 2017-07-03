@@ -47,9 +47,9 @@ class DSN(object):
     def E(self, images, reuse=False, make_preds=False, is_training = False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
-        if images.get_shape()[3] == 1:
-            # For mnist dataset, replicate the gray scale image 3 times.
-            images = tf.image.grayscale_to_rgb(images)
+        #~ if images.get_shape()[3] == 1:
+            #~ # For mnist dataset, replicate the gray scale image 3 times.
+            #~ images = tf.image.grayscale_to_rgb(images)
         
         with tf.variable_scope('encoder', reuse=reuse):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
@@ -225,7 +225,8 @@ class DSN(object):
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
-	    self.images = tf.concat(axis=0, values=[tf.image.grayscale_to_rgb(self.src_images), tf.image.grayscale_to_rgb(self.trg_images)])
+	    #~ self.images = tf.concat(axis=0, values=[tf.image.grayscale_to_rgb(self.src_images), tf.image.grayscale_to_rgb(self.trg_images)])
+	    self.images = tf.concat(axis=0, values=[self.src_images,self.trg_images])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
 	    
 	    #~ self.images = self.trg_images
