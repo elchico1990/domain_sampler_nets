@@ -14,11 +14,10 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 128
+	self.hidden_repr_size = 200
     
     def sampler_generator(self, z, y, reuse=False):
 	
-	    
 	'''
 	Takes in input noise and labels, and
 	generates f_z, which is handled by the 
@@ -44,13 +43,13 @@ class DSN(object):
 		    net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
-    
+		    
     def E(self, images, reuse=False, make_preds=False, is_training = False):
         # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
         
-        #~ if images.get_shape()[3] == 1:
-            #~ # For mnist dataset, replicate the gray scale image 3 times.
-            #~ images = tf.image.grayscale_to_rgb(images)
+        if images.get_shape()[3] == 1:
+            # For mnist dataset, replicate the gray scale image 3 times.
+            images = tf.image.grayscale_to_rgb(images)
         
         with tf.variable_scope('encoder', reuse=reuse):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
@@ -70,7 +69,7 @@ class DSN(object):
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
 		    return net
-    
+
     def C(self, features, reuse=False, is_training = False):
         
         with tf.variable_scope('classifier', reuse=reuse):

@@ -484,7 +484,7 @@ class Solver(object):
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    n_samples = 500
+	    n_samples = 1000
    
 	    src_labels = utils.one_hot(source_labels[:n_samples],10)
 	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
@@ -545,10 +545,10 @@ class Solver(object):
 	    
 	    while(True):
 		
-		print ('Loading pretrained model.')
+		print ('Loading model.')
 		variables_to_restore = slim.get_model_variables(scope='encoder')
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
+		restorer.restore(sess, self.pretrained_model)
 		
 		t+=1
     
@@ -568,7 +568,7 @@ class Solver(object):
 		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
 	
-		time.sleep(20)
+		time.sleep(.20)
 	    
 if __name__=='__main__':
 
