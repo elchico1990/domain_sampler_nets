@@ -70,6 +70,20 @@ class DSN(object):
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
 		    return net
+    
+    def C(self, features, reuse=False, is_training = False):
+        
+        with tf.variable_scope('classifier', reuse=reuse):
+            with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu, weights_initializer=tf.contrib.layers.xavier_initializer()):
+                with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_c' and is_training == True)):
+                    
+                    net = slim.fully_connected(features, 1024, scope='fc1') 
+                    net = slim.batch_norm(net, scope='bn1')
+                    net = slim.fully_connected(net, 1024, scope='fc2')
+                    net = slim.batch_norm(net, scope='bn2')
+                    net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
+		    return net
 		    		    
     def D_e(self, inputs, y, reuse=False):
 	
@@ -142,8 +156,6 @@ class DSN(object):
             
 	    self.src_logits = self.E(self.src_images, is_training = True)
 	    
-	    
-		
 	    self.src_pred = tf.argmax(self.src_logits, 1)
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
@@ -164,27 +176,7 @@ class DSN(object):
             src_accuracy_summary = tf.summary.scalar('src_accuracy', self.src_accuracy)
             trg_accuracy_summary = tf.summary.scalar('trg_accuracy', self.trg_accuracy)
             self.summary_op = tf.summary.merge([loss_summary, src_accuracy_summary, trg_accuracy_summary])
-	    
-        if self.mode == 'test_knn':
-            self.src_images = tf.placeholder(tf.float32, [32, 32, 1], 'mnist_images')
-            self.trg_images = tf.placeholder(tf.float32, [32, 32, 1], 'usps_images')
-            self.src_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
-            
-	    self.src_logits = self.E(self.src_images, make_preds=True)
-	    self.fx_src = self.E(self.src_images, reuse=True)
-	    self.fx_trg = self.E(self.trg_images, reuse=True)
-	    
-            
-	    self.trg_pred = knn(self.fx_trg, self.fx_trg, self.src_labels, K = 5)
 
-            
-            # summary op
-            loss_summary = tf.summary.scalar('classification_loss', self.loss)
-            src_accuracy_summary = tf.summary.scalar('src_accuracy', self.src_accuracy)
-            trg_accuracy_summary = tf.summary.scalar('trg_accuracy', self.trg_accuracy)
-            self.summary_op = tf.summary.merge([loss_summary, src_accuracy_summary, trg_accuracy_summary])
-	    
-	
 	elif self.mode == 'train_sampler':
 				
 	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')

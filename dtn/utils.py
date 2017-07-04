@@ -74,31 +74,26 @@ def computeTSNE(fileName='./for_tsne.pkl'):
 
 def knn(X_test, X_ref, Y_ref, K = 5):
 	
+
+	nearest_neighbors=tf.Variable(tf.zeros([K]))
+
+	distance = tf.negative(tf.reduce_sum(tf.abs(tf.subtract(X_ref, X_test[0])),axis=1)) #L1
+	values,indices=tf.nn.top_k(distance,k=K,sorted=False)
+
+	nn = []
 	
-	for i in range(64):
+	for k in range(K):
+		nn.append(tf.argmax(Y_ref[indices[k]], 0)) 
 
-		nearest_neighbors=tf.Variable(tf.zeros([K]))
+	nearest_neighbors=nn
+	y, idx, count = tf.unique_with_counts(nearest_neighbors)
 
-		distance = tf.negative(tf.reduce_sum(tf.abs(tf.subtract(X_ref, X_test[i,:])),axis=1)) #L1
-		values,indices=tf.nn.top_k(distance,k=K,sorted=False)
-
-		nn = []
+	preds = tf.slice(y, begin=[tf.argmax(count, 0)], size=tf.constant([1], dtype=tf.int64))[0]
 		
-		for k in range(K):
-			nn.append(tf.argmax(Y_ref[indices[k]], 0)) 
-
-		nearest_neighbors=nn
-		y, idx, count = tf.unique_with_counts(nearest_neighbors)
-
-		if i==0:
-			preds = tf.slice(y, begin=[tf.argmax(count, 0)], size=tf.constant([1], dtype=tf.int64))[0]
-			
-		else:
-			preds = tf.stack(axis=-1, values=[preds,tf.slice(y, begin=[tf.argmax(count, 0)], size=tf.constant([1], dtype=tf.int64))[0]])
-	
 	return preds
 	
 if __name__=='__main__':
 	
 	computeTSNE()
+
 

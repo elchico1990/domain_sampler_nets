@@ -30,7 +30,7 @@ def main(_):
     elif FLAGS.mode == 'test':
 	    solver.test()
     elif FLAGS.mode == 'test_knn':
-	    solver.test()
+	    solver.test_knn()
     else:
 	    print 'Unrecognized mode.'
 	

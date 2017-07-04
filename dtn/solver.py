@@ -477,7 +477,7 @@ class Solver(object):
     
 		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
 		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		trg_pred_knn, test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.trg_pred_knn, model.src_accuracy, model.trg_accuracy, model.loss], 
+		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
 											   feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 												      model.src_labels: src_test_labels[src_rand_idxs],
 												      model.trg_images: trg_test_images[trg_rand_idxs], 
@@ -492,7 +492,7 @@ class Solver(object):
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
 	
 		time.sleep(20)
-		    
+	    
 if __name__=='__main__':
 
     from model import DSN
