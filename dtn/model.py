@@ -76,7 +76,7 @@ class DSN(object):
         with tf.variable_scope('classifier', reuse=reuse):
             with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu, weights_initializer=tf.contrib.layers.xavier_initializer()):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_c' and is_training == True)):
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_classifier' and is_training == True)):
                     
                     net = slim.fully_connected(features, 1024, scope='fc1') 
                     net = slim.batch_norm(net, scope='bn1')
@@ -340,4 +340,46 @@ class DSN(object):
             for var in tf.trainable_variables():
                 tf.summary.histogram(var.op.name, var)  
 	
+	elif self.mode == 'train_classifier':
+	    
+	    self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+	    self.src_labels = tf.placeholder(tf.int64, [None, 10], 'src_labels')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'src_images')
+	    self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'trg_images')
+	    self.trg_labels = tf.placeholder(tf.int64, [None, 10], 'trg_labels')
+
+	    self.fzy = self.sampler_generator(self.src_noise, self.src_labels)
+	    self.fx_src = self.E(self.src_images) 
+	    self.fx_trg = self.E(self.trg_images, reuse=True)
+
+	    self.fzy_logits = self.C(self.fzy, is_training = True)
+	    self.fzy_pred = tf.argmax(self.fzy_logits, 1)
+	    self.fzy_correct_pred = tf.equal(self.fzy_pred, tf.argmax(self.src_labels,1))
+	    self.fzy_accuracy = tf.reduce_mean(tf.cast(self.fzy_correct_pred, tf.float32))
+
+	    self.fx_src_logits = self.C(self.fx_src, is_training = False, reuse=True)
+	    self.fx_src_pred = tf.argmax(self.fx_src_logits, 1)
+	    self.fx_src_correct_pred = tf.equal(self.fx_src_pred, tf.argmax(self.src_labels,1))
+	    self.fx_src_accuracy = tf.reduce_mean(tf.cast(self.fx_src_correct_pred, tf.float32))
+
+	    self.fx_trg_logits = self.C(self.fx_trg, is_training = False, reuse=True)
+	    self.fx_trg_pred = tf.argmax(self.fx_trg_logits, 1)
+	    self.fx_trg_correct_pred = tf.equal(self.fx_trg_pred, tf.argmax(self.trg_labels,1))
+	    self.fx_trg_accuracy = tf.reduce_mean(tf.cast(self.fx_trg_correct_pred, tf.float32))
+
+	    self.loss = slim.losses.sparse_softmax_cross_entropy(self.fzy_logits, tf.argmax(self.src_labels,1))
+	    self.optimizer = tf.train.AdamOptimizer(0.001) 
+	    self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
+
+	    # summary op
+	    loss_summary = tf.summary.scalar('classification_loss', self.loss)
+	    fzy_accuracy_summary = tf.summary.scalar('fzy_accuracy', self.fzy_accuracy)
+	    fx_src_accuracy_summary = tf.summary.scalar('fx_src_accuracy', self.fx_src_accuracy)
+	    fx_trg_accuracy_summary = tf.summary.scalar('fx_trg_accuracy', self.fx_trg_accuracy)
+	    self.summary_op = tf.summary.merge([loss_summary, fzy_accuracy_summary, fx_src_accuracy_summary, fx_trg_accuracy_summary])
+
+
+
+
+
 

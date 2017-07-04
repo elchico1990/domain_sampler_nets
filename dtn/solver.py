@@ -155,6 +155,83 @@ class Solver(object):
 		    if (t+1) % 500 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
+
+    def train_classifier(self):
+        # load svhn dataset
+        src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+        src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
+        
+        trg_images, trg_labels = self.load_usps(self.usps_dir)
+        trg_labels = np.squeeze(trg_labels.T)
+	trg_labels-=1
+	trg_labels[trg_labels==255] = 9
+	
+	trg_test_images = trg_images
+	trg_test_labels = trg_labels
+	
+	src_labels = utils.one_hot(src_labels,10)
+	trg_labels = utils.one_hot(trg_labels,10)
+	src_test_labels = utils.one_hot(src_test_labels,10)
+	trg_test_labels = utils.one_hot(trg_test_labels,10)
+	
+        # build a graph
+        model = self.model
+        model.build_model()
+	
+        with tf.Session(config=self.config) as sess:
+            tf.global_variables_initializer().run()
+            saver = tf.train.Saver()
+	    
+            print ('Loading E.')
+            variables_to_restore = slim.get_model_variables(scope='encoder')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.test_model)
+	    
+            print ('Loading sampler.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
+	    
+	    
+            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+
+	    epochs = 100
+	    noise_dim = 100
+	
+	    
+	    t = 0
+
+	    for i in range(epochs):
+		
+		#~ print 'Epoch',str(i)
+		
+		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
+		    
+		    t+=1
+		    
+		    Z_samples = utils.sample_Z(self.batch_size, noise_dim, 'uniform')
+		       
+		    feed_dict = {model.src_noise: Z_samples, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[:3], model.trg_labels: trg_labels[:3]}
+		    
+		    sess.run(model.train_op, feed_dict) 
+
+		    if (t+1) % 500 == 0:
+			summary, l = sess.run([model.summary_op, model.loss], feed_dict)
+			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
+			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:4000]
+			fzy_acc, fx_src_acc, fx_trg_acc, _ = sess.run(fetches=[model.fzy_accuracy, model.fx_src_accuracy, model.fx_trg_accuracy, model.loss], 
+					       feed_dict={model.src_noise: utils.sample_Z(1000, noise_dim, 'uniform'),
+							  model.src_images: src_test_images[src_rand_idxs], 
+							  model.src_labels: src_test_labels[src_rand_idxs],
+							  model.trg_images: trg_test_images[trg_rand_idxs], 
+							  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
+				   %(t+1, self.pretrain_iter, l, fzy_acc, fx_src_acc, fx_trg_acc))
+			
+		    if (t+1) % 500 == 0:
+			#~ print 'Saved.'
+			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 	    
     def train_sampler(self):
 	
