@@ -130,6 +130,17 @@ class Solver(object):
 	trg_test_labels-=1
 	trg_test_labels[trg_labels==255] = 9
 	
+	#~ src_images = src_images[2000:4000]
+	#~ src_labels = src_labels[2000:4000]
+	#~ src_test_images = src_test_images[2000:4000]
+	#~ src_test_labels = src_test_labels[2000:4000]
+	
+	
+	#~ trg_images = trg_images[2000:3800]
+	#~ trg_labels = trg_labels[2000:3800]
+	#~ trg_test_images = trg_test_images[2000:3800]
+	#~ trg_test_labels = trg_test_labels[2000:3800]
+	
 	#~ for i in range(80):
 	    #~ print trg_labels[i]
 	    #~ plt.imshow(np.squeeze(trg_images[i]))
@@ -150,7 +161,7 @@ class Solver(object):
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-	    epochs = 100
+	    epochs = 1000
 	    
 	    t = 0
 
@@ -167,7 +178,7 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if (t+1) % 500 == 0:
+		    if (t+1) % 100 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
 			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
@@ -180,7 +191,7 @@ class Solver(object):
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
 			
-		    if (t+1) % 500 == 0:
+		    if (t+1) % 100 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 
@@ -268,9 +279,9 @@ class Solver(object):
         source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	source_labels = utils.one_hot(source_labels, 10)
 	
-	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
-	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
-        
+	#~ source_images = source_images[2000:4000]
+	#~ source_labels = source_labels[2000:4000]
+	
         # build a graph
         model = self.model
         model.build_model()
@@ -280,9 +291,9 @@ class Solver(object):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 	
-	batch_size = self.batch_size
+	batch_size = 32
 	noise_dim = 100
-	epochs = 300
+	epochs = 3000000
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -348,7 +359,13 @@ class Solver(object):
 	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	target_images, target_labels = self.load_usps(self.usps_dir)
 	
-
+	#~ source_images = source_images[2000:4000]
+	#~ source_labels = source_labels[2000:4000]
+	#~ target_images = target_images[2000:3800]
+	#~ target_labels = target_labels[2000:3800]
+	
+	
+	
         # build a graph
         model = self.model
         model.build_model()
@@ -393,6 +410,11 @@ class Solver(object):
 		
 		self.train_iter = 10000000
 		
+		#Inferring labels using pretrained E
+		feed_dict = {model.src_images: source_images[:self.batch_size], model.src_noise: utils.sample_Z(self.batch_size,100,'uniform'), model.src_labels: utils.one_hot(source_labels[:self.batch_size],10),model.trg_labels: utils.one_hot(target_labels[:self.batch_size],10), model.trg_images: target_images}
+		target_labels = sess.run(model.trg_labels_oh, feed_dict) 
+		    
+		print 'break'
 		for step in range(self.train_iter+1):
 		    
 		    trg_count += 1
@@ -408,8 +430,9 @@ class Solver(object):
 		    src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		    src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		    trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
+		    trg_labels = target_labels[j*self.batch_size:(j+1)*self.batch_size]
 		    
-		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
+		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.trg_labels: trg_labels, }
 		    
 		    sess.run(model.E_train_op, feed_dict) 
 		    sess.run(model.DE_train_op, feed_dict) 
@@ -479,6 +502,13 @@ class Solver(object):
 	target_labels = np.squeeze(target_labels.T)
 	target_labels-=1
 	target_labels[target_labels==255] = 9
+	
+	
+	#~ source_images = source_images[2000:4000]
+	#~ source_labels = source_labels[2000:4000]
+	#~ target_images = target_images[2000:3800]
+	#~ target_labels = target_labels[2000:3800]
+	
 
         # build a graph
         model = self.model
@@ -502,7 +532,7 @@ class Solver(object):
 		print ('Loading pretrained model.')
 		variables_to_restore = slim.get_model_variables(scope='encoder')
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
+		restorer.restore(sess, self.pretrained_model)
 		
 		
 		print ('Loading sampler.')
@@ -514,7 +544,7 @@ class Solver(object):
 		summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 		saver = tf.train.Saver()
 
-		n_samples =500
+		n_samples =1000
        
 		src_labels = utils.one_hot(source_labels[:n_samples],10)
 		trg_labels = utils.one_hot(target_labels[:n_samples],10)
@@ -531,19 +561,21 @@ class Solver(object):
 
 		model_TSNE = TSNE(n_components=2, random_state=0)
 
-		TSNE_hA = model_TSNE.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
-		#~ TSNE_hA = model.fit_transform(np.vstack((fx_src,fx_trg)))
+		#~ TSNE_hA = model_TSNE.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
+		TSNE_hA = model_TSNE.fit_transform(np.vstack((fx_src,fzy)))
 		       
 	      
-		plt.figure(2)
-		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
-		#~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((500,)), 2 * np.ones((500,)))))
+		plt.figure()
+		#~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
 		
-		plt.figure(3)
-		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
-		#~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,trg_labels)))
+		plt.figure()
+		#~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3,  cmap = mpl.cm.jet)
 			    
 		plt.show()
+		
+		time.sleep(1)
 
     def test(self):
 	
@@ -560,6 +592,16 @@ class Solver(object):
 	trg_labels[trg_labels==255] = 9
 	trg_test_labels-=1
 	trg_test_labels[trg_labels==255] = 9
+	
+	#~ src_images = src_images[2000:4000]
+	#~ src_labels = src_labels[2000:4000]
+	#~ src_test_images = src_test_images[2000:4000]
+	#~ src_test_labels = src_test_labels[2000:4000]
+	
+	#~ trg_images = trg_images[2000:3800]
+	#~ trg_labels = trg_labels[2000:3800]
+	#~ trg_test_images = trg_test_images[2000:3800]
+	#~ trg_test_labels = trg_test_labels[2000:3800]
 
 	# build a graph
 	model = self.model
@@ -595,7 +637,7 @@ class Solver(object):
 						                  model.trg_images: trg_test_images[trg_rand_idxs], 
 								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
 						  
-		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
+		print ('Step: [%d/%d] src train acc [%.3f]  src test acc [%.3f] trg test acc [%.3f]' \
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
 	
 		time.sleep(.20)
