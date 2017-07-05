@@ -64,6 +64,34 @@ class Solver(object):
         images = mnist['X'] / 127.5 - 1
         labels = mnist['y']
         return images, labels
+	
+    def load_office(image_dir='./office', split='amazon'):
+        print ('Loading OFFICE dataset ->'+split)
+
+	
+	if split == 'amazon':
+	    image_file1 = 'amazon_1.pkl'
+	    image_file2 = 'amazon_2.pkl' 
+	    image_dir1 = os.path.join(image_dir, image_file1)
+	    image_dir2 = os.path.join(image_dir, image_file2)
+	    with open(image_dir1, 'rb') as f:
+		office = pickle.load(f)
+		images = office['X']
+		labels = office['y']
+	    with open(image_dir2, 'rb') as f:
+		office = pickle.load(f)
+		images = np.concatenate([images, office['X']], axis=0)
+		labels = np.concatenate([labels, office['y']], axis=0)
+		
+	else:
+	    image_file = split+'.pkl' 
+	    image_dir = os.path.join(image_dir, image_file)
+	    with open(image_dir, 'rb') as f:
+		office = pickle.load(f)
+		images = office['X']
+		labels = office['y']
+		
+        return images, labels
 
     def load_usps(self, image_dir):
         
