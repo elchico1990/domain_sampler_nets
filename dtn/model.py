@@ -14,7 +14,7 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 200
+	self.hidden_repr_size = 128
     
     def sampler_generator(self, z, y, reuse=False):
 	
@@ -37,10 +37,10 @@ class DSN(object):
                     
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		    net = slim.batch_norm(net, scope='sgen_bn1')
-		    net = slim.dropout(net, 0.5)
+		    net = slim.dropout(net, 1.0)
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
 		    net = slim.batch_norm(net, scope='sgen_bn2')
-		    net = slim.dropout(net, 0.5)
+		    net = slim.dropout(net, 1.0)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
