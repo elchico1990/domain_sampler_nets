@@ -58,6 +58,7 @@ def office():
 
 	dataDir = './office/'
 	subFolders = ['amazon','webcam','dslr']
+	#~ subFolders = ['webcam','dslr']
 	mean = np.array([104., 117., 124.])
 	 
 	#for each domain
@@ -79,8 +80,8 @@ def office():
 	    
 	    images = np.zeros((len(images_list),227,227,3))
 	    labels = np.asarray(labels_list,dtype=np.int32)
-	    print labels
-	    print images_list
+	    #~ print labels
+	    #~ print images_list
 	    
 	    for ii, im_path in enumerate(images_list):
 		img = cv2.imread(im_path)
@@ -90,8 +91,14 @@ def office():
 		img -= mean
 		images[ii,:,:,:] = img
 		
-	    train = {'X': images, 'y': labels}
-	    save_pickle(train, 'office/'+sf+'.pkl')
+	    if sf == 'amazon':
+		train1 = {'X': images[:len(images_list)/2], 'y': labels[:len(images_list)/2]}
+		train2 = {'X': images[len(images_list)/2:], 'y': labels[len(images_list)/2:]}
+		save_pickle(train1, 'office/'+sf+'_1.pkl')
+		save_pickle(train2, 'office/'+sf+'_2.pkl')
+	    else:
+		train = {'X': images, 'y': labels}
+		save_pickle(train, 'office/'+sf+'.pkl')
 
 
 if __name__ == "__main__":
