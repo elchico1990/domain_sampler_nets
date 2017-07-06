@@ -43,10 +43,7 @@ class Solver(object):
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
         
-        if self.model.mode in ['preZSDvtrain']:
-            image_file = 'extra_32x32.mat' if split=='train' else 'test_32x32.mat'
-        else:
-            image_file = 'train_32x32.mat' if split=='train' else 'test_32x32.mat'
+        image_file = 'train_32x32.mat' if split=='train' else 'test_32x32.mat'
             
         image_dir = os.path.join(image_dir, image_file)
         svhn = scipy.io.loadmat(image_dir)
@@ -76,34 +73,17 @@ class Solver(object):
         labels = usps['y']
         return images, labels
 	
-    def load_office(image_dir='./office', split='amazon'):
-   
-        print ('Loading OFFICE dataset ->'+split)
+    def merge_images(self, sources, targets, k=10):
+        _, h, w, _ = sources.shape
+        row = int(np.sqrt(self.batch_size))
+        merged = np.zeros([row*h, row*w*2, 3])
 
-	
-	if split == 'amazon':
-	    image_file1 = 'amazon_1.pkl'
-	    image_file2 = 'amazon_2.pkl' 
-	    image_dir1 = os.path.join(image_dir, image_file1)
-	    image_dir2 = os.path.join(image_dir, image_file2)
-	    with open(image_dir1, 'rb') as f:
-		office = pickle.load(f)
-		images = office['X']
-		labels = office['y']
-	    with open(image_dir2, 'rb') as f:
-		office = pickle.load(f)
-		images = np.concatenate([images, office['X']], axis=0)
-		labels = np.concatenate([labels, office['y']], axis=0)
-		
-	else:
-	    image_file = split+'.pkl' 
-	    image_dir = os.path.join(image_dir, image_file)
-	    with open(image_dir, 'rb') as f:
-		office = pickle.load(f)
-		images = office['X']
-		labels = office['y']
-		
-        return images, labels
+        for idx, (s, t) in enumerate(zip(sources, targets)):
+            i = idx // row
+            j = idx % row
+            merged[i*h:(i+1)*h, (j*2)*h:(j*2+1)*h, :] = s
+            merged[i*h:(i+1)*h, (j*2+1)*h:(j*2+2)*h, :] = t
+        return merged
 
     def pretrain(self):
         # load svhn dataset
@@ -247,19 +227,6 @@ class Solver(object):
         if tf.gfile.Exists(self.log_dir):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
-	
-	
-	with tf.Session(config=tf.ConfigProto(device_count = {'GPU': 0})) as sess:
-	    
-	    print ('Loading pretrained encoder.')
-	    variables_to_restore = slim.get_model_variables(scope='encoder')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_model)
-
-	    #Inferring labels using pretrained E
-	    feed_dict = {model.src_images: source_images, model.src_noise: utils.sample_Z(self.batch_size,100,'uniform'), model.src_labels: utils.one_hot(source_labels,10),model.trg_labels: utils.one_hot(target_labels[:self.batch_size],10), model.trg_images: target_images}
-	    fx = sess.run(model.orig_src_fx, feed_dict) 
-	    
 
 	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
 	    with tf.device('/gpu:2'):
@@ -273,15 +240,15 @@ class Solver(object):
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_model)
 		
-		#~ print ('Loading pretrained encoder disc.')
-		#~ variables_to_restore = slim.get_model_variables(scope='disc_e')
-		#~ restorer = tf.train.Saver(variables_to_restore)
-		#~ restorer.restore(sess, self.pretrained_sampler)
+		print ('Loading pretrained encoder disc.')
+		variables_to_restore = slim.get_model_variables(scope='disc_e')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.pretrained_sampler)
 		
-		#~ print ('Loading sample generator.')
-		#~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-		#~ restorer = tf.train.Saver(variables_to_restore)
-		#~ restorer.restore(sess, self.pretrained_sampler)
+		print ('Loading sample generator.')
+		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.pretrained_sampler)
 		
 
 		summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
@@ -291,7 +258,8 @@ class Solver(object):
 		trg_count = 0
 		t = 0
 		
-		self.train_iter = 100000000
+		G_loss = 1.
+		DG_loss = 1.
 		
 		for step in range(self.train_iter+1):
 		    
@@ -306,15 +274,21 @@ class Solver(object):
 		    src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		    src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		    trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
-		    src_fx = fx[i*self.batch_size:(i+1)*self.batch_size]
-		    trg_labels = target_labels[j*self.batch_size:(j+1)*self.batch_size]
 		    
-		    #~ feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.trg_labels: trg_labels, }
+		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		    
-		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.src_fx: src_fx}
-
 		    sess.run(model.E_train_op, feed_dict) 
 		    sess.run(model.DE_train_op, feed_dict) 
+		    
+		    #~ if G_loss > 0.25:
+			#~ print 'training G', G_loss, DG_loss
+		    #~ G_loss, DG_loss, _ = sess.run([model.G_loss, model.DG_loss, model.G_train_op], feed_dict) 
+		    
+		    #~ else:
+			#~ print 'training DG', G_loss, DG_loss
+		    #~ G_loss, DG_loss, _ = sess.run([model.G_loss, model.DG_loss, model.DG_train_op], feed_dict) 
+		    
+		    #~ sess.run(model.const_train_op, feed_dict)
 		    
 		    logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		    
@@ -325,8 +299,53 @@ class Solver(object):
 			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
 				   %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
 
-		    if (step+1) % 250 == 0:
+			
+
+		    if (step+1) % 500 == 0:
 			saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
+            
+    def eval_dsn(self):
+        # build model
+        model = self.model
+        model.build_model()
+
+        # load svhn dataset
+        source_images, source_labels = self.load_svhn(self.svhn_dir)
+
+        with tf.Session(config=self.config) as sess:
+	    
+	    
+            print ('Loading sampler generator.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
+	    
+	    print ('Loading sampler discriminator.')
+            variables_to_restore = slim.get_model_variables(scope='disc_e')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
+	    
+            print ('Loading encoder.')
+            variables_to_restore = slim.get_model_variables(scope='encoder')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_model)
+	    
+
+
+	    # train model for source domain S
+	    src_labels = utils.one_hot(source_labels[:1000],11)
+	    src_noise = utils.sample_Z(1000,100,'uniform')
+
+	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
+
+	    samples = sess.run(model.sampled_images, feed_dict)
+
+	    for i in range(1000):
+		
+		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
+		plt.imshow(np.squeeze(samples[i]), cmap='gray')
+		plt.imsave('./sample/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
+
 
     def check_TSNE(self):
 	
@@ -356,10 +375,10 @@ class Solver(object):
             restorer.restore(sess, self.pretrained_model)
 	    
             
-            print ('Loading sampler.')
-            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_sampler)
+            #~ print ('Loading sampler.')
+            #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_sampler)
             
 	    
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
@@ -382,23 +401,24 @@ class Solver(object):
 
 	    model = TSNE(n_components=2, random_state=0)
 
-	    TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
+	    #~ TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
 	    #~ TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src)))
-	    #~ TSNE_hA = model.fit_transform(np.vstack((fx_src)))
+	    TSNE_hA = model.fit_transform(np.vstack((fx_src)))
 	       
 	  
 	    plt.figure(2)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
-	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
+	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
 	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples)))), s=3, cmap = mpl.cm.jet)
 	    
 	    plt.figure(3)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
-	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
+	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
 	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
-		        
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
+	            
 	    plt.show()
-
+	    
+	    
     def test(self):
 	
 	# load svhn dataset
@@ -441,10 +461,10 @@ class Solver(object):
 						                  model.trg_images: trg_test_images[trg_rand_idxs], 
 								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
 						  
-		print ('Step: [%d/%d] src train acc [%.3f]  src test acc [%.3f] trg test acc [%.3f]' \
+		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
 	
-		time.sleep(.1)
+		#~ time.sleep(30)
 		    
 if __name__=='__main__':
 
@@ -452,7 +472,4 @@ if __name__=='__main__':
     model = DSN(mode='eval_dsn', learning_rate=0.0003)
     solver = Solver(model)
     solver.check_TSNE()
-
-
-
 

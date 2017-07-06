@@ -41,13 +41,13 @@ class DSN(object):
 		    net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
-		    
+			
     def E(self, images, reuse=False, make_preds=False, is_training = False):
 	
 	if images.get_shape()[3] == 3:
-            # For mnist dataset, replicate the gray scale image 3 times.
-            images = tf.image.rgb_to_grayscale(images)
-        
+	    # For mnist dataset, replicate the gray scale image 3 times.
+	    images = tf.image.rgb_to_grayscale(images)
+	
 	with tf.variable_scope('encoder', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
 		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='VALID'):
@@ -209,24 +209,7 @@ class DSN(object):
             self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
 
 	elif self.mode == 'train_dsn':
-            #~ self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            
-	    #~ self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'src_images')
-            #~ self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'trg_images')
-	    
-	    #~ self.src_labels = tf.placeholder(tf.float32, [None, 10], 'src_labels')
-	    #~ self.trg_labels = tf.placeholder(tf.float32, [None, 10], 'trg_labels')
-	    
-	    #~ self.trg_labels_inf = self.E(self.trg_images, make_preds=True)
-	    #~ self.trg_labels_oh = tf.one_hot(tf.argmax(self.trg_labels_inf,1),10)
-	    #~ self.trg_labels = self.trg_labels_oh
-	    
-	    #~ self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
-	    #~ self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
-	    
-	    
-	    self.src_fx = tf.placeholder(tf.float32, [None, 128], 'svhn_feat')
-	    self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+            self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
 	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
@@ -234,15 +217,12 @@ class DSN(object):
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
-	    self.images = tf.concat(axis=0, values=[self.trg_images])
-	    self.labels = tf.concat(axis=0, values=[self.trg_labels])
-
-	    
-	    
+	    self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
+	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
 	    
 	    self.orig_src_fx = self.E(self.src_images, reuse=True)
 	    
-	    self.fzy = self.src_fx # instead of extracting the hidden representation from a src image, 
+	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
 	    self.fx = self.E(self.images, reuse=True)
 	    
 	    self.GE_trg = self.G(self.E(self.trg_images, reuse=True))
@@ -325,8 +305,6 @@ class DSN(object):
             
 
             for var in tf.trainable_variables():
-		
-		
 		tf.summary.histogram(var.op.name, var) 
 		
 		
@@ -351,34 +329,4 @@ class DSN(object):
 		
 		
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-def E(self, images, reuse=False, make_preds=False, is_training = False):
-    
-    if images.get_shape()[3] == 3:
-	# For mnist dataset, replicate the gray scale image 3 times.
-	images = tf.image.rgb_to_grayscale(images)
-    
-    with tf.variable_scope('encoder', reuse=reuse):
-	with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-	    with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='VALID'):
-		net = slim.conv2d(images, 64, 5, scope='conv1')
-		net = slim.max_pool2d(net, 2, stride=2, scope='pool1')
-		net = slim.conv2d(net, 128, 5, scope='conv2')
-		net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
-		net = tf.contrib.layers.flatten(net)
-		net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
-		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
-		if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-		    net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
-		return net
+
