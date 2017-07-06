@@ -3,7 +3,6 @@ import pickle
 from PIL import Image
 from tensorflow.examples.tutorials.mnist import input_data
 import scipy.io
-import cv2
 import glob
 
 def resize_images(image_arrays, size=[32, 32]):
@@ -55,6 +54,8 @@ def usps():
 	save_pickle(train, 'usps/train.pkl')
 
 def office():
+	
+	import cv2
 
 	dataDir = './office/'
 	subFolders = ['amazon','webcam','dslr']
@@ -102,5 +103,7 @@ def office():
 
 
 if __name__ == "__main__":
-    office()
+    main()
+    usps()
+    #~ office()
     
