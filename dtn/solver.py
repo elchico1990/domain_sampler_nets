@@ -375,16 +375,16 @@ class Solver(object):
             restorer.restore(sess, self.pretrained_model)
 	    
             
-            #~ print ('Loading sampler.')
-            #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_sampler)
+            print ('Loading sampler.')
+            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_sampler)
             
 	    
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 
-	    n_samples = 500
+	    n_samples = 1000
    
 	    src_labels = utils.one_hot(source_labels[:n_samples],10)
 	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
@@ -402,19 +402,19 @@ class Solver(object):
 	    model = TSNE(n_components=2, random_state=0)
 
 	    #~ TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
-	    #~ TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src)))
-	    TSNE_hA = model.fit_transform(np.vstack((fx_src)))
+	    TSNE_hA = model.fit_transform(np.vstack((fzy,fx_trg)))
+	    #~ TSNE_hA = model.fit_transform(np.vstack((fx_src)))
 	       
 	  
 	    plt.figure(2)
 	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
-	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples)))), s=3, cmap = mpl.cm.jet)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
+	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples)))), s=3, cmap = mpl.cm.jet)
 	    
 	    plt.figure(3)
 	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
-	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
+	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,trg_labels)), s=3, cmap = mpl.cm.jet)
+	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
 	            
 	    plt.show()
 	    
@@ -445,7 +445,7 @@ class Solver(object):
 		print ('Loading pretrained model.')
 		variables_to_restore = slim.get_model_variables(scope='encoder')
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_model)
+		restorer.restore(sess, self.test_model)
 		
 		t+=1
     
