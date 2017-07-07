@@ -62,6 +62,43 @@ class DSN(object):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
 		    
+    def ConvDeconv(self, images, reuse=False, is_training=False):
+	
+	if images.get_shape()[3] == 3:
+	    # For mnist dataset, replicate the gray scale image 3 times.
+	    images = tf.image.rgb_to_grayscale(images)
+	
+	with tf.variable_scope('conv_deconv', reuse=reuse):
+	    with slim.arg_scope([slim.conv2d_transpose, slim.conv2d], padding='SAME', activation_fn=None,           
+				     stride=2, weights_initializer=tf.contrib.layers.xavier_initializer()):
+		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+					activation_fn=tf.nn.relu, is_training=(self.mode=='train_convdeconv')):
+
+		    net = slim.conv2d(images, 64, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
+		    net = slim.batch_norm(net, scope='bn1')
+		    net = slim.conv2d(net, 128, [3, 3], scope='conv2')     # (batch_size, 8, 8, 128)
+		    net = slim.batch_norm(net, scope='bn2')
+		    net = slim.conv2d(net, 256, [3, 3], scope='conv3')     # (batch_size, 4, 4, 256)
+		    net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn3')
+		    
+		    net = slim.conv2d(net, 128, [4, 4], padding='VALID', scope='conv4', activation_fn=tf.tanh)  # (batch_size, 1, 1, 128)
+		    
+		    if self.mode != 'train_convdeconv':
+			return net
+		    
+		    net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
+		    
+		    net = slim.conv2d_transpose(net, 512, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
+		    net = slim.batch_norm(net, scope='bn5')
+		    net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 8, 8, 256)
+		    net = slim.batch_norm(net, scope='bn6')
+		    net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 16, 16, 128)
+		    net = slim.batch_norm(net, scope='bn7')
+		    
+		    net = slim.conv2d_transpose(net, 1, [3, 3], activation_fn=tf.nn.tanh, scope='conv_transpose4')   # (batch_size, 32, 32, 1)
+		    
+		    return net
+		    
     def D_e(self, inputs, y, reuse=False):
 	
 	#~ x = tf.reshape(x,[-1,128])
@@ -77,10 +114,24 @@ class DSN(object):
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
-	    
 
     def build_model(self):
         
+        if self.mode == 'train_convdeconv':
+            self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
+	    self.rec_images = self.ConvDeconv(self.images, is_training = True)
+		
+	    self.loss = tf.reduce_mean(tf.square(self.rec_images - self.images))
+	    
+            self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
+            self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
+	    
+            # summary op
+            loss_summary = tf.summary.scalar('reconstruction_loss', self.loss)
+	    images_summary = tf.summary.image('images', self.images)
+	    rec_images_summary = tf.summary.image('reconstructed_images', self.rec_images)
+            self.summary_op = tf.summary.merge([loss_summary, images_summary, rec_images_summary])
+	        
         if self.mode == 'pretrain' or self.mode == 'test':
             self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
@@ -163,6 +214,9 @@ class DSN(object):
             self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
             self.fx_src = self.E(self.src_images) # instead of extracting the hidden representation from a src image, 
             self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
+	    
+	    
+	    self.h_repr = ConvDeconv(self.trg_images)
 
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')

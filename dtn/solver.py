@@ -22,7 +22,7 @@ class Solver(object):
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
-		 test_model='model/dtn'):
+		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
         self.model = model
         self.batch_size = batch_size
@@ -38,6 +38,7 @@ class Solver(object):
         self.pretrained_model = pretrained_model
 	self.pretrained_sampler = pretrained_sampler
         self.test_model = test_model
+	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
 
@@ -141,6 +142,48 @@ class Solver(object):
 		    if (t+1) % 250 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
+
+    def train_convdeconv(self):
+
+        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+
+        # build a graph
+        model = self.model
+        model.build_model()
+	
+        with tf.Session(config=self.config) as sess:
+            tf.global_variables_initializer().run()
+            saver = tf.train.Saver()
+	    
+            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+
+	    epochs = 100
+	    
+	    t = 0
+
+	    for i in range(epochs):
+		
+		print 'Epoch',str(i)
+		
+		for start, end in zip(range(0, len(trg_images), self.batch_size), range(self.batch_size, len(trg_images), self.batch_size)):
+		    
+		    t+=1
+		       
+		    feed_dict = {model.images: trg_images[start:end]}
+		    
+		    sess.run(model.train_op, feed_dict) 
+
+		    if (t+1) % 250 == 0:
+			rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
+			summary, l = sess.run([model.summary_op, model.loss], feed_dict = {model.images: trg_test_images[rand_idxs]})
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] loss: [%.6f]' \
+				   %(t+1, self.pretrain_iter, l))
+			
+		    if (t+1) % 250 == 0:
+			#~ print 'Saved.'
+			saver.save(sess, os.path.join(self.model_save_path, 'conv_deconv'))
 	    
     def train_sampler(self):
 	
@@ -379,31 +422,45 @@ class Solver(object):
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_model)
 		
+	    
+	    elif sys.argv[1] == 'convdeconv':
+		print ('Loading convdeconv model.')
+		variables_to_restore = slim.get_model_variables(scope='conv_deconv')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.convdeconv_model)
+		
 	    else:
 		raise NameError('Unrecognized mode.')
 	    
             
-            print ('Loading sampler.')
-            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_sampler)
-            
+	    if sys.argv[1] == 'convdeconv':
 	    
-	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-            saver = tf.train.Saver()
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images, model.trg_images: target_images}
+		h_repr = sess.run(model.h_repr, feed_dict)
+	    
+	    else:
+	    
+		print ('Loading sampler.')
+		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.pretrained_sampler)
+		
+		
+		summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+		saver = tf.train.Saver()
 
-	    n_samples = 1000
-   
-	    src_labels = utils.one_hot(source_labels[:n_samples],10)
-	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
-	    src_noise = utils.sample_Z(n_samples,100,'uniform')
-	    
-	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:n_samples], model.trg_images: target_images[:n_samples]}
-	    
-	    fzy, fx_src, fx_trg = sess.run([model.fzy, model.fx_src, model.fx_trg], feed_dict)
-	    
-	    src_labels = np.argmax(src_labels,1)
-	    trg_labels = np.argmax(trg_labels,1)
+		n_samples = 1000
+       
+		src_labels = utils.one_hot(source_labels[:n_samples],10)
+		trg_labels = utils.one_hot(target_labels[:n_samples],10)
+		src_noise = utils.sample_Z(n_samples,100,'uniform')
+		
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:n_samples], model.trg_images: target_images[:n_samples]}
+		
+		fzy, fx_src, fx_trg = sess.run([model.fzy, model.fx_src, model.fx_trg], feed_dict)
+		
+		src_labels = np.argmax(src_labels,1)
+		trg_labels = np.argmax(trg_labels,1)
 
 	    print 'Computing T-SNE.'
 
@@ -430,6 +487,11 @@ class Solver(object):
 		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
 	        plt.figure(3)
                 plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
+
+	    elif sys.argv[2] == '4':
+		TSNE_hA = model.fit_transform(h_repr)
+	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = trg_labels, s=3,  cmap = mpl.cm.jet)
+		
 
 	    plt.show()
 	    

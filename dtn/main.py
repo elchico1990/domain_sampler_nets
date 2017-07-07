@@ -29,6 +29,8 @@ def main(_):
 	    solver.eval_dsn()
     elif FLAGS.mode == 'test':
 	    solver.test()
+    elif FLAGS.mode == 'train_convdeconv':
+	    solver.train_convdeconv()
     
     
     elif FLAGS.mode == 'train_all':		
