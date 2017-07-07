@@ -75,25 +75,17 @@ class DSN(object):
 					activation_fn=tf.nn.relu, is_training=(self.mode=='train_convdeconv')):
 
 		    net = slim.conv2d(images, 64, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
-		    net = slim.batch_norm(net, scope='bn1')
 		    net = slim.conv2d(net, 128, [3, 3], scope='conv2')     # (batch_size, 8, 8, 128)
-		    net = slim.batch_norm(net, scope='bn2')
 		    net = slim.conv2d(net, 256, [3, 3], scope='conv3')     # (batch_size, 4, 4, 256)
-		    net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn3')
 		    
-		    net = slim.conv2d(net, 128, [4, 4], padding='VALID', scope='conv4', activation_fn=tf.tanh)  # (batch_size, 1, 1, 128)
-		    
+		    net = slim.conv2d(net, 64, [4, 4], padding='VALID', scope='conv4', activation_fn=tf.tanh)  # (batch_size, 1, 1, 128)
 		    if self.mode != 'train_convdeconv':
+			net = tf.contrib.layers.flatten(net)
 			return net
 		    
-		    net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
-		    
 		    net = slim.conv2d_transpose(net, 512, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
-		    net = slim.batch_norm(net, scope='bn5')
 		    net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 8, 8, 256)
-		    net = slim.batch_norm(net, scope='bn6')
 		    net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 16, 16, 128)
-		    net = slim.batch_norm(net, scope='bn7')
 		    
 		    net = slim.conv2d_transpose(net, 1, [3, 3], activation_fn=tf.nn.tanh, scope='conv_transpose4')   # (batch_size, 32, 32, 1)
 		    
@@ -216,7 +208,7 @@ class DSN(object):
             self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
 	    
 	    
-	    self.h_repr = ConvDeconv(self.trg_images)
+	    self.h_repr = self.ConvDeconv(self.trg_images)
 
 	elif self.mode == 'train_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')

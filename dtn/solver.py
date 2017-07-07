@@ -433,27 +433,24 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
+	    n_samples = 2000
+            src_labels = utils.one_hot(source_labels[:n_samples],10)
+	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
+	    src_noise = utils.sample_Z(n_samples,100,'uniform')
+	   
+	    
 	    if sys.argv[1] == 'convdeconv':
 	    
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images, model.trg_images: target_images}
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images, model.trg_images: target_images[:n_samples]}
 		h_repr = sess.run(model.h_repr, feed_dict)
-	    
+		
 	    else:
 	    
 		print ('Loading sampler.')
 		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_sampler)
-		
-		
-		summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-		saver = tf.train.Saver()
-
-		n_samples = 1000
-       
-		src_labels = utils.one_hot(source_labels[:n_samples],10)
-		trg_labels = utils.one_hot(target_labels[:n_samples],10)
-		src_noise = utils.sample_Z(n_samples,100,'uniform')
+	
 		
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:n_samples], model.trg_images: target_images[:n_samples]}
 		
@@ -490,7 +487,7 @@ class Solver(object):
 
 	    elif sys.argv[2] == '4':
 		TSNE_hA = model.fit_transform(h_repr)
-	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = trg_labels, s=3,  cmap = mpl.cm.jet)
+	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.argmax(trg_labels,1), s=3,  cmap = mpl.cm.jet)
 		
 
 	    plt.show()
