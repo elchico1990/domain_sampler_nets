@@ -6,6 +6,7 @@ import os
 import scipy.io
 import scipy.misc
 import cPickle
+import sys
 
 import time
 
@@ -124,10 +125,10 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if (t+1) % 500 == 0:
+		    if (t+1) % 250 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:64]
-			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:64]
+			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
+			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
 			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
 					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 							  model.src_labels: src_test_labels[src_rand_idxs],
@@ -137,7 +138,7 @@ class Solver(object):
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
 			
-		    if (t+1) % 1000 == 0:
+		    if (t+1) % 250 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 	    
@@ -162,7 +163,7 @@ class Solver(object):
 	
 	batch_size = self.batch_size
 	noise_dim = 100
-	epochs = 300
+	epochs = 1000
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -196,8 +197,6 @@ class Solver(object):
 	    
 		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
 		    avg_D_real = sess.run(model.logits_real, feed_dict)
-		    
-		    #~ a,b,c,d = sess.run([model.logits_fake,model.logits_real,model.labels_fake,model.labels_real], feed_dict)
 		    
 		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
@@ -346,7 +345,6 @@ class Solver(object):
 		plt.imshow(np.squeeze(samples[i]), cmap='gray')
 		plt.imsave('./sample/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
 
-
     def check_TSNE(self):
 	
 	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
@@ -369,10 +367,20 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
 	    
-            print ('Loading pretrained model.')
-            variables_to_restore = slim.get_model_variables(scope='encoder')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
+	    if sys.argv[1] == 'test':
+		print ('Loading test model.')
+		variables_to_restore = slim.get_model_variables(scope='encoder')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.test_model)
+	    
+	    elif sys.argv[1] == 'pretrain':
+		print ('Loading pretrained model.')
+		variables_to_restore = slim.get_model_variables(scope='encoder')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.pretrained_model)
+		
+	    else:
+		raise NameError('Unrecognized mode.')
 	    
             
             print ('Loading sampler.')
@@ -401,23 +409,29 @@ class Solver(object):
 
 	    model = TSNE(n_components=2, random_state=0)
 
-	    #~ TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
-	    TSNE_hA = model.fit_transform(np.vstack((fzy,fx_trg)))
-	    #~ TSNE_hA = model.fit_transform(np.vstack((fx_src)))
 	       
-	  
-	    plt.figure(2)
-	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
-	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples)))), s=3, cmap = mpl.cm.jet)
-	    
-	    plt.figure(3)
-	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
-	    plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,trg_labels)), s=3, cmap = mpl.cm.jet)
-	    #~ plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
-	            
+	    if sys.argv[2] == '1':
+		TSNE_hA = model.fit_transform(np.vstack((fx_src)))
+		plt.figure(2)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples)))), s=3, cmap = mpl.cm.jet)
+		plt.figure(3)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
+		
+	    elif sys.argv[2] == '2':
+		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src)))
+	        plt.figure(2)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
+		plt.figure(3)
+                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
+
+	    elif sys.argv[2] == '3':
+		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
+	        plt.figure(2)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
+	        plt.figure(3)
+                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
+
 	    plt.show()
-	    
 	    
     def test(self):
 	
@@ -442,11 +456,21 @@ class Solver(object):
 	    
 	    while(True):
 		
-		print ('Loading pretrained model.')
-		variables_to_restore = slim.get_model_variables(scope='encoder')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
+		if sys.argv[1] == 'test':
+		    print ('Loading test model.')
+		    variables_to_restore = slim.get_model_variables(scope='encoder')
+		    restorer = tf.train.Saver(variables_to_restore)
+		    restorer.restore(sess, self.test_model)
 		
+		elif sys.argv[1] == 'pretrain':
+		    print ('Loading pretrained model.')
+		    variables_to_restore = slim.get_model_variables(scope='encoder')
+		    restorer = tf.train.Saver(variables_to_restore)
+		    restorer.restore(sess, self.pretrained_model)
+		    
+		else:
+		    raise NameError('Unrecognized mode.')
+	    
 		t+=1
     
 		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
