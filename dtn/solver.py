@@ -332,14 +332,14 @@ class Solver(object):
 		    
 		    #~ sess.run(model.const_train_op, feed_dict)
 		    
-		    logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
+		    logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
 		    
 		    if (step+1) % 10 == 0:
 			
-			summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
+			summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
 			summary_writer.add_summary(summary, step)
-			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
-				   %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
+			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f]E_real: [%.2f] E_fake: [%.2f]' \
+				   %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
 			
 
