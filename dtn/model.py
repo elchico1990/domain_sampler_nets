@@ -12,7 +12,7 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 512
+	self.hidden_repr_size = 128
     
     def sampler_generator(self, z, y, reuse=False):
 	
@@ -41,7 +41,7 @@ class DSN(object):
 		    net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
-			
+		    
     def E(self, images, reuse=False, make_preds=False, is_training = False):
 	
 	if images.get_shape()[3] == 3:
@@ -56,6 +56,7 @@ class DSN(object):
 		    net = slim.conv2d(net, 128, 5, scope='conv2')
 		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
 		    net = tf.contrib.layers.flatten(net)
+		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
@@ -77,51 +78,7 @@ class DSN(object):
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 	    
-    def G(self, inputs, reuse=False):
-        # inputs: (batch, 1, 1, 128)
-	
-	if inputs.get_shape()[1] != 1:
-	    inputs = tf.expand_dims(inputs, 1)
-	    inputs = tf.expand_dims(inputs, 1)
-	
-        with tf.variable_scope('generator', reuse=reuse):
-            with slim.arg_scope([slim.conv2d_transpose], padding='SAME', activation_fn=tf.nn.tanh,           
-                                 stride=2, weights_initializer=tf.contrib.layers.xavier_initializer()):
-                with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                     activation_fn=tf.tanh, is_training=(self.mode=='train_dsn')):
 
-                    net = slim.conv2d_transpose(inputs, 512, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
-                    net = slim.batch_norm(net, scope='bn1')
-                    net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 8, 8, 256)
-                    net = slim.batch_norm(net, scope='bn2')
-                    net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 16, 16, 128)
-                    net = slim.batch_norm(net, scope='bn3')
-                    net = slim.conv2d_transpose(net, 1, [3, 3], scope='conv_transpose4')   # (batch_size, 32, 32, 1)
-                    return net
-    
-    def D_g(self, images, reuse=False):
-	
-	if images.get_shape()[3] == 3:
-            # For mnist dataset, replicate the gray scale image 3 times.
-            images = tf.image.rgb_to_grayscale(images)
-	
-        # images: (batch, 32, 32, 1)
-        with tf.variable_scope('disc_g', reuse=reuse):
-            with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
-                                 stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
-                with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train')):
-                    
-                    net = slim.conv2d(images, 128, [3, 3], activation_fn=tf.nn.relu, scope='conv1')   # (batch_size, 16, 16, 128)
-                    net = slim.batch_norm(net, scope='bn1')
-                    net = slim.conv2d(net, 256, [3, 3], scope='conv2')   # (batch_size, 8, 8, 256)
-                    net = slim.batch_norm(net, scope='bn2')
-                    net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 4, 4, 512)
-                    net = slim.batch_norm(net, scope='bn3')
-                    net = slim.flatten(net)
-		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
-                    return net
-	    
     def build_model(self):
         
         if self.mode == 'pretrain' or self.mode == 'test':
@@ -304,7 +261,7 @@ class DSN(object):
             
 
             for var in tf.trainable_variables():
-		tf.summary.histogram(var.op.name, var) 
+		tf.summary.histogram(var.op.name, var)	
 		
 		
 		
@@ -321,9 +278,8 @@ class DSN(object):
 		
 		
 		
-		
-		
-		
+
+		    
 		
 		
 		
