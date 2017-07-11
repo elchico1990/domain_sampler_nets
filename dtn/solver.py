@@ -328,7 +328,7 @@ class Solver(object):
 		    sess.run(model.G_train_op, feed_dict) 
 		    sess.run(model.DG_train_op, feed_dict) 
 		    
-		    #~ sess.run(model.const_train_op, feed_dict)
+		    sess.run(model.const_train_op, feed_dict)
 		    
 		    logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		    

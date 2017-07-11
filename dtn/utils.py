@@ -92,6 +92,11 @@ def knn(X_test, X_ref, Y_ref, K = 5):
 		
 	return preds
 	
+def conv_concat(x,y):
+    bz = tf.shape(x)[0]
+    y = tf.reshape(y, [bz, 1, 1, 10])
+    return tf.concat([x, y*tf.ones([bz, 1, 1, 10])], 3)
+	
 if __name__=='__main__':
 	
 	computeTSNE()

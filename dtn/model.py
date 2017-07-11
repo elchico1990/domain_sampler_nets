@@ -5,6 +5,8 @@ import numpy as np
 
 import cPickle
 
+from utils import conv_concat
+
 
 class DSN(object):
     """Domain Sampler Network
@@ -62,12 +64,14 @@ class DSN(object):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
 		    
-    def G(self, inputs, reuse=False):
+    def G(self, inputs, labels, reuse=False):
         # inputs: (batch, 1, 1, 128)
 	
 	if inputs.get_shape()[1] != 1:
 	    inputs = tf.expand_dims(inputs, 1)
 	    inputs = tf.expand_dims(inputs, 1)
+	    
+	    inputs = conv_concat(inputs,labels)
 	
         with tf.variable_scope('generator', reuse=reuse):
             with slim.arg_scope([slim.conv2d_transpose], padding='SAME', activation_fn=tf.nn.tanh,           
@@ -360,9 +364,8 @@ class DSN(object):
 		
 		
 		
-		
-		
-		
+
+
 		
 		
 		
