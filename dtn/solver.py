@@ -325,6 +325,7 @@ class Solver(object):
 		    #~ sess.run(model.E_train_op, feed_dict) 
 		    #~ sess.run(model.DE_train_op, feed_dict) 
 		    
+		    
 		    sess.run(model.G_train_op, feed_dict) 
 		    sess.run(model.DG_train_op, feed_dict) 
 		    
