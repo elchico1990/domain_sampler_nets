@@ -34,12 +34,12 @@ def main(_):
     
     
     elif FLAGS.mode == 'train_all':		
-	model = DSN(mode='pretrain', learning_rate=0.0003)
-	solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-	solver.pretrain()
-	model = DSN(mode='train_sampler', learning_rate=0.0003)
-	solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-	solver.train_sampler()
+	#~ model = DSN(mode='pretrain', learning_rate=0.0003)
+	#~ solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
+	#~ solver.pretrain()
+	#~ model = DSN(mode='train_sampler', learning_rate=0.0003)
+	#~ solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
+	#~ solver.train_sampler()
 	model = DSN(mode='train_dsn', learning_rate=0.0003)
 	solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
 	solver.train_dsn()

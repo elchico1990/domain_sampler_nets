@@ -110,7 +110,7 @@ class Solver(object):
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-	    epochs = 100
+	    epochs = 30
 	    
 	    t = 0
 
@@ -122,7 +122,7 @@ class Solver(object):
 		    
 		    t+=1
 		       
-		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]}
+		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but otherwise useless. 
 		    
 		    sess.run(model.train_op, feed_dict) 
 
@@ -206,7 +206,7 @@ class Solver(object):
 	
 	batch_size = self.batch_size
 	noise_dim = 100
-	epochs = 1000
+	epochs = 50
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
