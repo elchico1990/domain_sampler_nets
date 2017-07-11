@@ -82,7 +82,7 @@ class DSN(object):
                     net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 16, 16, 128)
                     net = slim.batch_norm(net, scope='bn3')
                     net = slim.conv2d_transpose(net, 1, [3, 3], scope='conv_transpose4')   # (batch_size, 32, 32, 1)
-                    return net
+		    return net
     
     def D_g(self, images, reuse=False):
 	
@@ -263,7 +263,7 @@ class DSN(object):
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
-	    self.images = tf.concat(axis=0, values=[self.src_images, tf.image.grayscale_to_rgb(self.trg_images)])
+	    self.images = tf.concat(axis=0, values=[tf.image.rgb_to_grayscale(self.src_images), self.trg_images])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
 	    
 	    try:
@@ -278,12 +278,13 @@ class DSN(object):
 		
 	    self.fx = self.E(self.images, reuse=True)
 	    
-	    self.GE_trg = self.G(self.E(self.trg_images, reuse=True))
+	    self.GE_trg = self.G(self.E(self.trg_images, reuse=True), self.trg_labels) #+ tf.random_normal(shape=tf.shape(self.E(self.trg_images, reuse=True)), mean=0.0, stddev=0.5, dtype=tf.float32)) 
+    
 	    
 	    #~ self.EG_fzy = self.E(self.G(self.fzy, reuse=True), reuse=True)
 	    
 	    
-	    self.gen_trg_images = self.G(self.fzy, reuse=True)
+	    self.gen_trg_images = self.G(self.fzy, self.src_labels, reuse=True)
 	    
 	    # E losses
 	    
@@ -311,7 +312,7 @@ class DSN(object):
 	    
 	    # Trg const loss
 	    
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.image.grayscale_to_rgb(self.trg_images))) * 1.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
+	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 15.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    
 	    
 	    # Optimizers

@@ -260,6 +260,9 @@ class Solver(object):
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
 	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
 	
+	target_images = target_images[:10000]
+	source_images = source_images[:10000]
+	
 
         # build a graph
         model = self.model
@@ -280,7 +283,7 @@ class Solver(object):
 		print ('Loading pretrained encoder.')
 		variables_to_restore = slim.get_model_variables(scope='encoder')
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_model)
+		restorer.restore(sess, self.test_model)
 		
 		print ('Loading pretrained encoder disc.')
 		variables_to_restore = slim.get_model_variables(scope='disc_e')
@@ -319,27 +322,22 @@ class Solver(object):
 		    
 		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		    
-		    sess.run(model.E_train_op, feed_dict) 
-		    sess.run(model.DE_train_op, feed_dict) 
+		    #~ sess.run(model.E_train_op, feed_dict) 
+		    #~ sess.run(model.DE_train_op, feed_dict) 
 		    
-		    #~ if G_loss > 0.25:
-			#~ print 'training G', G_loss, DG_loss
-		    #~ G_loss, DG_loss, _ = sess.run([model.G_loss, model.DG_loss, model.G_train_op], feed_dict) 
-		    
-		    #~ else:
-			#~ print 'training DG', G_loss, DG_loss
-		    #~ G_loss, DG_loss, _ = sess.run([model.G_loss, model.DG_loss, model.DG_train_op], feed_dict) 
+		    sess.run(model.G_train_op, feed_dict) 
+		    sess.run(model.DG_train_op, feed_dict) 
 		    
 		    #~ sess.run(model.const_train_op, feed_dict)
 		    
-		    logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
+		    logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		    
 		    if (step+1) % 10 == 0:
 			
-			summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
+			summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
 			summary_writer.add_summary(summary, step)
-			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f]E_real: [%.2f] E_fake: [%.2f]' \
-				   %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
+			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
+				   %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
 
 			
 
