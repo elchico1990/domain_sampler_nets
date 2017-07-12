@@ -359,7 +359,7 @@ class DSN(object):
 	    # Trg const loss
 	    
 	    #~ self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 10.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 1.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
+	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 15.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    
 	    
 	    # Optimizers
