@@ -260,9 +260,6 @@ class Solver(object):
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
 	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
 	
-	target_images = target_images[:10000]
-	source_images = source_images[:10000]
-	
 
         # build a graph
         model = self.model
@@ -290,6 +287,16 @@ class Solver(object):
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_sampler)
 		
+		print ('Loading pretrained G.')
+		variables_to_restore = slim.get_model_variables(scope='generator')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.test_model)
+		
+		print ('Loading pretrained D_g.')
+		variables_to_restore = slim.get_model_variables(scope='disc_g')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.test_model)
+		
 		print ('Loading sample generator.')
 		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
 		restorer = tf.train.Saver(variables_to_restore)
@@ -306,7 +313,9 @@ class Solver(object):
 		G_loss = 1.
 		DG_loss = 1.
 		
-		for step in range(self.train_iter+1):
+		label_gen = utils.one_hot(np.array([0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9]),10)
+		
+		for step in range(10000000):
 		    
 		    trg_count += 1
 		    t+=1
@@ -320,11 +329,10 @@ class Solver(object):
 		    src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		    trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
 		    
-		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
+		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		    
 		    #~ sess.run(model.E_train_op, feed_dict) 
 		    #~ sess.run(model.DE_train_op, feed_dict) 
-		    
 		    
 		    sess.run(model.G_train_op, feed_dict) 
 		    sess.run(model.DG_train_op, feed_dict) 
@@ -352,29 +360,28 @@ class Solver(object):
 
         # load svhn dataset
         source_images, source_labels = self.load_svhn(self.svhn_dir)
+	source_labels[:] = 2
 
         with tf.Session(config=self.config) as sess:
 	    
 	    
-            print ('Loading sampler generator.')
-            variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_sampler)
+	
 	    
-	    print ('Loading sampler discriminator.')
-            variables_to_restore = slim.get_model_variables(scope='disc_e')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_sampler)
+	    print ('Loading pretrained G.')
+	    variables_to_restore = slim.get_model_variables(scope='generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.test_model)
 	    
-            print ('Loading encoder.')
-            variables_to_restore = slim.get_model_variables(scope='encoder')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
+	    
+	    print ('Loading sample generator.')
+	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
 	    
 
 
 	    # train model for source domain S
-	    src_labels = utils.one_hot(source_labels[:1000],11)
+	    src_labels = utils.one_hot(source_labels[:1000],10)
 	    src_noise = utils.sample_Z(1000,100,'uniform')
 
 	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
@@ -385,7 +392,7 @@ class Solver(object):
 		
 		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 		plt.imshow(np.squeeze(samples[i]), cmap='gray')
-		plt.imsave('./sample/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
+		plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
 
     def check_TSNE(self):
 	
@@ -546,7 +553,7 @@ class Solver(object):
 		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
 	
-		#~ time.sleep(30)
+		time.sleep(.5)
 		    
 if __name__=='__main__':
 
