@@ -42,50 +42,6 @@ class Solver(object):
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
 
-    def load_svhn(self, image_dir, split='train'):
-        print ('Loading SVHN dataset.')
-        
-        image_file = 'train_32x32.mat' if split=='train' else 'test_32x32.mat'
-            
-        image_dir = os.path.join(image_dir, image_file)
-        svhn = scipy.io.loadmat(image_dir)
-        images = np.transpose(svhn['X'], [3, 0, 1, 2]) / 127.5 - 1
-        labels = svhn['y'].reshape(-1)
-        labels[np.where(labels==10)] = 0
-        return images, labels
-
-    def load_mnist(self, image_dir, split='train'):
-        print ('Loading MNIST dataset.')
-        image_file = 'train.pkl' if split=='train' else 'test.pkl'
-        image_dir = os.path.join(image_dir, image_file)
-        with open(image_dir, 'rb') as f:
-            mnist = pickle.load(f)
-        images = mnist['X'] / 127.5 - 1
-        labels = mnist['y']
-        return images, labels
-
-    def load_usps(self, image_dir):
-        
-	print ('Loading USPS dataset.')
-        image_file = 'train.pkl'
-        image_dir = os.path.join(image_dir, image_file)
-        with open(image_dir, 'rb') as f:
-            usps = pickle.load(f)
-        images = usps['X'] / 127.5 - 1
-        labels = usps['y']
-        return images, labels
-	
-    def merge_images(self, sources, targets, k=10):
-        _, h, w, _ = sources.shape
-        row = int(np.sqrt(self.batch_size))
-        merged = np.zeros([row*h, row*w*2, 3])
-
-        for idx, (s, t) in enumerate(zip(sources, targets)):
-            i = idx // row
-            j = idx % row
-            merged[i*h:(i+1)*h, (j*2)*h:(j*2+1)*h, :] = s
-            merged[i*h:(i+1)*h, (j*2+1)*h:(j*2+2)*h, :] = t
-        return merged
 
     def pretrain(self):
         # load svhn dataset
@@ -143,47 +99,6 @@ class Solver(object):
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 
-    def train_convdeconv(self):
-
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-
-        # build a graph
-        model = self.model
-        model.build_model()
-	
-        with tf.Session(config=self.config) as sess:
-            tf.global_variables_initializer().run()
-            saver = tf.train.Saver()
-	    
-            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-
-	    epochs = 100
-	    
-	    t = 0
-
-	    for i in range(epochs):
-		
-		print 'Epoch',str(i)
-		
-		for start, end in zip(range(0, len(trg_images), self.batch_size), range(self.batch_size, len(trg_images), self.batch_size)):
-		    
-		    t+=1
-		       
-		    feed_dict = {model.images: trg_images[start:end]}
-		    
-		    sess.run(model.train_op, feed_dict) 
-
-		    if (t+1) % 250 == 0:
-			rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
-			summary, l = sess.run([model.summary_op, model.loss], feed_dict = {model.images: trg_test_images[rand_idxs]})
-			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] loss: [%.6f]' \
-				   %(t+1, self.pretrain_iter, l))
-			
-		    if (t+1) % 250 == 0:
-			#~ print 'Saved.'
-			saver.save(sess, os.path.join(self.model_save_path, 'conv_deconv'))
 	    
     def train_sampler(self):
 	
