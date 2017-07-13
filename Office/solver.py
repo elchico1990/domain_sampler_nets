@@ -30,17 +30,24 @@ class Solver(object):
         self.train_iter = train_iter
         self.sample_iter = sample_iter
         self.src_dir = src_dir
-        self.trg_dir = trg_dir
-        self.log_dir = log_dir
-        self.sample_save_path = sample_save_path
-        self.model_save_path = model_save_path
-        self.pretrained_model = pretrained_model
-	self.pretrained_sampler = pretrained_sampler
-        self.test_model = test_model
-	self.convdeconv_model = convdeconv_model
+        self.trg_dir = trg_dir	
+	self.base_path = src_dir+'2'+trg_dir+'/'
+        self.log_dir = self.base_path+log_dir
+        self.sample_save_path = self.base_path+sample_save_path
+        self.model_save_path = self.base_path+model_save_path
+        self.pretrained_model = self.base_path+pretrained_model
+	self.pretrained_sampler = self.base_path+pretrained_sampler
+        self.test_model = self.base_path+test_model
+	self.convdeconv_model = self.base_path+convdeconv_model
+	    # create directories if not exist
+	if not tf.gfile.Exists(self.model_save_path):
+	    tf.gfile.MakeDirs(self.model_save_path)
+	if not tf.gfile.Exists(self.sample_save_path):
+	    tf.gfile.MakeDirs(self.sample_save_path)
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
 
+	
 
     def load_office(self, image_dir='./office', split='amazon'):
         print ('Loading OFFICE dataset -> '+split)
@@ -104,25 +111,22 @@ class Solver(object):
 		    
 		    t+=1
 		       
-		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but otherwise useless. 
+		    feed_dict = {model.keep_prob : 0.5, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
+						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but actually useless. 
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if (t+1) % 250 == 0:
+		    if (t+1) % 50 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
-			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-							  model.src_labels: src_test_labels[src_rand_idxs],
-							  model.trg_images: trg_test_images[trg_rand_idxs], 
-							  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:100]
+			trg_acc, _ = sess.run(fetches=[model.trg_accuracy, model.loss], 
+					       feed_dict={model.trg_images: trg_images[trg_rand_idxs], 
+							  model.trg_labels: trg_labels[trg_rand_idxs]})
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
-				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
+				   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
 			
-		    if (t+1) % 250 == 0:
-			#~ print 'Saved.'
+			#~ # 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 
 	    

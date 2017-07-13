@@ -4,20 +4,13 @@ from solver import Solver
 
 flags = tf.app.flags
 flags.DEFINE_string('mode', 'train', "'pretrain', 'train' or 'eval'")
-flags.DEFINE_string('model_save_path', 'model', "directory for saving the model")
-flags.DEFINE_string('sample_save_path', 'sample', "directory for saving the sampled images")
 FLAGS = flags.FLAGS
 
 def main(_):
     
     model = DSN(mode=FLAGS.mode, learning_rate=0.0003)
-    solver = Solver(model, src_dir='amazon', trg_dir='dslr', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-    
-    # create directories if not exist
-    if not tf.gfile.Exists(FLAGS.model_save_path):
-	    tf.gfile.MakeDirs(FLAGS.model_save_path)
-    if not tf.gfile.Exists(FLAGS.sample_save_path):
-	    tf.gfile.MakeDirs(FLAGS.sample_save_path)
+    solver = Solver(model, src_dir='amazon', trg_dir='dslr')
+
     
     if FLAGS.mode == 'pretrain':
 	    solver.pretrain()
