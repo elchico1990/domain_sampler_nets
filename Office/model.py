@@ -77,18 +77,19 @@ class DSN(object):
     def build_model(self):
               
         if self.mode == 'pretrain' or self.mode == 'test':
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'source_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'target_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'source_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'target_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'source_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'target_labels')
+	    self.keep_prob = tf.placeholder(tf.float32)
             
-	    self.src_logits = self.E(self.src_images, is_training = True)
+	    self.src_logits = self.E(self.src_images, self.keep_prob, is_training = True)
 		
 	    self.src_pred = tf.argmax(self.src_logits, 1)
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
-            
-            self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
+		
+            self.trg_logits = self.E(self.trg_images, self.keep_prob, is_training = False, reuse=True)
 		
 	    self.trg_pred = tf.argmax(self.trg_logits, 1)
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)

@@ -20,7 +20,7 @@ from sklearn.manifold import TSNE
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
-                 svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
+                 src_dir='amazon', trg_dir='dslr', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
@@ -29,9 +29,8 @@ class Solver(object):
         self.pretrain_iter = pretrain_iter
         self.train_iter = train_iter
         self.sample_iter = sample_iter
-        self.svhn_dir = svhn_dir
-        self.mnist_dir = mnist_dir
-        self.usps_dir = usps_dir
+        self.src_dir = src_dir
+        self.trg_dir = trg_dir
         self.log_dir = log_dir
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
@@ -43,13 +42,40 @@ class Solver(object):
         self.config.gpu_options.allow_growth=True
 
 
+    def load_office(self, image_dir='./office', split='amazon'):
+        print ('Loading OFFICE dataset -> '+split)
+
+	
+	if split == 'amazon':
+	    image_file1 = 'amazon_1.pkl'
+	    image_file2 = 'amazon_2.pkl' 
+	    image_dir1 = os.path.join(image_dir, image_file1)
+	    image_dir2 = os.path.join(image_dir, image_file2)
+	    with open(image_dir1, 'rb') as f:
+		office = pickle.load(f)
+		images = office['X']
+		labels = office['y']
+	    with open(image_dir2, 'rb') as f:
+		office = pickle.load(f)
+		images = np.concatenate([images, office['X']], axis=0)
+		labels = np.concatenate([labels, office['y']], axis=0)
+		
+	else:
+	    image_file = split+'.pkl' 
+	    image_dir = os.path.join(image_dir, image_file)
+	    with open(image_dir, 'rb') as f:
+		office = pickle.load(f)
+		images = office['X']
+		labels = office['y']
+		
+        return images, labels
+
     def pretrain(self):
         # load svhn dataset
-        src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-        src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
-
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+        src_images, src_labels = self.load_office(split=self.src_dir)
+        
+        trg_images, trg_labels = self.load_office(split=self.trg_dir)
+        
 
         # build a graph
         model = self.model
@@ -104,7 +130,7 @@ class Solver(object):
 	
 	print 'Training sampler.'
         # load svhn dataset
-        source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+        source_images, source_labels = self.load_svhn(self.src_dir, split='train')
 	source_labels = utils.one_hot(source_labels, 10)
 	
 	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
@@ -171,9 +197,9 @@ class Solver(object):
 
     def train_dsn(self):
         
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	target_images, target_labels = self.load_mnist(self.trg_dir, split='train')
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	source_images, source_labels = self.load_svhn(self.src_dir, split='train')
 	
 
         # build a graph
@@ -274,7 +300,7 @@ class Solver(object):
         model.build_model()
 
         # load svhn dataset
-        source_images, source_labels = self.load_svhn(self.svhn_dir)
+        source_images, source_labels = self.load_svhn(self.src_dir)
 	source_labels[:] = 2
 
         with tf.Session(config=self.config) as sess:
@@ -311,9 +337,9 @@ class Solver(object):
 
     def check_TSNE(self):
 	
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	target_images, target_labels = self.load_mnist(self.trg_dir, split='train')
 	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	source_images, source_labels = self.load_svhn(self.src_dir, split='train')
 	
 
         # build a graph
@@ -416,11 +442,11 @@ class Solver(object):
     def test(self):
 	
 	# load svhn dataset
-	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	src_images, src_labels = self.load_svhn(self.src_dir, split='train')
+	src_test_images, src_test_labels = self.load_svhn(self.src_dir, split='test')
 
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	trg_images, trg_labels = self.load_mnist(self.trg_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_mnist(self.trg_dir, split='test')
 
 	# build a graph
 	model = self.model
