@@ -82,7 +82,7 @@ class Solver(object):
         src_images, src_labels = self.load_office(split=self.src_dir)
         
         trg_images, trg_labels = self.load_office(split=self.trg_dir)
-        
+	        
 
         # build a graph
         model = self.model
@@ -90,6 +90,7 @@ class Solver(object):
 	
         with tf.Session(config=self.config) as sess:
             tf.global_variables_initializer().run()
+	    #~ model.alex.load_initial_weights(sess)
             saver = tf.train.Saver()
 	    
             #~ print ('Loading pretrained model.')
@@ -99,35 +100,41 @@ class Solver(object):
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-	    epochs = 30
+	    epochs = 300
 	    
 	    t = 0
 
 	    for i in range(epochs):
 		
 		print 'Epoch',str(i)
+		src_rand = np.random.permutation(src_images.shape[0])
+		src_images, src_labels = src_images[src_rand], src_labels[src_rand]
 		
 		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
 		    
 		    t+=1
 		       
-		    feed_dict = {model.keep_prob : 0.5, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
+		    feed_dict = {model.keep_prob : 1.0, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
 						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but actually useless. 
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if (t+1) % 50 == 0:
-			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:100]
-			trg_acc, _ = sess.run(fetches=[model.trg_accuracy, model.loss], 
-					       feed_dict={model.trg_images: trg_images[trg_rand_idxs], 
-							  model.trg_labels: trg_labels[trg_rand_idxs]})
-			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
-				   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
-			
-			#~ # 'Saved.'
-			saver.save(sess, os.path.join(self.model_save_path, 'model'))
+
+		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
+		src_rand_idxs = np.random.permutation(src_images.shape[0])[:100]
+		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:100]
+		src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, model.trg_accuracy], 
+				       feed_dict={model.keep_prob : 1.0,
+						    model.src_images: src_images[src_rand_idxs], 
+						    model.src_labels: src_labels[src_rand_idxs],
+						    model.trg_images: trg_images[trg_rand_idxs], 
+						    model.trg_labels: trg_labels[trg_rand_idxs]})
+		summary_writer.add_summary(summary, t)
+		print ('Step: [%d/%d] loss: [%.6f]  src acc [%.2f] trg acc [%.2f]' \
+			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
+		
+		#~ # 'Saved.'
+		saver.save(sess, os.path.join(self.model_save_path, 'model'))
 
 	    
     def train_sampler(self):

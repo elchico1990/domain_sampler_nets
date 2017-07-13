@@ -8,8 +8,8 @@ FLAGS = flags.FLAGS
 
 def main(_):
     
-    model = DSN(mode=FLAGS.mode, learning_rate=0.0003)
-    solver = Solver(model, src_dir='amazon', trg_dir='dslr')
+    model = DSN(mode=FLAGS.mode, learning_rate=0.0005)
+    solver = Solver(model, src_dir='amazon', trg_dir='dslr', batch_size=128)
 
     
     if FLAGS.mode == 'pretrain':
