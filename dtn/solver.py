@@ -7,7 +7,7 @@ import scipy.io
 import scipy.misc
 import cPickle
 import sys
-
+import glob
 import time
 
 import matplotlib.pyplot as plt
@@ -73,19 +73,21 @@ class Solver(object):
         images = usps['X'] / 127.5 - 1
         labels = usps['y']
         return images, labels
+
+    def load_gen_images(self, image_dir):
 	
-    def merge_images(self, sources, targets, k=10):
-        _, h, w, _ = sources.shape
-        row = int(np.sqrt(self.batch_size))
-        merged = np.zeros([row*h, row*w*2, 3])
-
-        for idx, (s, t) in enumerate(zip(sources, targets)):
-            i = idx // row
-            j = idx % row
-            merged[i*h:(i+1)*h, (j*2)*h:(j*2+1)*h, :] = s
-            merged[i*h:(i+1)*h, (j*2+1)*h:(j*2+2)*h, :] = t
-        return merged
-
+	'''
+	Loading images generated with eval_dsn()
+	Assuming that image_dir contains folder with
+	subfolders 1,2,...,9.
+	'''
+	
+	labels = np.zeros((10000,10))
+	images = np.zeros((10000,32,32,1))
+	
+	for l in range(10):
+	    labels
+	
     def pretrain(self):
         # load svhn dataset
         src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')

@@ -82,7 +82,7 @@ class DSN(object):
 	    
     def G(self, inputs, labels, reuse=False, do_reshape=False):
 	
-	labels = tf.reshape(labels, [1000, 1, 1, 10])
+	labels = tf.reshape(labels, [64, 1, 1, 10])
 	
 	if inputs.get_shape()[1] != 1:
 	    inputs = tf.expand_dims(inputs, 1)
