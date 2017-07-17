@@ -92,16 +92,23 @@ def knn(X_test, X_ref, Y_ref, K = 5):
 		
 	return preds
 	
-def conv_concat(x,y,mode='G'):
-	if mode=='G':
-		bz = tf.shape(x)[0]
-		y = tf.reshape(y, [bz, 1, 1, 10])
-		return tf.concat([x, y*tf.ones([bz, 1, 1, 10])], 3)
-	if mode =='D':
-		bz = tf.shape(x)[0]
-		y = tf.reshape(y, [bz, 1, 1, 10])
-		return tf.concat([x, y*tf.ones([bz, 32, 32, 10])], 3)
-	
+def conv_concat(x,y):
+     	    
+    """Concatenate conditioning vector on feature map axis."""
+    x_shapes = x.get_shape()
+    y_shapes = y.get_shape()
+    #~ print x_shapes, y_shapes
+    return tf.concat([x, y*tf.ones([1000, x_shapes[1], x_shapes[2], 10])], axis=3)
+
+def lrelu(inputs, leak=0.2, scope="lrelu"):
+    """
+    https://github.com/tensorflow/tensorflow/issues/4079
+    """
+    with tf.variable_scope(scope):
+        f1 = 0.5 * (1 + leak)
+        f2 = 0.5 * (1 - leak)
+	return f1 * inputs + f2 * abs(inputs)
+  
 if __name__=='__main__':
 	
 	computeTSNE()
