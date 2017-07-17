@@ -4,20 +4,13 @@ from solver import Solver
 
 flags = tf.app.flags
 flags.DEFINE_string('mode', 'train', "'pretrain', 'train' or 'eval'")
-flags.DEFINE_string('model_save_path', 'model', "directory for saving the model")
-flags.DEFINE_string('sample_save_path', 'sample', "directory for saving the sampled images")
 FLAGS = flags.FLAGS
 
 def main(_):
     
-    model = DSN(mode=FLAGS.mode, learning_rate=0.0003)
-    solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-    
-    # create directories if not exist
-    if not tf.gfile.Exists(FLAGS.model_save_path):
-	    tf.gfile.MakeDirs(FLAGS.model_save_path)
-    if not tf.gfile.Exists(FLAGS.sample_save_path):
-	    tf.gfile.MakeDirs(FLAGS.sample_save_path)
+    model = DSN(mode=FLAGS.mode, learning_rate=0.0005)
+    solver = Solver(model, src_dir='amazon', trg_dir='dslr', batch_size=128)
+
     
     if FLAGS.mode == 'pretrain':
 	    solver.pretrain()
@@ -33,13 +26,13 @@ def main(_):
     
     elif FLAGS.mode == 'train_all':		
 	#~ model = DSN(mode='pretrain', learning_rate=0.0003)
-	#~ solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
+	#~ solver = Solver(model, src_dir='svhn', trg_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
 	#~ solver.pretrain()
 	#~ model = DSN(mode='train_sampler', learning_rate=0.0003)
-	#~ solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
+	#~ solver = Solver(model, src_dir='svhn', trg_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
 	#~ solver.train_sampler()
 	model = DSN(mode='train_dsn', learning_rate=0.0001)
-	solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
+	solver = Solver(model, src_dir='svhn', trg_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
 	solver.train_dsn()
 
     else:

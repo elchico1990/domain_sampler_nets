@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+from alexnet import AlexNet
 
 import numpy as np
 
@@ -44,25 +45,16 @@ class DSN(object):
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
-    def E(self, images, reuse=False, make_preds=False, is_training = False):
-	
-	if images.get_shape()[3] == 3:
-	    # For mnist dataset, replicate the gray scale image 3 times.
-	    images = tf.image.rgb_to_grayscale(images)
-	
+    def E(self, images, keep_prob, train_layers = ['fc8','fc_repr'], num_classes=31, reuse=False, make_preds=False, is_training = False):
+
 	with tf.variable_scope('encoder', reuse=reuse):
-	    with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='VALID'):
-		    net = slim.conv2d(images, 64, 5, scope='conv1')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool1')
-		    net = slim.conv2d(net, 128, 5, scope='conv2')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
-		    net = tf.contrib.layers.flatten(net)
-		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
-		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
-		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
-		    return net
+	    model = AlexNet(images, keep_prob, num_classes, train_layers)
+	
+	    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
+		net = model.fc8
+	    else:
+		net = model.fc_repr
+	    return net
 			    
     def D_e(self, inputs, y, reuse=False):
 	
@@ -85,18 +77,19 @@ class DSN(object):
     def build_model(self):
               
         if self.mode == 'pretrain' or self.mode == 'test':
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
-            self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
-            self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
+            self.src_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'source_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'target_images')
+            self.src_labels = tf.placeholder(tf.int64, [None], 'source_labels')
+            self.trg_labels = tf.placeholder(tf.int64, [None], 'target_labels')
+	    self.keep_prob = tf.placeholder(tf.float32)
             
-	    self.src_logits = self.E(self.src_images, is_training = True)
+	    self.src_logits = self.E(self.src_images, self.keep_prob, is_training = True)
 		
 	    self.src_pred = tf.argmax(self.src_logits, 1)
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
-            
-            self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
+		
+            self.trg_logits = self.E(self.trg_images, self.keep_prob, is_training = False, reuse=True)
 		
 	    self.trg_pred = tf.argmax(self.trg_logits, 1)
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
