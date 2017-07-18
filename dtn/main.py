@@ -31,6 +31,8 @@ def main(_):
 	    solver.test()
     elif FLAGS.mode == 'train_convdeconv':
 	    solver.train_convdeconv()
+    elif FLAGS.mode == 'train_gen_images':
+	    solver.train_gen_images()
     
     
     elif FLAGS.mode == 'train_all':		

@@ -1,6 +1,7 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import numpy as np
+import numpy.random as npr
 import pickle
 import os
 import scipy.io
@@ -15,6 +16,9 @@ import matplotlib as mpl
 
 import utils
 from sklearn.manifold import TSNE
+
+from scipy import misc
+
 
 class Solver(object):
 
@@ -74,7 +78,7 @@ class Solver(object):
         labels = usps['y']
         return images, labels
 
-    def load_gen_images(self, image_dir):
+    def load_gen_images(self):
 	
 	'''
 	Loading images generated with eval_dsn()
@@ -82,11 +86,27 @@ class Solver(object):
 	subfolders 1,2,...,9.
 	'''
 	
-	labels = np.zeros((10000,10))
-	images = np.zeros((10000,32,32,1))
+	print 'Loading generated images.'
+	
+	no_images = 10000 # number of images per digit
+	
+	labels = np.zeros((10 * no_images,)).astype(int)
+	images = np.zeros((10 * no_images,32,32,3))
 	
 	for l in range(10):
-	    labels
+	    print l
+	    counter = 0
+	    for img_dir in sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))[:no_images]:
+		im = misc.imread(img_dir)
+		im = np.expand_dims(im[:,:,:3], axis=0)
+		#~ images = np.vstack((images,im))
+		#~ labels = np.vstack((labels, l))
+		images[l * no_images + counter] = im
+		labels[l * no_images + counter] = l
+		counter+=1
+	    
+	print 'break'
+	return images, labels
 	
     def pretrain(self):
         # load svhn dataset
@@ -355,9 +375,9 @@ class Solver(object):
         model = self.model
         model.build_model()
 
+	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	
         with tf.Session(config=self.config) as sess:
-	    
-	    
 	    
 	    print ('Loading pretrained G.')
 	    variables_to_restore = slim.get_model_variables(scope='generator')
@@ -370,7 +390,7 @@ class Solver(object):
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_sampler)
 	    
-	    for n in range(4,10):
+	    for n in range(10):
 	    
 		# load svhn dataset
 		source_images, source_labels = self.load_svhn(self.svhn_dir)
@@ -378,18 +398,77 @@ class Solver(object):
 
 
 		# train model for source domain S
-		src_labels = utils.one_hot(source_labels[:1000],10)
-		src_noise = utils.sample_Z(1000,100,'uniform')
+		src_labels = utils.one_hot(source_labels[:10000],10)
+		src_noise = utils.sample_Z(10000,100,'uniform')
 
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
 		samples = sess.run(model.sampled_images, feed_dict)
 
-		for i in range(1000):
+		for i in range(10000):
 		    
 		    print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
 		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
+
+    def train_gen_images(self):
+        # load svhn dataset
+        src_images, src_labels = self.load_gen_images()
+	
+	random_idx = np.arange(len(src_images))
+	npr.shuffle(random_idx)
+	src_images = src_images[random_idx]
+	src_labels = src_labels[random_idx]
+	
+        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='test')
+	
+        # build a graph
+        model = self.model
+        model.build_model()
+	
+        with tf.Session(config=self.config) as sess:
+            tf.global_variables_initializer().run()
+            saver = tf.train.Saver()
+	    
+            #~ print ('Loading pretrained model.')
+            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.test_model)
+	    
+            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+	    
+	    epochs = 100
+	    
+	    t = 0
+	    
+	    for i in range(epochs):
+		
+		print 'Epoch',str(i)
+		
+		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
+		    
+		    t+=1
+		       
+		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but otherwise useless. 
+		    
+		    sess.run(model.train_op, feed_dict) 
+
+		    if (t+1) % 250 == 0:
+			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
+			src_rand_idxs = np.random.permutation(src_images.shape[0])[:1000]
+			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:1000]
+			test_acc = sess.run(model.trg_accuracy, 
+					       feed_dict={model.src_images: src_images[src_rand_idxs], 
+							  model.src_labels: src_labels[src_rand_idxs],
+							  model.trg_images: trg_images[trg_rand_idxs], 
+							  model.trg_labels: trg_labels[trg_rand_idxs]})
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.3f] test acc [%.3f]' \
+				   %(t+1, self.pretrain_iter, l, src_acc, test_acc))
+			
+		    if (t+1) % 250 == 0:
+			#~ print 'Saved.'
+			saver.save(sess, os.path.join(self.model_save_path, 'model_gen'))
 
     def check_TSNE(self):
 	
@@ -497,17 +576,18 @@ class Solver(object):
 	    
     def test(self):
 	
-	# load svhn dataset
-	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	#~ src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
+	#~ src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
 
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	#~ trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	#~ trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	
+	gen_images, gen_labels = self.load_gen_images()
 
 	# build a graph
 	model = self.model
 	model.build_model()
-		
+	
 	self.config = tf.ConfigProto(device_count = {'GPU': 0})
 	
 	with tf.Session(config=self.config) as sess:
@@ -535,20 +615,29 @@ class Solver(object):
 	    
 		t+=1
     
-		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
-		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-						  model.src_labels: src_test_labels[src_rand_idxs],
-						  model.trg_images: trg_test_images[trg_rand_idxs], 
-						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
-								  model.src_labels: src_labels[:20000],
-						                  model.trg_images: trg_test_images[trg_rand_idxs], 
-								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		#~ src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
+		#~ trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
+		#~ test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
+				       #~ feed_dict={model.src_images: src_test_images[src_rand_idxs], 
+						  #~ model.src_labels: src_test_labels[src_rand_idxs],
+						  #~ model.trg_images: trg_test_images[trg_rand_idxs], 
+						  #~ model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		#~ src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
+								  #~ model.src_labels: src_labels[:20000],
+						                  #~ model.trg_images: trg_test_images[trg_rand_idxs], 
+								  #~ model.trg_labels: trg_test_labels[trg_rand_idxs]})
 						  
+		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
+			   #~ %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
+    
+		gen_acc = sess.run(fetches=[model.trg_accuracy, model.trg_pred], 
+				       feed_dict={model.src_images: gen_images, 
+						  model.src_labels: gen_labels,
+						  model.trg_images: gen_images, 
+						  model.trg_labels: gen_labels})
+				  
 		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
-			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
+			   %(t+1, self.pretrain_iter, gen_acc))
 	
 		time.sleep(.5)
 		    
@@ -557,5 +646,7 @@ if __name__=='__main__':
     from model import DSN
     model = DSN(mode='eval_dsn', learning_rate=0.0003)
     solver = Solver(model)
+    solver.load_mnist(solver.mnist_dir, split='train')
+    solver.load_gen_images()
     solver.check_TSNE()
 
