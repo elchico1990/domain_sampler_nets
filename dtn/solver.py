@@ -13,6 +13,7 @@ import time
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import seaborn as sns
 
 import utils
 from sklearn.manifold import TSNE
@@ -99,13 +100,12 @@ class Solver(object):
 	    for img_dir in sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))[:no_images]:
 		im = misc.imread(img_dir)
 		im = np.expand_dims(im[:,:,:3], axis=0)
-		#~ images = np.vstack((images,im))
-		#~ labels = np.vstack((labels, l))
 		images[l * no_images + counter] = im
 		labels[l * no_images + counter] = l
 		counter+=1
 	    
 	print 'break'
+	images = images / 127.5 - 1
 	return images, labels
 	
     def pretrain(self):
@@ -147,7 +147,7 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if (t+1) % 250 == 0:
+		    if (t+1) % 100 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
 			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
@@ -160,7 +160,7 @@ class Solver(object):
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
 			
-		    if (t+1) % 250 == 0:
+		    if (t+1) % 100 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 
@@ -298,12 +298,12 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    
-	    print ('Loading pretrained encoder disc.')
-	    variables_to_restore = slim.get_model_variables(scope='disc_e')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_sampler)
+	    #~ print ('Loading pretrained encoder disc.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.pretrained_sampler)
 	    
 	    #~ print ('Loading pretrained G.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
@@ -348,13 +348,12 @@ class Solver(object):
 		
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict) 
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict) 
 		
-		if step%5==0:
-		    sess.run(model.G_train_op, feed_dict) 
-		    sess.run(model.DG_train_op, feed_dict) 
-		sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.G_train_op, feed_dict) 
+		#~ sess.run(model.DG_train_op, feed_dict) 
+		#~ sess.run(model.const_train_op, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
@@ -367,7 +366,7 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 500 == 0:
+		if (step+1) % 100 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 	
     def eval_dsn(self):
@@ -504,7 +503,6 @@ class Solver(object):
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_model)
 		
-	    
 	    elif sys.argv[1] == 'convdeconv':
 		print ('Loading convdeconv model.')
 		variables_to_restore = slim.get_model_variables(scope='conv_deconv')
@@ -563,26 +561,27 @@ class Solver(object):
 	    elif sys.argv[2] == '3':
 		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
 	        plt.figure(2)
-		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
-	        plt.figure(3)
-                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet)
+		plt.figure(3)
+                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet)
 
 	    elif sys.argv[2] == '4':
 		TSNE_hA = model.fit_transform(h_repr)
 	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.argmax(trg_labels,1), s=3,  cmap = mpl.cm.jet)
 		
 
+	    plt.legend()
 	    plt.show()
 	    
     def test(self):
 	
-	#~ src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	#~ src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
+	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
 
-	#~ trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	#~ trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	
-	gen_images, gen_labels = self.load_gen_images()
+	#~ gen_images, gen_labels = self.load_gen_images()
 
 	# build a graph
 	model = self.model
@@ -615,29 +614,29 @@ class Solver(object):
 	    
 		t+=1
     
-		#~ src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
-		#~ trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		#~ test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-				       #~ feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-						  #~ model.src_labels: src_test_labels[src_rand_idxs],
-						  #~ model.trg_images: trg_test_images[trg_rand_idxs], 
-						  #~ model.trg_labels: trg_test_labels[trg_rand_idxs]})
-		#~ src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
-								  #~ model.src_labels: src_labels[:20000],
-						                  #~ model.trg_images: trg_test_images[trg_rand_idxs], 
-								  #~ model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
+		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
+		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
+				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
+						  model.src_labels: src_test_labels[src_rand_idxs],
+						  model.trg_images: trg_test_images[trg_rand_idxs], 
+						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
+								  model.src_labels: src_labels[:20000],
+						                  model.trg_images: trg_test_images[trg_rand_idxs], 
+								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
 						  
-		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
-			   #~ %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
+		print ('Step: [%d/%d] src train acc [%.3f]  src test acc [%.3f] trg test acc [%.3f]' \
+			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
     
-		gen_acc = sess.run(fetches=[model.trg_accuracy, model.trg_pred], 
-				       feed_dict={model.src_images: gen_images, 
-						  model.src_labels: gen_labels,
-						  model.trg_images: gen_images, 
-						  model.trg_labels: gen_labels})
+		#~ gen_acc = sess.run(fetches=[model.trg_accuracy, model.trg_pred], 
+				       #~ feed_dict={model.src_images: gen_images, 
+						  #~ model.src_labels: gen_labels,
+						  #~ model.trg_images: gen_images, 
+						  #~ model.trg_labels: gen_labels})
 				  
-		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
-			   %(t+1, self.pretrain_iter, gen_acc))
+		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
+			   #~ %(t+1, self.pretrain_iter, gen_acc))
 	
 		time.sleep(.5)
 		    
@@ -646,7 +645,5 @@ if __name__=='__main__':
     from model import DSN
     model = DSN(mode='eval_dsn', learning_rate=0.0003)
     solver = Solver(model)
-    solver.load_mnist(solver.mnist_dir, split='train')
-    solver.load_gen_images()
     solver.check_TSNE()
 
