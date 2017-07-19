@@ -124,10 +124,10 @@ class Solver(object):
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
 	    
-            #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_model)
+            print ('Loading pretrained model.')
+            variables_to_restore = slim.get_model_variables(scope='encoder')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
@@ -513,7 +513,7 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 2000
+	    n_samples = 500
             src_labels = utils.one_hot(source_labels[:n_samples],10)
 	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')

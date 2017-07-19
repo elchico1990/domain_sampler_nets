@@ -103,6 +103,7 @@ class DSN(object):
                     
 		    #~ net = slim.flatten(inputs)
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		    #need an additional layer when training E in train_dsn.
 		    net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
