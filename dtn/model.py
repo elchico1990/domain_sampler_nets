@@ -124,6 +124,7 @@ class DSN(object):
                     
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
+		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc3')
 		    net = slim.fully_connected(net, 32*32, activation_fn = tf.tanh, scope='sgen_feat')
 		    if do_reshape == True:
 			net = tf.reshape(net,[-1,32,32,1])
@@ -353,14 +354,14 @@ class DSN(object):
 	    # Trg const loss
 	    
 	    #~ self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 15.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 1.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
+	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 10.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    
 	    
 	    # Optimizers
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
+            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
             self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             

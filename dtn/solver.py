@@ -446,10 +446,12 @@ class Solver(object):
 	    
 	    for n in range(10):
 	    
-		# load svhn dataset
-		source_images, source_labels = self.load_svhn(self.svhn_dir)
-		source_labels[:] = str(n)
-
+		if self.protocol=='svhn_mnist':
+		    source_images, source_labels = self.load_svhn(self.svhn_dir)
+		    source_labels[:] = str(n)
+		elif self.protocol=='mnist_usps':
+		    source_images, source_labels = self.load_mnist(self.mnist_dir)
+		    source_labels[:] = str(n)
 
 		# train model for source domain S
 		src_labels = utils.one_hot(source_labels[:10000],10)
