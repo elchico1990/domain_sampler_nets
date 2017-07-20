@@ -45,6 +45,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
+	self.protocol = 'mnist_usps'
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -77,7 +78,14 @@ class Solver(object):
             usps = pickle.load(f)
         images = usps['X'] / 127.5 - 1
         labels = usps['y']
-        return images, labels
+	labels -= 1
+	labels[labels==255] = 0
+	random_idx = np.arange(len(labels))
+	npr.seed(231)
+	npr.shuffle(random_idx)
+	images = images[random_idx]
+	labels = labels[random_idx]
+        return images, np.squeeze(labels)
 
     def load_gen_images(self):
 	
@@ -109,12 +117,37 @@ class Solver(object):
 	return images, labels
 	
     def pretrain(self):
-        # load svhn dataset
-        src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-        src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	
+	print 'Pretraining.'
+        
+	if self.protocol == 'svhn_mnist':	
+	    
+	    src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
+	    src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	    
+	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
 
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	elif self.protocol == 'mnist_usps':	
+	    
+	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+	    src_images = src_images[:2000]
+	    src_labels = src_labels[:2000]
+	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	    
+	    trg_images, trg_labels = self.load_usps(self.usps_dir)
+	    trg_images = trg_images[:1800]
+	    trg_labels = trg_labels[:1800]
+	    trg_test_images = trg_images
+	    trg_test_labels = trg_labels
+	    
+	#~ print trg_labels[1]
+	#~ print src_labels[1]
+	#~ plt.figure(1)
+	#~ plt.imshow(np.squeeze(trg_images[1]))
+	#~ plt.figure(2)
+	#~ plt.imshow(np.squeeze(src_images[1]))
+	#~ plt.show()
 
         # build a graph
         model = self.model
@@ -124,14 +157,14 @@ class Solver(object):
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
 	    
-            print ('Loading pretrained model.')
-            variables_to_restore = slim.get_model_variables(scope='encoder')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
+            #~ print ('Loading pretrained model.')
+            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-	    epochs = 30
+	    epochs = 100
 	    
 	    t = 0
 
@@ -209,9 +242,19 @@ class Solver(object):
     def train_sampler(self):
 	
 	print 'Training sampler.'
-        # load svhn dataset
-        source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	source_labels = utils.one_hot(source_labels, 10)
+        
+	if self.protocol == 'svhn_mnist':	
+	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	    source_labels = utils.one_hot(source_labels, 10)
+
+	elif self.protocol == 'mnist_usps':	
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    source_labels = utils.one_hot(source_labels, 10)
+	    source_images = source_images[:2000]
+	    source_labels = source_labels[:2000]
+		
+	
+	
 	
 	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
 	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
@@ -227,7 +270,7 @@ class Solver(object):
 	
 	batch_size = self.batch_size
 	noise_dim = 100
-	epochs = 50
+	epochs = 5000
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -277,8 +320,19 @@ class Solver(object):
 
     def train_dsn(self):
         
-	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	print 'Training DSN.'
+	
+	if self.protocol=='svhn_mnist':
+	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+
+	elif self.protocol=='mnist_usps':
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    target_images, target_labels = self.load_usps(self.usps_dir)
+	    source_images = source_images[:2000]
+	    source_labels = source_labels[:2000]
+	    target_images = target_images[:1800]
+	    target_labels = target_labels[:1800]
 	
         # build a graph
         model = self.model
@@ -471,9 +525,16 @@ class Solver(object):
 
     def check_TSNE(self):
 	
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
-	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	if self.protocol == 'svhn_mnist':
+	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	elif self.protocol == 'mnist_usps':
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    target_images, target_labels = self.load_usps(self.usps_dir)
+	    source_images = source_images[:2000]
+	    source_labels = source_labels[:2000]
+	    target_images = target_images[:1800]
+	    target_labels = target_labels[:1800]
 	
 
         # build a graph
@@ -575,12 +636,27 @@ class Solver(object):
 	    
     def test(self):
 	
-	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
-
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	if self.protocol == 'svhn_mnist':
+	    
+	    src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
+	    src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	    
+	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	
+	if self.protocol == 'mnist_usps':
+	    
+	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	    src_images = src_images[:2000]
+	    src_labels = src_labels[:2000]
+	    
+	    trg_images, trg_labels = self.load_usps(self.usps_dir)
+	    trg_images = trg_images[:1800]
+	    trg_labels = trg_labels[:1800]
+	    trg_test_images = trg_images
+	    trg_test_labels = trg_labels
+	    
 	#~ gen_images, gen_labels = self.load_gen_images()
 
 	# build a graph

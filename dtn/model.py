@@ -2,7 +2,6 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 import numpy as np
-
 import cPickle
 
 from utils import conv_concat, lrelu
@@ -105,6 +104,7 @@ class DSN(object):
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    #need an additional layer when training E in train_dsn.
 		    net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
+		    net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 	    
@@ -212,7 +212,7 @@ class DSN(object):
             self.summary_op = tf.summary.merge([loss_summary, images_summary, rec_images_summary])
 	        
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images':
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
@@ -241,7 +241,7 @@ class DSN(object):
 	
 	elif self.mode == 'train_sampler':
 				
-	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'svhn_images')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
 	    self.labels = tf.placeholder(tf.int64, [None, 10], 'labels_real')
 	    try:
@@ -284,7 +284,7 @@ class DSN(object):
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'images')
 	    self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'images_trg')
             
             # source domain (svhn to mnist)
@@ -304,7 +304,7 @@ class DSN(object):
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
             self.labels_gen = tf.placeholder(tf.float32, [None, 10], 'labels_gen')
-	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
@@ -372,8 +372,8 @@ class DSN(object):
 	    
 	    # Optimizers
 	    
-            self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
-            self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
+            self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.DG_optimizer = tf.train.AdamOptimizer(0.00001)
             self.G_optimizer = tf.train.AdamOptimizer(0.00001)
             self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
