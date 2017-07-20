@@ -142,6 +142,7 @@ class DSN(object):
 		    #~ net = slim.flatten(inputs)
 		    net = slim.fully_connected(images, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
+		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,3,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net	    
 
