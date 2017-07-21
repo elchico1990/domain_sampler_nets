@@ -81,7 +81,7 @@ class Solver(object):
 	labels -= 1
 	labels[labels==255] = 0
 	random_idx = np.arange(len(labels))
-	npr.seed(231)
+	npr.seed(123)
 	npr.shuffle(random_idx)
 	images = images[random_idx]
 	labels = labels[random_idx]
@@ -97,17 +97,18 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 10000 # number of images per digit
+	no_images = 1000 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
-	images = np.zeros((10 * no_images,32,32,3))
+	images = np.zeros((10 * no_images,28,28,1))
 	
 	for l in range(10):
 	    print l
 	    counter = 0
 	    for img_dir in sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))[:no_images]:
-		im = misc.imread(img_dir)
-		im = np.expand_dims(im[:,:,:3], axis=0)
+		im = misc.imread(img_dir, mode='L')
+		im = np.expand_dims(im, axis=0)
+		im = np.expand_dims(im, axis=3)
 		images[l * no_images + counter] = im
 		labels[l * no_images + counter] = l
 		counter+=1
@@ -382,7 +383,7 @@ class Solver(object):
 	    trg_count = 0
 	    t = 0
 	    
-	    self.batch_size = 64
+	    self.batch_size = 128
 	    
 	    label_gen = utils.one_hot(np.array([0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
 	    
@@ -402,13 +403,12 @@ class Solver(object):
 		
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict) 
-
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict)
 		
-		sess.run(model.const_train_op, feed_dict)		
-		sess.run(model.G_train_op, feed_dict) 
-		sess.run(model.DG_train_op, feed_dict) 
+		#~ sess.run(model.const_train_op, feed_dict)		
+		#~ sess.run(model.G_train_op, feed_dict) 
+		#~ sess.run(model.DG_train_op, feed_dict) 
 
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
@@ -421,7 +421,7 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 1000 == 0:
+		if (step+1) % 100 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 	
     def eval_dsn(self):
@@ -461,7 +461,7 @@ class Solver(object):
 
 		samples = sess.run(model.sampled_images, feed_dict)
 
-		for i in range(10000):
+		for i in range(1000):
 		    
 		    print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
@@ -476,7 +476,12 @@ class Solver(object):
 	src_images = src_images[random_idx]
 	src_labels = src_labels[random_idx]
 	
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='test')
+	if self.protocol == 'svhn_mnist':
+	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='test')
+	elif self.protocol == 'mnist_usps':
+	    trg_images, trg_labels = self.load_usps(self.usps_dir)
+	    trg_images = trg_images[:1800]
+	    trg_labels = trg_labels[:1800]
 	
         # build a graph
         model = self.model
@@ -512,7 +517,7 @@ class Solver(object):
 		    if (t+1) % 250 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:1000]
+			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:]
 			test_acc = sess.run(model.trg_accuracy, 
 					       feed_dict={model.src_images: src_images[src_rand_idxs], 
 							  model.src_labels: src_labels[src_rand_idxs],
