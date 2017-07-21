@@ -101,9 +101,9 @@ class DSN(object):
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc3')
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc4')
-		    net = slim.fully_connected(net, 28*28, activation_fn = tf.tanh, scope='sgen_feat')
+		    net = slim.fully_connected(net, 32*32, activation_fn = tf.tanh, scope='sgen_feat')
 		    if do_reshape == True:
-			net = tf.reshape(net,[-1,28,28,1])
+			net = tf.reshape(net,[-1,32,32,1])
 		    return net
     
     def D_g(self, images, labels, reuse=False):
