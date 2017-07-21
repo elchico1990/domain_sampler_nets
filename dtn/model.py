@@ -155,7 +155,7 @@ class DSN(object):
     def build_model(self):
         
         if self.mode == 'train_convdeconv':
-            self.images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'mnist_images')
+            self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
 	    self.rec_images = self.ConvDeconv(self.images, is_training = True)
 		
 	    self.loss = tf.reduce_mean(tf.square(self.rec_images - self.images))
@@ -170,8 +170,8 @@ class DSN(object):
             self.summary_op = tf.summary.merge([loss_summary, images_summary, rec_images_summary])
 	        
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images':
-            self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'mnist_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
             
@@ -199,7 +199,7 @@ class DSN(object):
 	
 	elif self.mode == 'train_sampler':
 				
-	    self.images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
+	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
 	    self.labels = tf.placeholder(tf.int64, [None, 10], 'labels_real')
 	    try:
@@ -242,8 +242,8 @@ class DSN(object):
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-	    self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'images')
-	    self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'images_trg')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images')
+	    self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images_trg')
             
             # source domain (svhn to mnist)
             self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
@@ -262,13 +262,18 @@ class DSN(object):
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
             self.labels_gen = tf.placeholder(tf.float32, [None, 10], 'labels_gen')
-	    self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'mnist_images')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
+	    
+	    #~ self.src_images = tf.image.rgb_to_grayscale(self.src_images)
+	    #~ self.trg_images = tf.image.rgb_to_grayscale(self.trg_images)
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
-	    self.images = tf.concat(axis=0, values=[tf.image.rgb_to_grayscale(self.src_images), self.trg_images])
+	    
+	    self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
+	    #~ self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
 	    
 	    try:
@@ -330,7 +335,7 @@ class DSN(object):
 	    # Trg const loss
 	    
 	    #~ self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 15.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,784]))) * 10.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
+	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 10.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    
 	    
 	    # Optimizers
@@ -363,7 +368,7 @@ class DSN(object):
             G_loss_summary = tf.summary.scalar('G_loss', self.G_loss)
             DG_loss_summary = tf.summary.scalar('DG_loss', self.DG_loss)
             gen_trg_images_summary = tf.summary.image('gen_trg_images', self.gen_trg_images_show, max_outputs=30)
-            rec_trg_images_summary = tf.summary.image('rec_trg_images', tf.reshape(self.GE_trg,[-1,28,28,1]), max_outputs=10)
+            rec_trg_images_summary = tf.summary.image('rec_trg_images', tf.reshape(self.GE_trg,[-1,32,32,1]), max_outputs=10)
             self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary, 
                                                     G_loss_summary, DG_loss_summary,
 						    gen_trg_images_summary, rec_trg_images_summary])

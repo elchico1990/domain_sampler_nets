@@ -66,7 +66,7 @@ class Solver(object):
         image_file = 'synth_train_32x32.mat' if split=='train' else 'synth_test_32x32.mat'
             
         image_dir = os.path.join(image_dir, image_file)
-        svhn = scipy.io.loadmat(image_dir)
+        syn = scipy.io.loadmat(image_dir)
         images = np.transpose(syn['X'], [3, 0, 1, 2]) / 127.5 - 1
         labels = syn['y'].reshape(-1)
         labels[np.where(labels==10)] = 0
@@ -382,7 +382,7 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    
 	    #~ print ('Loading pretrained encoder disc.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
