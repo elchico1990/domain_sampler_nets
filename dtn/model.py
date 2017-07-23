@@ -47,20 +47,21 @@ class DSN(object):
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False):
 	
-	if images.get_shape()[3] == 3:
-	    # For mnist dataset, replicate the gray scale image 3 times.
-	    images = tf.image.rgb_to_grayscale(images)
+	#~ if images.get_shape()[3] == 3:
+	    #~ # For mnist dataset, replicate the gray scale image 3 times.
+	    #~ images = tf.image.rgb_to_grayscale(images)
 	    
 	with tf.variable_scope('encoder', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='VALID'):
+		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='SAME'):
 		    
 		    net = slim.conv2d(images, 64, 5, scope='conv1')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool1')
-		    net = slim.conv2d(net, 128, 5, scope='conv2')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
+		    net = slim.max_pool2d(net, 3, stride=2, scope='pool1')
+		    net = slim.conv2d(net,64, 5, scope='conv2')
+		    net = slim.max_pool2d(net, 3, stride=2, scope='pool2')
+		    net = slim.conv2d(net,128, 5, scope='conv3')
 		    net = tf.contrib.layers.flatten(net)
-		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
+		    net = slim.fully_connected(net, 3072, activation_fn=tf.nn.relu, scope='fc3')
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
 		    if (self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
@@ -80,7 +81,7 @@ class DSN(object):
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc3')
+			#~ net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 
@@ -125,9 +126,9 @@ class DSN(object):
 
     def ConvDeconv(self, images, reuse=False, is_training=False):
 	
-	if images.get_shape()[3] == 3:
-	    # For mnist dataset, replicate the gray scale image 3 times.
-	    images = tf.image.rgb_to_grayscale(images)
+	#~ if images.get_shape()[3] == 3:
+	    #~ # For mnist dataset, replicate the gray scale image 3 times.
+	    #~ images = tf.image.rgb_to_grayscale(images)
 	
 	with tf.variable_scope('conv_deconv', reuse=reuse):
 	    with slim.arg_scope([slim.conv2d_transpose, slim.conv2d], padding='SAME', activation_fn=None,           
@@ -276,25 +277,11 @@ class DSN(object):
 	    #~ self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
 	    
-	    try:
-		self.orig_src_fx = self.E(self.src_images)
-	    except:
-		self.orig_src_fx = self.E(self.src_images, reuse=True)
+	    self.orig_src_fx = self.E(self.src_images, reuse=True)
 	    
-	    try:
-		self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    except:
-		self.fzy = self.sampler_generator(self.src_noise,self.src_labels, reuse=True)
-		
+	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    
 	    self.fx = self.E(self.images, reuse=True)
-	    
-	    #~ self.GE_trg = self.G(self.E(self.trg_images, reuse=True) + tf.random_normal(shape=tf.shape(self.E(self.trg_images, reuse=True)), mean=0.0, stddev=0.6, dtype=tf.float32), self.trg_labels)  
-	    self.GE_trg = self.G(self.E(self.trg_images, reuse=True), self.trg_labels)  
-	    
-	    #~ self.EG_fzy = self.E(self.G(self.fzy, reuse=True), reuse=True)
-	    
-	    self.gen_trg_images = self.G(self.fzy, self.src_labels, reuse=True)
-	    self.gen_trg_images_show = self.G(self.sampler_generator(self.src_noise[:64,:],self.labels_gen, reuse=True), self.labels_gen, reuse=True, do_reshape=True)
 	    
 	    # E losses
 	    
@@ -310,68 +297,27 @@ class DSN(object):
 	    
 	    self.E_loss = tf.reduce_mean(tf.square(self.logits_E_fake - tf.ones_like(self.logits_E_fake)))
 	    
-	    # G losses
-	    
-	    self.logits_G_real = self.D_g(self.trg_images, self.trg_labels)
-	    self.logits_G_fake = self.D_g(self.gen_trg_images, self.src_labels, reuse=True)
-	    self.logits_G_gen = self.D_g(self.GE_trg, self.trg_labels, reuse=True)
-	    
-	    #~ self.DG_loss_real = slim.losses.sparse_softmax_cross_entropy(self.logits_G_real, tf.cast(0 * tf.ones([64,1]),tf.int64))
-	    #~ self.DG_loss_fake = slim.losses.sparse_softmax_cross_entropy(self.logits_G_fake, tf.cast(1 * tf.ones([64,1]),tf.int64))
-	    #~ self.DG_loss_gen = slim.losses.sparse_softmax_cross_entropy(self.logits_G_gen, tf.cast(2 * tf.ones([64,1]),tf.int64))
-	    self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.one_hot(tf.cast(0 * tf.ones([64,1]),tf.int64),3)))
-	    self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.one_hot(tf.cast(1 * tf.ones([64,1]),tf.int64),3)))
-	    self.DG_loss_gen = tf.reduce_mean(tf.square(self.logits_G_gen - tf.one_hot(tf.cast(2 * tf.ones([64,1]),tf.int64),3)))
-	    
-	    self.DG_loss = self.DG_loss_real + self.DG_loss_fake + self.DG_loss_gen
-	    
-	    #~ self.G_loss_fake = slim.losses.sparse_softmax_cross_entropy(self.logits_G_fake, tf.cast(0 * tf.ones([64,1]),tf.int64))
-	    #~ self.G_loss_gen = slim.losses.sparse_softmax_cross_entropy(self.logits_G_gen, tf.cast(0 * tf.ones([64,1]),tf.int64))
-	    self.G_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.one_hot(tf.cast(0 * tf.ones([64,1]),tf.int64),3)))
-	    self.G_loss_gen = tf.reduce_mean(tf.square(self.logits_G_gen - tf.one_hot(tf.cast(0 * tf.ones([64,1]),tf.int64),3)))
-	    
-	    self.G_loss = self.G_loss_fake + self.G_loss_gen
-	    
-	    # Trg const loss
-	    
-	    #~ self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 15.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 10.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
-	    
 	    
 	    # Optimizers
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
-            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
-            self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             
             t_vars = tf.trainable_variables()
             E_vars = [var for var in t_vars if 'encoder' in var.name]
             DE_vars = [var for var in t_vars if 'disc_e' in var.name]
-            G_vars = [var for var in t_vars if 'generator' in var.name]
-            DG_vars = [var for var in t_vars if 'disc_g' in var.name]
             
             # train op
             with tf.variable_scope('training_op',reuse=False):
                 self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
                 self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
-                self.G_train_op = slim.learning.create_train_op(self.G_loss, self.G_optimizer, variables_to_train=G_vars)
-                self.DG_train_op = slim.learning.create_train_op(self.DG_loss, self.DG_optimizer, variables_to_train=DG_vars)
-                self.const_train_op = slim.learning.create_train_op(self.const_loss, self.const_optimizer, variables_to_train=G_vars)
-		
+            
 	    
             
             # summary op
             E_loss_summary = tf.summary.scalar('E_loss', self.E_loss)
             DE_loss_summary = tf.summary.scalar('DE_loss', self.DE_loss)
-            G_loss_summary = tf.summary.scalar('G_loss', self.G_loss)
-            DG_loss_summary = tf.summary.scalar('DG_loss', self.DG_loss)
-            gen_trg_images_summary = tf.summary.image('gen_trg_images', self.gen_trg_images_show, max_outputs=30)
-            rec_trg_images_summary = tf.summary.image('rec_trg_images', tf.reshape(self.GE_trg,[-1,32,32,1]), max_outputs=10)
-            self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary, 
-                                                    G_loss_summary, DG_loss_summary,
-						    gen_trg_images_summary, rec_trg_images_summary])
+            self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary])
             
 
             for var in tf.trainable_variables():

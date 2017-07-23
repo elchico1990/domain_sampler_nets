@@ -24,7 +24,7 @@ from scipy import misc
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
-                 svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
+                 svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
@@ -36,6 +36,7 @@ class Solver(object):
         self.svhn_dir = svhn_dir
         self.syn_dir = syn_dir
         self.mnist_dir = mnist_dir
+        self.mnist_m_dir = mnist_dir
         self.usps_dir = usps_dir
         self.log_dir = log_dir
         self.sample_save_path = sample_save_path
@@ -81,6 +82,32 @@ class Solver(object):
         images = mnist['X'] / 127.5 - 1
         labels = mnist['y']
         return images, labels
+
+    def load_mnist_m(self,image_dir, split='train'):
+	
+	if split == 'train':
+	    data_dir = image_dir + '/mnist_m_train/'
+	    with open(image_dir + '/mnist_m_train_labels.txt') as f:
+		content = f.readlines()
+	elif split == 'test':
+	    data_dir = image_dir + '/mnist_m_test/'
+	    with open(image_dir + '/mnist_m_test_labels.txt') as f:
+		content = f.readlines()
+	
+	
+	content = [c.split('\n') for c in content]
+	images_files = [c.split(' ')[0] for c in content]
+	labels = np.array([int(c.split(' ')[1]) for c in content]).reshape(-1)
+	
+	images = np.zeros(len(labels), 32, 32, 3)
+	
+	for no_img,img in enumerate(images_files):
+	    img_dir = data_dir + img
+	    im = misc.imread(img_dir)
+	    im = np.expand_dims(im, axis=0)
+	    images[no_img] = im
+	
+	return images, labels
 
     def load_usps(self, image_dir):
         
@@ -179,10 +206,10 @@ class Solver(object):
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
 	    
-            #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_model)
+            print ('Loading pretrained model.')
+            variables_to_restore = slim.get_model_variables(scope='encoder')
+            restorer = tf.train.Saver(variables_to_restore)
+            restorer.restore(sess, self.pretrained_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
@@ -202,20 +229,20 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if (t+1) % 100 == 0:
+		    if (t+1) % 250 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
+			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:3000]
 			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
 					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 							  model.src_labels: src_test_labels[src_rand_idxs],
 							  model.trg_images: trg_test_images[trg_rand_idxs], 
 							  model.trg_labels: trg_test_labels[trg_rand_idxs]})
 			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.2f]' \
+			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.4f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
 			
-		    if (t+1) % 100 == 0:
+		    if (t+1) % 250 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 
@@ -439,14 +466,14 @@ class Solver(object):
 		#~ sess.run(model.G_train_op, feed_dict) 
 		#~ sess.run(model.DG_train_op, feed_dict) 
 
-		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
+		logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
 		
 		if (step+1) % 10 == 0:
 		    
-		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
+		    summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
-		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
-			       %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real[:,0].mean(),logits_G_fake[:,1].mean()))
+		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
+			       %(step+1, self.train_iter, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
 
 		    
 
@@ -691,7 +718,7 @@ class Solver(object):
 	    src_images, src_labels = self.load_syn(self.syn_dir, split='train')
 	    src_test_images, src_test_labels = self.load_syn(self.syn_dir, split='test')
 	    
-	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='train')
+	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='test')
 	    trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
 	
 	if self.protocol == 'mnist_usps':
