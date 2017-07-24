@@ -15,7 +15,7 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 128
+	self.hidden_repr_size = 256
     
     def sampler_generator(self, z, y, reuse=False):
 	
@@ -62,7 +62,9 @@ class DSN(object):
 		    net = slim.conv2d(net,128, 5, scope='conv3')
 		    net = tf.contrib.layers.flatten(net)
 		    net = slim.fully_connected(net, 3072, activation_fn=tf.nn.relu, scope='fc3')
+		    #~ net = slim.dropout(net, 0.5, is_training=(self.mode=='train_dsn'))
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
+		    #~ net = slim.dropout(net, 0.5, is_training=(self.mode=='train_dsn'))
 		    if (self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
@@ -77,7 +79,7 @@ class DSN(object):
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs, 500, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+			net = slim.fully_connected(inputs, 512, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')

@@ -107,6 +107,7 @@ class Solver(object):
 	    im = np.expand_dims(im, axis=0)
 	    images[no_img] = im
 	
+	images = images / 127.5 - 1
 	return images, labels
 
     def load_usps(self, image_dir):
@@ -206,10 +207,10 @@ class Solver(object):
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
 	    
-            print ('Loading pretrained model.')
-            variables_to_restore = slim.get_model_variables(scope='encoder')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
+            #~ print ('Loading pretrained model.')
+            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
+            #~ restorer = tf.train.Saver(variables_to_restore)
+            #~ restorer.restore(sess, self.pretrained_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
