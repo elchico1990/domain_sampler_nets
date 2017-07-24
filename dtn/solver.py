@@ -748,6 +748,8 @@ class Solver(object):
 	    
 	    t = 0
 	    
+	    acc = []
+	    
 	    while(True):
 		
 		if sys.argv[1] == 'test':
@@ -781,6 +783,10 @@ class Solver(object):
 						  
 		print ('Step: [%d/%d] src train acc [%.3f]  src test acc [%.3f] trg test acc [%.3f]' \
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
+			   
+		acc.append(test_trg_acc)
+		with open('test_acc.pkl', 'wb') as f:
+		    cPickle.dump(acc,f,cPickle.HIGHEST_PROTOCOL)
     
 		#~ gen_acc = sess.run(fetches=[model.trg_accuracy, model.trg_pred], 
 				       #~ feed_dict={model.src_images: gen_images, 
