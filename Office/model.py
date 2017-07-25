@@ -45,15 +45,16 @@ class DSN(object):
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
-    def E(self, images, keep_prob, train_layers = ['fc8','fc_repr'], num_classes=31, reuse=False, make_preds=False, is_training = False):
+    def E(self, images, reuse=False, make_preds=False, is_training = False):
+
+	self.model_AlexNet = AlexNet(images, keep_prob = 1.0, train_layers = ['fc8','fc_repr'], num_classes=31)
 
 	with tf.variable_scope('encoder', reuse=reuse):
-	    model = AlexNet(images, keep_prob, num_classes, train_layers)
-	
+	    	
 	    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-		net = model.fc8
+		net = self.model_AlexNet.fc8
 	    else:
-		net = model.fc_repr
+		net = self.model.fc_repr
 	    return net
 			    
     def D_e(self, inputs, y, reuse=False):
@@ -82,8 +83,10 @@ class DSN(object):
             self.src_labels = tf.placeholder(tf.int64, [None], 'source_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'target_labels')
 	    self.keep_prob = tf.placeholder(tf.float32)
+	    
+	    
             
-	    self.src_logits = self.E(self.src_images, self.keep_prob, is_training = True)
+	    self.src_logits = self.E(self.src_images, is_training = True)
 		
 	    self.src_pred = tf.argmax(self.src_logits, 1)
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
@@ -96,7 +99,7 @@ class DSN(object):
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 
             self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
-            self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
+            self.optimizer = tf.train.AdamOptimizer(0.01) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
 	    
             # summary op

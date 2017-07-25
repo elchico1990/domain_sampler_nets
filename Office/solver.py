@@ -1,14 +1,17 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import numpy as np
+import numpy.random as npr
 import pickle
 import os
 import scipy.io
 import scipy.misc
 import cPickle
 import sys
+from PIL import Image
 
 import time
+import glob 
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -46,36 +49,60 @@ class Solver(object):
 	    tf.gfile.MakeDirs(self.sample_save_path)
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
+	
+	self.user = 'Ric' # to load the dataset.
 
 	
 
     def load_office(self, image_dir='./office', split='amazon'):
         print ('Loading OFFICE dataset -> '+split)
 
+	if self.user == 'Pie':
+	    if split == 'amazon':
+		image_file1 = 'amazon_1.pkl'
+		image_file2 = 'amazon_2.pkl' 
+		image_dir1 = os.path.join(image_dir, image_file1)
+		image_dir2 = os.path.join(image_dir, image_file2)
+		with open(image_dir1, 'rb') as f:
+		    office = pickle.load(f)
+		    images = office['X']
+		    labels = office['y']
+		with open(image_dir2, 'rb') as f:
+		    office = pickle.load(f)
+		    images = np.concatenate([images, office['X']], axis=0)
+		    labels = np.concatenate([labels, office['y']], axis=0)
+		    
+	    else:
+		image_file = split+'.pkl' 
+		image_dir = os.path.join(image_dir, image_file)
+		with open(image_dir, 'rb') as f:
+		    office = pickle.load(f)
+		    images = office['X']
+		    labels = office['y']
 	
-	if split == 'amazon':
-	    image_file1 = 'amazon_1.pkl'
-	    image_file2 = 'amazon_2.pkl' 
-	    image_dir1 = os.path.join(image_dir, image_file1)
-	    image_dir2 = os.path.join(image_dir, image_file2)
-	    with open(image_dir1, 'rb') as f:
-		office = pickle.load(f)
-		images = office['X']
-		labels = office['y']
-	    with open(image_dir2, 'rb') as f:
-		office = pickle.load(f)
-		images = np.concatenate([images, office['X']], axis=0)
-		labels = np.concatenate([labels, office['y']], axis=0)
-		
-	else:
-	    image_file = split+'.pkl' 
-	    image_dir = os.path.join(image_dir, image_file)
-	    with open(image_dir, 'rb') as f:
-		office = pickle.load(f)
-		images = office['X']
-		labels = office['y']
-		
-        return images, labels
+	elif self.user == 'Ric':
+	    images = np.zeros((2817,227,227,3))
+	    labels = np.zeros((2817,1))
+	    l = 0
+	    c = 0
+	    obj_categories = sorted(glob.glob(image_dir + '/' + split + '/images/*'))
+	    for oc in obj_categories:
+		obj_images = sorted(glob.glob(oc+'/*'))
+		#~ print str(l)+'/'+str(len(obj_categories))
+		for oi in obj_images:
+		    img = Image.open(oi)
+		    img = img.resize((227,227), Image.ANTIALIAS) - np.array([104., 117., 124.])
+		    img = np.expand_dims(img, axis=0)
+		    images[c] = img
+		    labels[c] = l
+		    c+=1
+	    	l+=1
+	
+	rnd_indices = np.arange(len(labels))
+	npr.shuffle(rnd_indices)
+	images = images[rnd_indices]
+	labels = labels[rnd_indices]
+        return images, np.squeeze(labels)
 
     def pretrain(self):
         # load svhn dataset
@@ -92,6 +119,8 @@ class Solver(object):
             tf.global_variables_initializer().run()
 	    #~ model.alex.load_initial_weights(sess)
             saver = tf.train.Saver()
+	    
+	    model.model_AlexNet.load_weights(sess)
 	    
             #~ print ('Loading pretrained model.')
             #~ variables_to_restore = slim.get_model_variables(scope='encoder')
@@ -117,7 +146,10 @@ class Solver(object):
 		    feed_dict = {model.keep_prob : 1.0, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
 						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but actually useless. 
 		    
-		    sess.run(model.train_op, feed_dict) 
+		    #~ sess.run(model.train_op, feed_dict)
+		    
+		    #~ qwe, asd = sess.run([model.src_pred, model.src_labels],feed_dict) 
+		    #~ print 'break'
 
 
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)

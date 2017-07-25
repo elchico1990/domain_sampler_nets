@@ -78,6 +78,7 @@ class AlexNet(object):
         'biases') we need a special load function
         """
         # Load the weights into memory
+	print 'Loading AlexNet weights.'
         weights_dict = np.load(self.WEIGHTS_PATH, encoding='bytes').item()
 
         # Loop over all layer names stored in the weights dict
