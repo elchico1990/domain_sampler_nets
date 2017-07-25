@@ -4,12 +4,7 @@
 *.png
 *.data*
 *.jpg
-/model
-/mnist
-/svhn
-/usps
+/data
 /office
 /sample
 /logs
-/amazon_reviews
-/mnist_m

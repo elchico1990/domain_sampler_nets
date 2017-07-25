@@ -1,0 +1,6 @@
+model_checkpoint_path: "dtn-1000"
+all_model_checkpoint_paths: "dtn-800"
+all_model_checkpoint_paths: "dtn-850"
+all_model_checkpoint_paths: "dtn-900"
+all_model_checkpoint_paths: "dtn-950"
+all_model_checkpoint_paths: "dtn-1000"

@@ -33,12 +33,12 @@ class Solver(object):
         self.pretrain_iter = pretrain_iter
         self.train_iter = train_iter
         self.sample_iter = sample_iter
-        self.svhn_dir = svhn_dir
-        self.syn_dir = syn_dir
-        self.mnist_dir = mnist_dir
-        self.mnist_m_dir = mnist_m_dir
-        self.usps_dir = usps_dir
-	self.amazon_dir = amazon_dir
+        self.svhn_dir = 'data/'+svhn_dir
+        self.syn_dir = 'data/'+syn_dir
+        self.mnist_dir = 'data/'+mnist_dir
+        self.mnist_m_dir = 'data/'+mnist_m_dir
+        self.usps_dir = 'data/'+usps_dir
+	self.amazon_dir = 'data/'+amazon_dir
         self.log_dir = log_dir
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
@@ -169,7 +169,11 @@ class Solver(object):
 		np.save(xs_path, xs_msda)
 		np.save(xt_path, xt_msda)
 		np.save(xtest_path, xtest_msda)
-
+	    
+	    xs/=np.max(xs)
+	    xt/=np.max(xs)
+	    xtest/=np.max(xs)
+	    
 	    xs, xt, xtest = xs_msda, xt_msda, xtest_msda
 
 	#~ nb_valid = int(0.1 * len(ys))
@@ -365,9 +369,10 @@ class Solver(object):
 	    source_labels = utils.one_hot(source_labels, 10)
 	    source_images = source_images[:2000]
 	    source_labels = source_labels[:2000]
-		
-	
-	
+				  
+	elif self.protocol == 'amazon_reviews':
+	    source_images, source_labels, _, _, _, _ = self.load_amazon_reviews(self.amazon_dir)
+	    source_labels = utils.one_hot(source_labels, 2)
 	
 	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
 	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
@@ -424,9 +429,8 @@ class Solver(object):
 		    if (t+1) % 100 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
-			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
+			print ('Step: [%d/%d] d_loss: %.6f g_loss: %.6f avg_D_fake: %.2f avg_D_real: %.2f ' \
+				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl, avg_D_fake.mean(), avg_D_real.mean()))
 			
                     if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
@@ -443,7 +447,7 @@ class Solver(object):
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	    target_images, target_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
 	
-	if self.protocol=='syn_svhn':
+	elif self.protocol=='syn_svhn':
 	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
 	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
 
@@ -454,6 +458,11 @@ class Solver(object):
 	    source_labels = source_labels[:2000]
 	    target_images = target_images[:1800]
 	    target_labels = target_labels[:1800]
+	
+	elif self.protocol == 'amazon_reviews':
+	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
+	    
+	
 	
         # build a graph
         model = self.model
@@ -505,7 +514,7 @@ class Solver(object):
 	    
 	    self.batch_size = 128
 	    
-	    label_gen = utils.one_hot(np.array([0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
+	    label_gen = utils.one_hot(np.array([0,0,0,1,1,1]),2)
 	    
 	    for step in range(10000000):
 		
@@ -516,7 +525,7 @@ class Solver(object):
 		j = step % int(target_images.shape[0] / self.batch_size)
 		
 		src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
-		src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],10)
+		src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],2)
 		src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
@@ -675,7 +684,10 @@ class Solver(object):
 	    target_images = target_images[:1800]
 	    target_labels = target_labels[:1800]
 	
-
+	elif self.protocol == 'amazon_reviews':
+	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
+	    
+	
         # build a graph
         model = self.model
         model.build_model()
@@ -713,9 +725,9 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 500
-            src_labels = utils.one_hot(source_labels[:n_samples],10)
-	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
+	    n_samples = 2000
+            src_labels = utils.one_hot(source_labels[:n_samples],2)
+	    trg_labels = utils.one_hot(target_labels[:n_samples],2)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
 	   
 	    
@@ -783,7 +795,7 @@ class Solver(object):
 	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
 	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	
-	if self.protocol == 'mnist_mnist_m':
+	elif self.protocol == 'mnist_mnist_m':
 	    
 	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
 	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
@@ -799,7 +811,7 @@ class Solver(object):
 	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='test')
 	    trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
 	
-	if self.protocol == 'mnist_usps':
+	elif self.protocol == 'mnist_usps':
 	    
 	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
 	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
@@ -811,7 +823,12 @@ class Solver(object):
 	    trg_labels = trg_labels[:1800]
 	    trg_test_images = trg_images
 	    trg_test_labels = trg_labels
-	    
+	
+	elif self.protocol == 'amazon_reviews':
+	    src_images, src_labels, trg_images, trg_labels, trg_test_images, trg_test_labels = self.load_amazon_reviews(self.amazon_dir)
+	    src_test_images, src_test_labels = src_images, src_labels
+	
+	
 	#~ gen_images, gen_labels = self.load_gen_images()
 
 	# build a graph
@@ -875,7 +892,7 @@ class Solver(object):
 		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   #~ %(t+1, self.pretrain_iter, gen_acc))
 	
-		time.sleep(.5)
+		time.sleep(15.)
 		    
 if __name__=='__main__':
 
