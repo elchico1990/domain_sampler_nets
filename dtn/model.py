@@ -15,7 +15,7 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0003):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 256
+	self.hidden_repr_size = 128
     
     def sampler_generator(self, z, y, reuse=False):
 	
