@@ -24,8 +24,8 @@ from scipy import misc
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
-                 svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
-                 model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
+                 svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
+		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
         self.model = model
@@ -36,8 +36,9 @@ class Solver(object):
         self.svhn_dir = svhn_dir
         self.syn_dir = syn_dir
         self.mnist_dir = mnist_dir
-        self.mnist_m_dir = mnist_dir
+        self.mnist_m_dir = mnist_m_dir
         self.usps_dir = usps_dir
+	self.amazon_dir = amazon_dir
         self.log_dir = log_dir
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
@@ -47,7 +48,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'mnist_mnist_m' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m
+	self.protocol = 'amazon_reviews' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m, amazon_reviews
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -85,6 +86,8 @@ class Solver(object):
 
     def load_mnist_m(self,image_dir, split='train'):
 	
+	print ('Loading MNIST_M dataset.')
+        
 	if split == 'train':
 	    data_dir = image_dir + '/mnist_m_train/'
 	    with open(image_dir + '/mnist_m_train_labels.txt') as f:
@@ -95,11 +98,11 @@ class Solver(object):
 		content = f.readlines()
 	
 	
-	content = [c.split('\n') for c in content]
+	content = [c.split('\n')[0] for c in content]
 	images_files = [c.split(' ')[0] for c in content]
 	labels = np.array([int(c.split(' ')[1]) for c in content]).reshape(-1)
 	
-	images = np.zeros(len(labels), 32, 32, 3)
+	images = np.zeros((len(labels), 32, 32, 3))
 	
 	for no_img,img in enumerate(images_files):
 	    img_dir = data_dir + img
@@ -127,6 +130,53 @@ class Solver(object):
 	images = images[random_idx]
 	labels = labels[random_idx]
         return images, np.squeeze(labels)
+
+    def load_amazon_reviews(self, data_dir, source_name = 'dvd', target_name = 'electronics', msda = False):
+
+	from mSDA import compute_msda_representation
+	from sklearn.datasets import load_svmlight_files
+
+	# source domain: books, dvd, kitchen, or electronics
+	# traget domain: books, dvd, kitchen, or electronics
+
+	source_file = './' + data_dir + '/' + source_name + '_train.svmlight'
+	target_file = './' + data_dir + '/' + target_name + '_train.svmlight'
+	test_file = './' + data_dir + '/' + target_name + '_test.svmlight'
+
+	print('source file:', source_file)
+	print('target file:', target_file)
+	print('test file:  ', test_file)
+
+	xs, ys, xt, yt, xtest, ytest = load_svmlight_files([source_file, target_file, test_file])
+
+	# Convert sparse matrices to numpy 2D array
+	xs, xt, xtest = (np.array(X.todense()) for X in (xs, xt, xtest))
+
+	# Convert {-1,1} labels to {0,1} labels
+	ys, yt, ytest = (np.array((y + 1) / 2, dtype=int) for y in (ys, yt, ytest))
+
+	if msda:
+	    xs_path, xt_path, xtest_path = ['%s/%s.%s_%s_msda.npy' % (data_folder, source_name, target_name, E)
+					    for E in ('source', 'target', 'test')]
+	    try:
+		xs_msda = np.load(xs_path)
+		xt_msda = np.load(xt_path)
+		xtest_msda = np.load(xtest_path)
+		print('mSDA representations loaded from disk')
+	    except:
+		print('Computing mSDA representations...')
+		xs_msda, xt_msda, xtest_msda = compute_msda_representation(xs, xt, xtest)
+		np.save(xs_path, xs_msda)
+		np.save(xt_path, xt_msda)
+		np.save(xtest_path, xtest_msda)
+
+	    xs, xt, xtest = xs_msda, xt_msda, xtest_msda
+
+	#~ nb_valid = int(0.1 * len(ys))
+	#~ xv, yv = xs[-nb_valid:, :], ys[-nb_valid:]
+	#~ xs, ys = xs[0:-nb_valid, :], ys[0:-nb_valid]
+	
+	return xs, ys, xt, yt, xtest, ytest
 
     def load_gen_images(self):
 	
@@ -170,7 +220,7 @@ class Solver(object):
 	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
 	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	
-	if self.protocol == 'mnist_mnist_m':	
+	elif self.protocol == 'mnist_mnist_m':	
 	    
 	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
 	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
@@ -198,15 +248,12 @@ class Solver(object):
 	    trg_labels = trg_labels[:1800]
 	    trg_test_images = trg_images
 	    trg_test_labels = trg_labels
+	  
+	elif self.protocol == 'amazon_reviews':
 	    
-	#~ print trg_labels[1]
-	#~ print src_labels[1]
-	#~ plt.figure(1)
-	#~ plt.imshow(np.squeeze(trg_images[1]))
-	#~ plt.figure(2)
-	#~ plt.imshow(np.squeeze(src_images[1]))
-	#~ plt.show()
-
+	    src_images, src_labels, trg_images, trg_labels, trg_test_images, trg_test_labels = self.load_amazon_reviews(self.amazon_dir)
+	    src_test_images, src_test_labels = src_images, src_labels
+	
         # build a graph
         model = self.model
         model.build_model()
