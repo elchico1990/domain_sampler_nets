@@ -47,25 +47,21 @@ class DSN(object):
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False):
 	
-	#~ if images.get_shape()[3] == 3:
-	    #~ # For mnist dataset, replicate the gray scale image 3 times.
-	    #~ images = tf.image.rgb_to_grayscale(images)
-	    
+	if images.get_shape()[3] == 3:
+	    # For mnist dataset, replicate the gray scale image 3 times.
+	    images = tf.image.rgb_to_grayscale(images)
+	
 	with tf.variable_scope('encoder', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='SAME'):
-		    
+		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='VALID'):
 		    net = slim.conv2d(images, 64, 5, scope='conv1')
-		    net = slim.max_pool2d(net, 3, stride=2, scope='pool1')
-		    net = slim.conv2d(net,64, 5, scope='conv2')
-		    net = slim.max_pool2d(net, 3, stride=2, scope='pool2')
-		    net = slim.conv2d(net,128, 5, scope='conv3')
+		    net = slim.max_pool2d(net, 2, stride=2, scope='pool1')
+		    net = slim.conv2d(net, 128, 5, scope='conv2')
+		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
 		    net = tf.contrib.layers.flatten(net)
-		    net = slim.fully_connected(net, 3072, activation_fn=tf.nn.relu, scope='fc3')
-		    #~ net = slim.dropout(net, 0.5, is_training=(self.mode=='train_dsn'))
+		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
-		    #~ net = slim.dropout(net, 0.5, is_training=(self.mode=='train_dsn'))
-		    if (self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images' or make_preds):
+		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
 		        

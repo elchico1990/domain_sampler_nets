@@ -47,7 +47,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'syn_svhn'
+	self.protocol = 'mnist_mnist_m' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -169,6 +169,14 @@ class Solver(object):
 	    
 	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
 	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	
+	if self.protocol == 'mnist_mnist_m':	
+	    
+	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	    
+	    trg_images, trg_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
+	    trg_test_images, trg_test_labels = self.load_mnist_m(self.mnist_m_dir, split='test')
         
 	elif self.protocol == 'syn_svhn':	
 	    
@@ -297,6 +305,10 @@ class Solver(object):
 	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
 	    source_labels = utils.one_hot(source_labels, 10)
         
+	if self.protocol == 'mnist_mnist_m':	
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    source_labels = utils.one_hot(source_labels, 10)
+        
 	elif self.protocol == 'syn_svhn':	
 	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
 	    source_labels = utils.one_hot(source_labels, 10)
@@ -380,6 +392,10 @@ class Solver(object):
 	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
 	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
 
+	if self.protocol == 'mnist_mnist_m':
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    target_images, target_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
+	
 	if self.protocol=='syn_svhn':
 	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
 	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
@@ -595,9 +611,15 @@ class Solver(object):
 	if self.protocol == 'svhn_mnist':
 	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
 	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	
+	if self.protocol == 'mnist_mnist_m':
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    target_images, target_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
+	
 	if self.protocol == 'syn_svhn':
 	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
 	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
+	
 	elif self.protocol == 'mnist_usps':
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	    target_images, target_labels = self.load_usps(self.usps_dir)
@@ -713,6 +735,14 @@ class Solver(object):
 	    
 	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
 	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	
+	if self.protocol == 'mnist_mnist_m':
+	    
+	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	    
+	    trg_images, trg_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
+	    trg_test_images, trg_test_labels = self.load_mnist_m(self.mnist_m_dir, split='test')
 	
 	elif self.protocol == 'syn_svhn':
 	    
