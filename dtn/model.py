@@ -47,23 +47,12 @@ class DSN(object):
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False):
 	
-	if images.get_shape()[3] == 1:
-	    # For mnist dataset, replicate the gray scale image 3 times.
-	    images = tf.image.grayscale_to_rgb(images)
-	
 	with tf.variable_scope('encoder', reuse=reuse):
-	    with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='VALID'):
-		    net = slim.conv2d(images, 32, 5, scope='conv1')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool1')
-		    net = slim.conv2d(net, 48, 5, scope='conv2')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
-		    net = tf.contrib.layers.flatten(net)
-		    net = slim.fully_connected(net, 100, activation_fn=tf.nn.relu, scope='fc3')
-		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
-		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
-		    return net
+	    with slim.arg_scope([slim.fully_connected], activation_fn=tf.sigmoid):
+		net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc1')
+		if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
+		    net = slim.fully_connected(net, 1, activation_fn=None, scope='fc5')
+		return net
 		        
     def D_e(self, inputs, y, reuse=False):
 		
@@ -168,25 +157,25 @@ class DSN(object):
             self.summary_op = tf.summary.merge([loss_summary, images_summary, rec_images_summary])
 	        
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images':
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 5000], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 5000], 'mnist_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
             
 	    self.src_logits = self.E(self.src_images, is_training = True)
 		
-	    self.src_pred = tf.argmax(self.src_logits, 1)
+	    self.src_pred = tf.cast(self.src_logits + 0.5, tf.int32)
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
             
             self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
 		
-	    self.trg_pred = tf.argmax(self.trg_logits, 1)
+	    self.trg_pred = tf.cast(self.trg_logits + 0.5, tf.int32)
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 
-            self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
-            self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
+	    self.loss = slim.losses.sigmoid_cross_entropy(self.src_logits, self.src_labels)
+	    self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
 	    
             # summary op
