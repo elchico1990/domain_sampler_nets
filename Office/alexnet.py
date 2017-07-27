@@ -5,7 +5,7 @@ class AlexNet(object):
     """Implementation of the AlexNet."""
 
     def __init__(self, x, keep_prob, num_classes, skip_layer,
-                 weights_path='DEFAULT'):
+                 weights_path='DEFAULT',reuse=False):
         """Create the graph of the AlexNet model.
 
         Args:
@@ -29,45 +29,45 @@ class AlexNet(object):
             self.WEIGHTS_PATH = weights_path
 
         # Call the create function to build the computational graph of AlexNet
-        self.create()
+        self.create(reuse=reuse)
 
-    def create(self):
+    def create(self,reuse=False):
         """Create the network graph."""
         # 1st Layer: Conv (w ReLu) -> Pool -> Lrn
-        conv1 = conv(self.X, 11, 11, 96, 4, 4, padding='VALID', name='conv1')
+        conv1 = conv(self.X, 11, 11, 96, 4, 4, padding='VALID', name='conv1',reuse=reuse)
         pool1 = max_pool(conv1, 3, 3, 2, 2, padding='VALID', name='pool1')
         norm1 = lrn(pool1, 2, 2e-05, 0.75, name='norm1')
 
         # 2nd Layer: Conv (w ReLu) -> Pool -> Lrn with 2 groups
-        conv2 = conv(norm1, 5, 5, 256, 1, 1, groups=2, name='conv2')
+        conv2 = conv(norm1, 5, 5, 256, 1, 1, groups=2, name='conv2',reuse=reuse)
         pool2 = max_pool(conv2, 3, 3, 2, 2, padding='VALID', name='pool2')
         norm2 = lrn(pool2, 2, 2e-05, 0.75, name='norm2')
 
         # 3rd Layer: Conv (w ReLu)
-        conv3 = conv(norm2, 3, 3, 384, 1, 1, name='conv3')
+        conv3 = conv(norm2, 3, 3, 384, 1, 1, name='conv3',reuse=reuse)
 
         # 4th Layer: Conv (w ReLu) splitted into two groups
-        conv4 = conv(conv3, 3, 3, 384, 1, 1, groups=2, name='conv4')
+        conv4 = conv(conv3, 3, 3, 384, 1, 1, groups=2, name='conv4',reuse=reuse)
 
         # 5th Layer: Conv (w ReLu) -> Pool splitted into two groups
-        conv5 = conv(conv4, 3, 3, 256, 1, 1, groups=2, name='conv5')
+        conv5 = conv(conv4, 3, 3, 256, 1, 1, groups=2, name='conv5',reuse=reuse)
         pool5 = max_pool(conv5, 3, 3, 2, 2, padding='VALID', name='pool5')
 
         # 6th Layer: Flatten -> FC (w ReLu) -> Dropout
         flattened = tf.reshape(pool5, [-1, 6*6*256])
-        fc6 = fc(flattened, 6*6*256, 4096, name='fc6')
+        fc6 = fc(flattened, 6*6*256, 4096, name='fc6',reuse=reuse)
         dropout6 = dropout(fc6, self.KEEP_PROB)
 
         # 7th Layer: FC (w ReLu) -> Dropout
-        fc7 = fc(dropout6, 4096, 4096, name='fc7')
+        fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse)
         dropout7 = dropout(fc7, self.KEEP_PROB)
         
-        fc_repr = fc(dropout7, 4096, 512, tanh=True, name='fc_repr')
+        fc_repr = fc(dropout7, 4096, 512, tanh=True, name='fc_repr',reuse=reuse)
         dropout_repr =  dropout(fc_repr, self.KEEP_PROB)
         
 
         # 8th Layer: FC and return unscaled activations
-        self.fc8 = fc(dropout_repr, 512, self.NUM_CLASSES, relu=False, name='fc8')
+        self.fc8 = fc(dropout_repr, 512, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse)
 
     def load_initial_weights(self, session):
         """Load weights from file into network.
@@ -96,15 +96,16 @@ class AlexNet(object):
                         if len(data.shape) == 1:
                             var = tf.get_variable('biases', trainable=True)
                             session.run(var.assign(data))
+			    print 'loaded bias'
 
                         # Weights
                         else:
                             var = tf.get_variable('weights', trainable=True)
                             session.run(var.assign(data))
-
+			    print 'loaded weight'
 
 def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
-         padding='SAME', groups=1):
+         padding='SAME', groups=1,reuse=False):
     """Create a convolution layer.
 
     Adapted from: https://github.com/ethereon/caffe-tensorflow
@@ -117,7 +118,7 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
                                          strides=[1, stride_y, stride_x, 1],
                                          padding=padding)
 
-    with tf.variable_scope(name) as scope:
+    with tf.variable_scope(name,reuse=reuse) as scope:
         # Create tf variables for the weights and biases of the conv layer
         weights = tf.get_variable('weights', shape=[filter_height,
                                                     filter_width,
@@ -148,12 +149,12 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
     return relu
 
 
-def fc(x, num_in, num_out, name, relu=True, tanh=False):
+def fc(x, num_in, num_out, name, relu=True, tanh=False, reuse=False):
     """Create a fully connected layer."""
     if tanh:
         relu=False
         
-    with tf.variable_scope(name) as scope:
+    with tf.variable_scope(name,reuse=reuse) as scope:
 
         # Create tf variables for the weights and biases
         weights = tf.get_variable('weights', shape=[num_in, num_out],

@@ -120,7 +120,7 @@ class Solver(object):
 	    #~ model.alex.load_initial_weights(sess)
             saver = tf.train.Saver()
 	    
-	    model.model_AlexNet.load_weights(sess)
+	    model.model_AlexNet.load_initial_weights(sess)
 	    
             #~ print ('Loading pretrained model.')
             #~ variables_to_restore = slim.get_model_variables(scope='encoder')

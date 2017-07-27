@@ -47,7 +47,7 @@ class DSN(object):
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False):
 
-	self.model_AlexNet = AlexNet(images, keep_prob = 1.0, train_layers = ['fc8','fc_repr'], num_classes=31)
+	self.model_AlexNet = AlexNet(images, keep_prob = 1.0, skip_layer = ['fc8','fc_repr'], num_classes=31,reuse=reuse)
 
 	with tf.variable_scope('encoder', reuse=reuse):
 	    	
@@ -92,14 +92,14 @@ class DSN(object):
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
 		
-            self.trg_logits = self.E(self.trg_images, self.keep_prob, is_training = False, reuse=True)
+            self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
 		
 	    self.trg_pred = tf.argmax(self.trg_logits, 1)
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 
             self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
-            self.optimizer = tf.train.AdamOptimizer(0.01) 
+            self.optimizer = tf.train.AdamOptimizer(0.001) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
 	    
             # summary op
