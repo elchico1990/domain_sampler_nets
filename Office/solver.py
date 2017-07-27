@@ -105,9 +105,7 @@ class Solver(object):
         return images, np.squeeze(labels)
 
     def pretrain(self):
-        # load svhn dataset
         src_images, src_labels = self.load_office(split=self.src_dir)
-        
         trg_images, trg_labels = self.load_office(split=self.trg_dir)
 	        
 
@@ -117,8 +115,7 @@ class Solver(object):
 	
         with tf.Session(config=self.config) as sess:
             tf.global_variables_initializer().run()
-	    #~ model.alex.load_initial_weights(sess)
-            saver = tf.train.Saver()
+	    saver = tf.train.Saver()
 	    
 	    model.model_AlexNet.load_initial_weights(sess)
 	    
@@ -486,12 +483,10 @@ class Solver(object):
     def test(self):
 	
 	# load svhn dataset
-	src_images, src_labels = self.load_svhn(self.src_dir, split='train')
-	src_test_images, src_test_labels = self.load_svhn(self.src_dir, split='test')
-
-	trg_images, trg_labels = self.load_mnist(self.trg_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_mnist(self.trg_dir, split='test')
-
+	src_images, src_labels = self.load_office(split=self.src_dir)
+        trg_images, trg_labels = self.load_office(split=self.trg_dir)
+	
+	
 	# build a graph
 	model = self.model
 	model.build_model()
@@ -508,13 +503,13 @@ class Solver(object):
 		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
-		    variables_to_restore = slim.get_model_variables(scope='encoder')
+		    variables_to_restore = tf.global_variables()
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.test_model)
 		
 		elif sys.argv[1] == 'pretrain':
 		    print ('Loading pretrained model.')
-		    variables_to_restore = slim.get_model_variables(scope='encoder')
+		    variables_to_restore = tf.global_variables()
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.pretrained_model)
 		    
@@ -523,20 +518,14 @@ class Solver(object):
 	    
 		t+=1
     
-		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
-		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-						  model.src_labels: src_test_labels[src_rand_idxs],
-						  model.trg_images: trg_test_images[trg_rand_idxs], 
-						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
-								  model.src_labels: src_labels[:20000],
-						                  model.trg_images: trg_test_images[trg_rand_idxs], 
-								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-						  
-		print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
-			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
+		src_acc, trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
+				       feed_dict={model.src_images: src_images, 
+						  model.src_labels: src_labels,
+						  model.trg_images: trg_images, 
+						  model.trg_labels: trg_labels})
+		  
+		print ('Step: [%d/%d] src acc [%.2f] trg acc [%.2f]' \
+			   %(t+1, self.pretrain_iter, src_acc, trg_acc))
 	
 		time.sleep(.5)
 		    

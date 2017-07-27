@@ -45,7 +45,7 @@ class DSN(object):
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
-    def E(self, images, reuse=False, make_preds=False, is_training = False):
+    def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
 
 	self.model_AlexNet = AlexNet(images, keep_prob = 1.0, skip_layer = ['fc8','fc_repr'], num_classes=31,reuse=reuse)
 
@@ -76,14 +76,13 @@ class DSN(object):
     def build_model(self):
               
         if self.mode == 'pretrain' or self.mode == 'test':
-            self.src_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'source_images')
+            
+	    self.src_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'source_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'target_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'source_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'target_labels')
 	    self.keep_prob = tf.placeholder(tf.float32)
 	    
-	    
-            
 	    self.src_logits = self.E(self.src_images, is_training = True)
 		
 	    self.src_pred = tf.argmax(self.src_logits, 1)
@@ -103,13 +102,9 @@ class DSN(object):
             #~ self.optimizer = tf.train.AdamOptimizer(0.001) 
             #~ self.train_op = slim.learning.create_train_op(self.loss, self.optimizer, train_vars)
 	    
-
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
-	    
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
-
-	    # Create optimizer and apply gradient descent to the trainable variables
 	    self.optimizer = tf.train.GradientDescentOptimizer(0.001)
 	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
 	    

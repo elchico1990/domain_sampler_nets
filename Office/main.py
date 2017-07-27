@@ -22,17 +22,7 @@ def main(_):
 	    solver.eval_dsn()
     elif FLAGS.mode == 'test':
 	    solver.test()
-    
-    elif FLAGS.mode == 'train_all':		
-	model = DSN(mode='pretrain', learning_rate=0.0003)
-	solver = Solver(model, src_dir='svhn', trg_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-	solver.pretrain()
-	model = DSN(mode='train_sampler', learning_rate=0.0003)
-	solver = Solver(model, src_dir='svhn', trg_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-	solver.train_sampler()
-	model = DSN(mode='train_dsn', learning_rate=0.0001)
-	solver = Solver(model, src_dir='svhn', trg_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-	solver.train_dsn()
+
 
     else:
 	print 'Unrecognized mode.'
