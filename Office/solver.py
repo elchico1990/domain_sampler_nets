@@ -149,7 +149,7 @@ class Solver(object):
 
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
 		src_rand_idxs = np.random.permutation(src_images.shape[0])[:100]
-		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:100]
+		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:]
 		src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, model.trg_accuracy], 
 				       feed_dict={model.keep_prob : 1.0,
 						    model.src_images: src_images[src_rand_idxs], 
@@ -157,7 +157,7 @@ class Solver(object):
 						    model.trg_images: trg_images[trg_rand_idxs], 
 						    model.trg_labels: trg_labels[trg_rand_idxs]})
 		summary_writer.add_summary(summary, t)
-		print ('Step: [%d/%d] loss: [%.6f]  src acc [%.2f] trg acc [%.2f]' \
+		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f]' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
 		
 		#~ # 'Saved.'
@@ -181,7 +181,7 @@ class Solver(object):
 	
 	batch_size = self.batch_size
 	noise_dim = 100
-	epochs = 5000
+	epochs = 500000
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -194,6 +194,17 @@ class Solver(object):
 	    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
+	    
+	    print ('Loading pretrained encoder disc.')
+	    variables_to_restore = slim.get_model_variables(scope='disc_e')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
+
+
+	    print ('Loading sample generator.')
+	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
 
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
@@ -259,7 +270,7 @@ class Solver(object):
 		print ('Loading pretrained model.')
 		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
 		variables_to_restore = tf.global_variables() 
-		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['Adam','encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
+		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_model)
 

@@ -49,6 +49,11 @@ class DSN(object):
 		    return net
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
+	
+	#~ if is_training:
+	    #~ keep_prob = 0.5
+	#~ else:
+	    #~ keep_prob = 1.0
 
 	self.model_AlexNet = AlexNet(images, keep_prob = 1.0, skip_layer = ['fc8','fc_repr'], num_classes=31,reuse=reuse)
 
@@ -75,7 +80,7 @@ class DSN(object):
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc3')
+			#~ net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 
@@ -111,7 +116,7 @@ class DSN(object):
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
-	    self.optimizer = tf.train.GradientDescentOptimizer(0.001)
+	    self.optimizer = tf.train.AdamOptimizer(0.0001)
 	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
 	    
 	    
