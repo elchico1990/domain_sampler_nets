@@ -193,7 +193,9 @@ class Solver(object):
             # restore variables of F
             
 	    print ('Loading pretrained model.')
-	    variables_to_restore = tf.global_variables()
+	    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
+	    variables_to_restore = tf.global_variables() 
+	    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 
@@ -521,7 +523,7 @@ class Solver(object):
 						  model.trg_images: trg_images, 
 						  model.trg_labels: trg_labels})
 		  
-		print ('Step: [%d/%d] src acc [%.2f] trg acc [%.2f]' \
+		print ('Step: [%d/%d] src acc [%.4f] trg acc [%.4f]' \
 			   %(t+1, self.pretrain_iter, src_acc, trg_acc))
 	
 		time.sleep(.5)
