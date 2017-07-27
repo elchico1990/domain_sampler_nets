@@ -54,7 +54,7 @@ class DSN(object):
 	    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
 		net = self.model_AlexNet.fc8
 	    else:
-		net = self.model.fc_repr
+		net = self.model_AlexNet.fc_repr
 	    return net
 			    
     def D_e(self, inputs, y, reuse=False):
@@ -96,7 +96,7 @@ class DSN(object):
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 	    
 	    t_vars = tf.trainable_variables()
-	    train_vars = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
+	    train_vars = t_vars#[var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
 	    
             #~ self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
             #~ self.optimizer = tf.train.AdamOptimizer(0.001) 
@@ -117,9 +117,9 @@ class DSN(object):
 	
 	elif self.mode == 'train_sampler':
 				
-	    self.images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+	    self.images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'svhn_images')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-	    self.labels = tf.placeholder(tf.int64, [None, 10], 'labels_real')
+	    self.labels = tf.placeholder(tf.int64, [None, 31], 'labels_real')
 	    try:
 		self.fx = self.E(self.images)
 	    except:

@@ -170,13 +170,10 @@ class Solver(object):
     def train_sampler(self):
 	
 	print 'Training sampler.'
-        # load svhn dataset
-        source_images, source_labels = self.load_svhn(self.src_dir, split='train')
-	source_labels = utils.one_hot(source_labels, 10)
-	
-	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
-	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
         
+	source_images, source_labels = self.load_office(split=self.src_dir)
+        source_labels = utils.one_hot(source_labels.astype(int), 31)
+	
         # build a graph
         model = self.model
         model.build_model()
@@ -194,12 +191,12 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
             # restore variables of F
-            print ('Loading pretrained model.')
-            variables_to_restore = slim.get_model_variables(scope='encoder')
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess, self.pretrained_model)
-            # restore variables of F
-	    
+            
+	    print ('Loading pretrained model.')
+	    variables_to_restore = tf.global_variables()
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 	    

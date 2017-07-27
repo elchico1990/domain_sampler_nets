@@ -62,12 +62,12 @@ class AlexNet(object):
         fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse)
         dropout7 = dropout(fc7, self.KEEP_PROB)
         
-        fc_repr = fc(dropout7, 4096, 512, tanh=True, name='fc_repr',reuse=reuse)
-        dropout_repr =  dropout(fc_repr, self.KEEP_PROB)
+        self.fc_repr = fc(dropout7, 4096, 128, tanh=True, name='fc_repr',reuse=reuse)
+        dropout_repr =  dropout(self.fc_repr, self.KEEP_PROB)
         
 
         # 8th Layer: FC and return unscaled activations
-        self.fc8 = fc(dropout_repr, 512, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse)
+        self.fc8 = fc(dropout_repr, 128, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse)
 
     def load_initial_weights(self, session):
         """Load weights from file into network.
