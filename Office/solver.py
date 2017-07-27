@@ -23,7 +23,7 @@ from sklearn.manifold import TSNE
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
-                 src_dir='amazon', trg_dir='dslr', log_dir='logs', sample_save_path='sample', 
+                 src_dir='webcam', trg_dir='dslr', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
@@ -51,10 +51,10 @@ class Solver(object):
         self.config.gpu_options.allow_growth=True
 	
 	self.user = 'Ric' # to load the dataset.
-
 	
+	self.no_images = {'amazon':2817, 'dslr':498, 'webcam':795}
 
-    def load_office(self, image_dir='./office', split='amazon'):
+    def load_office(self, split, image_dir='./office'):
         print ('Loading OFFICE dataset -> '+split)
 
 	if self.user == 'Pie':
@@ -81,8 +81,8 @@ class Solver(object):
 		    labels = office['y']
 	
 	elif self.user == 'Ric':
-	    images = np.zeros((2817,227,227,3))
-	    labels = np.zeros((2817,1))
+	    images = np.zeros((self.no_images[split],227,227,3))
+	    labels = np.zeros((self.no_images[split],1))
 	    l = 0
 	    c = 0
 	    obj_categories = sorted(glob.glob(image_dir + '/' + split + '/images/*'))
@@ -97,7 +97,7 @@ class Solver(object):
 		    labels[c] = l
 		    c+=1
 	    	l+=1
-	
+		
 	rnd_indices = np.arange(len(labels))
 	npr.shuffle(rnd_indices)
 	images = images[rnd_indices]
@@ -132,6 +132,8 @@ class Solver(object):
 	    epochs = 300
 	    
 	    t = 0
+	    
+	    self.batch_size = 32
 
 	    for i in range(epochs):
 		
@@ -146,7 +148,7 @@ class Solver(object):
 		    feed_dict = {model.keep_prob : 1.0, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
 						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but actually useless. 
 		    
-		    #~ sess.run(model.train_op, feed_dict)
+		    sess.run(model.train_op, feed_dict)
 		    
 		    #~ qwe, asd = sess.run([model.src_pred, model.src_labels],feed_dict) 
 		    #~ print 'break'
@@ -167,8 +169,7 @@ class Solver(object):
 		
 		#~ # 'Saved.'
 		saver.save(sess, os.path.join(self.model_save_path, 'model'))
-
-	    
+    
     def train_sampler(self):
 	
 	print 'Training sampler.'

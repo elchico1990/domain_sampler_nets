@@ -73,8 +73,6 @@ class DSN(object):
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 
-
-
     def build_model(self):
               
         if self.mode == 'pretrain' or self.mode == 'test':
@@ -97,10 +95,24 @@ class DSN(object):
 	    self.trg_pred = tf.argmax(self.trg_logits, 1)
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
+	    
+	    t_vars = tf.trainable_variables()
+	    train_vars = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
+	    
+            #~ self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
+            #~ self.optimizer = tf.train.AdamOptimizer(0.001) 
+            #~ self.train_op = slim.learning.create_train_op(self.loss, self.optimizer, train_vars)
+	    
 
-            self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
-            self.optimizer = tf.train.AdamOptimizer(0.001) 
-            self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
+	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
+	    
+	    gradients = tf.gradients(self.loss, train_vars)
+	    gradients = list(zip(gradients, train_vars))
+
+	    # Create optimizer and apply gradient descent to the trainable variables
+	    self.optimizer = tf.train.GradientDescentOptimizer(0.001)
+	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
+	    
 	    
             # summary op
             loss_summary = tf.summary.scalar('classification_loss', self.loss)

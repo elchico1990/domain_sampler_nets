@@ -96,13 +96,13 @@ class AlexNet(object):
                         if len(data.shape) == 1:
                             var = tf.get_variable('biases', trainable=True)
                             session.run(var.assign(data))
-			    print 'loaded bias'
+			    #~ print 'loaded bias'
 
                         # Weights
                         else:
                             var = tf.get_variable('weights', trainable=True)
                             session.run(var.assign(data))
-			    print 'loaded weight'
+			    #~ print 'loaded weight'
 
 def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
          padding='SAME', groups=1,reuse=False):
