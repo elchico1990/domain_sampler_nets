@@ -314,7 +314,7 @@ class Solver(object):
 
 			
 
-		    if (step+1) % 100 == 0:
+		    if (step+1) % 20 == 0:
 			saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
     def eval_dsn(self):

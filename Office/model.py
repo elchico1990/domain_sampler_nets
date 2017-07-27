@@ -75,6 +75,7 @@ class DSN(object):
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
+			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 
@@ -204,14 +205,11 @@ class DSN(object):
 	    self.E_loss = tf.reduce_mean(tf.square(self.logits_E_fake - tf.ones_like(self.logits_E_fake)))
 	    
 	    # Optimizers
-	    
-            self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 1.)
-            self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 1.)
-           
+	   
             
             t_vars = tf.trainable_variables()
-            #~ E_vars = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
-	    E_vars = [v for v in t_vars if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op']])]
+            E_vars = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
+	    #~ E_vars = [v for v in t_vars if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op']])]
 	    DE_vars = [var for var in t_vars if 'disc_e' in var.name]
             
 	    E_gradients = tf.gradients(self.E_loss, E_vars)
