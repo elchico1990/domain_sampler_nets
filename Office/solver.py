@@ -42,12 +42,8 @@ class Solver(object):
 	self.pretrained_sampler = self.base_path+pretrained_sampler
         self.test_model = self.base_path+test_model
 	self.convdeconv_model = self.base_path+convdeconv_model
-	    # create directories if not exist
-	if not tf.gfile.Exists(self.model_save_path):
-	    tf.gfile.MakeDirs(self.model_save_path)
-	if not tf.gfile.Exists(self.sample_save_path):
-	    tf.gfile.MakeDirs(self.sample_save_path)
-        self.config = tf.ConfigProto()
+	
+	self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
 	
 	self.user = 'Ric' # to load the dataset.
@@ -185,7 +181,7 @@ class Solver(object):
 	
 	batch_size = self.batch_size
 	noise_dim = 100
-	epochs = 50
+	epochs = 5000
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -207,6 +203,9 @@ class Solver(object):
 		 	    
 	    t = 0
 	    
+	    feed_dict = {model.noise: utils.sample_Z(1, noise_dim, 'uniform'), model.images: source_images, model.labels: source_labels, model.fx: np.ones((1,128))}
+	    source_fx = sess.run(model.dummy_fx, feed_dict)
+	    
 	    for i in range(epochs):
 		
 		#~ print 'Epoch',str(i)
@@ -217,7 +216,7 @@ class Solver(object):
 
 		    Z_samples = utils.sample_Z(batch_size, noise_dim, 'uniform')
 
-		    feed_dict = {model.noise: Z_samples, model.images: source_images[start:end], model.labels: source_labels[start:end]}
+		    feed_dict = {model.noise: Z_samples, model.images: source_images[0:1], model.labels: source_labels[start:end], model.fx: source_fx[start:end]}
 	    
 		    avg_D_fake = sess.run(model.logits_fake, feed_dict)
 		    avg_D_real = sess.run(model.logits_real, feed_dict)
@@ -225,7 +224,7 @@ class Solver(object):
 		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
-		    if (t+1) % 100 == 0:
+		    if (t+1) % 250 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
@@ -237,9 +236,8 @@ class Solver(object):
 
     def train_dsn(self):
         
-	target_images, target_labels = self.load_mnist(self.trg_dir, split='train')
-	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, source_labels = self.load_svhn(self.src_dir, split='train')
+	source_images, source_labels = self.load_office(split=self.src_dir)
+        target_images, target_labels = self.load_office(split=self.trg_dir)
 	
 
         # build a graph
@@ -258,25 +256,18 @@ class Solver(object):
 		tf.global_variables_initializer().run()
 		# restore variables of F
 		
-		print ('Loading pretrained encoder.')
-		variables_to_restore = slim.get_model_variables(scope='encoder')
+		print ('Loading pretrained model.')
+		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
+		variables_to_restore = tf.global_variables() 
+		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['Adam','encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
+		restorer.restore(sess, self.pretrained_model)
+
+		#~ print ('Loading pretrained encoder disc.')
+		#~ variables_to_restore = slim.get_model_variables(scope='disc_e')
+		#~ restorer = tf.train.Saver(variables_to_restore)
+		#~ restorer.restore(sess, self.pretrained_sampler)
 		
-		print ('Loading pretrained encoder disc.')
-		variables_to_restore = slim.get_model_variables(scope='disc_e')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_sampler)
-		
-		print ('Loading pretrained G.')
-		variables_to_restore = slim.get_model_variables(scope='generator')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
-		
-		print ('Loading pretrained D_g.')
-		variables_to_restore = slim.get_model_variables(scope='disc_g')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
 		
 		print ('Loading sample generator.')
 		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -294,7 +285,7 @@ class Solver(object):
 		G_loss = 1.
 		DG_loss = 1.
 		
-		label_gen = utils.one_hot(np.array([0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9]),10)
+		noise_dim = 100		
 		
 		for step in range(10000000):
 		    
@@ -305,33 +296,25 @@ class Solver(object):
 		    j = step % int(target_images.shape[0] / self.batch_size)
 		    
 		    src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
-		    src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],10)
-		    src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
+		    src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size].astype(int),31)
 		    src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		    trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
 		    
-		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
+		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		    
-		    #~ sess.run(model.E_train_op, feed_dict) 
-		    #~ sess.run(model.DE_train_op, feed_dict) 
-		    
-		    sess.run(model.G_train_op, feed_dict) 
-		    sess.run(model.DG_train_op, feed_dict) 
-		    
-		    sess.run(model.const_train_op, feed_dict)
-		    
-		    logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
+		    sess.run(model.E_train_op, feed_dict) 
+		    sess.run(model.DE_train_op, feed_dict) 
 		    
 		    if (step+1) % 10 == 0:
-			
-			summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
+			logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
+			summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
 			summary_writer.add_summary(summary, step)
-			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
-				   %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
+			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
+				   %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
 			
 
-		    if (step+1) % 500 == 0:
+		    if (step+1) % 100 == 0:
 			saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
     def eval_dsn(self):
@@ -377,10 +360,9 @@ class Solver(object):
 
     def check_TSNE(self):
 	
-	target_images, target_labels = self.load_mnist(self.trg_dir, split='train')
-	#~ usps_images, usps_labels = self.load_usps(self.usps_dir)
-	source_images, source_labels = self.load_svhn(self.src_dir, split='train')
-	
+	source_images, source_labels = self.load_office(split=self.src_dir)
+	target_images, target_labels = self.load_office(split=self.trg_dir)
+        
 
         # build a graph
         model = self.model
@@ -399,13 +381,16 @@ class Solver(object):
 	    
 	    if sys.argv[1] == 'test':
 		print ('Loading test model.')
-		variables_to_restore = slim.get_model_variables(scope='encoder')
+		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
+		variables_to_restore = tf.global_variables() 
+		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)
-	    
+		restorer.restore(sess, self.test_model)	    
 	    elif sys.argv[1] == 'pretrain':
 		print ('Loading pretrained model.')
-		variables_to_restore = slim.get_model_variables(scope='encoder')
+		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
+		variables_to_restore = tf.global_variables() 
+		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_model)
 		
@@ -420,9 +405,9 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 2000
-            src_labels = utils.one_hot(source_labels[:n_samples],10)
-	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
+	    n_samples = 500
+            src_labels = utils.one_hot(source_labels[:n_samples].astype(int),31)
+	    trg_labels = utils.one_hot(target_labels[:n_samples].astype(int),31)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
 	   
 	    
