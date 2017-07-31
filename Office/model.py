@@ -57,15 +57,18 @@ class DSN(object):
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
 	
 	if is_training:
-	    keep_prob_input = 0.9
-	    keep_prob_conv = 0.75
-	    keep_prob_hidden = 0.5
+	    #~ keep_prob_input = 0.9
+	    #~ keep_prob_conv = 0.75
+	    #~ keep_prob_hidden = 0.5
+	    keep_prob_input = 1.0
+	    keep_prob_conv = 1.0
+	    keep_prob_hidden = 1.0
 	else:
 	    keep_prob_input = 1.0
 	    keep_prob_conv = 1.0
 	    keep_prob_hidden = 1.0
 
-	self.model_AlexNet = AlexNet(images, keep_prob_input = keep_prob_input, keep_prob_conv = keep_prob_conv, keep_prob_hidden = keep_prob_hidden, skip_layer = ['fc8','fc_repr'], num_classes=31,reuse=reuse, hidden_repr_size=self.hidden_repr_size)
+	self.model_AlexNet = AlexNet(images, is_training = is_training, keep_prob_input = keep_prob_input, keep_prob_conv = keep_prob_conv, keep_prob_hidden = keep_prob_hidden, skip_layer = ['fc8','fc_repr'], num_classes=31,reuse=reuse, hidden_repr_size=self.hidden_repr_size)
 
 	with tf.variable_scope('encoder', reuse=reuse):
 	    	

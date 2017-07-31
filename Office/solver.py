@@ -196,6 +196,21 @@ class Solver(object):
 	batch_size = self.batch_size
 	noise_dim = 100
 	epochs = 500000
+	
+	with tf.Session(config=tf.ConfigProto(device_count = {'GPU': 0})) as sess:
+            # initialize G and D
+            tf.global_variables_initializer().run()
+            # restore variables of F
+            
+	    print ('Computing latent representation.')
+	    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
+	    variables_to_restore = tf.global_variables() 
+	    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+	    feed_dict = {model.noise: utils.sample_Z(1, noise_dim, 'uniform'), model.images: source_images, model.labels: source_labels, model.fx: np.ones((1,128))}
+	    source_fx = sess.run(model.dummy_fx, feed_dict)
+
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -227,9 +242,6 @@ class Solver(object):
 	    #~ fx = sess.run(model.fx, feed_dict)
 		 	    
 	    t = 0
-	    
-	    feed_dict = {model.noise: utils.sample_Z(1, noise_dim, 'uniform'), model.images: source_images, model.labels: source_labels, model.fx: np.ones((1,128))}
-	    source_fx = sess.run(model.dummy_fx, feed_dict)
 	    
 	    for i in range(epochs):
 		

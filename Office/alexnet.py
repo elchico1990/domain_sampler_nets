@@ -14,7 +14,7 @@ import numpy as np
 class AlexNet(object):
     """Implementation of the AlexNet."""
 
-    def __init__(self, x, keep_prob_input, keep_prob_conv, keep_prob_hidden, num_classes, skip_layer,
+    def __init__(self, x, is_training, keep_prob_input, keep_prob_conv, keep_prob_hidden, num_classes, skip_layer,
                  weights_path='DEFAULT',reuse=False, hidden_repr_size = 128):
         """Create the graph of the AlexNet model.
 
@@ -35,6 +35,7 @@ class AlexNet(object):
         self.KEEP_PROB_HIDDEN = keep_prob_hidden
         self.SKIP_LAYER = skip_layer
 	self.HIDDEN_REPR_SIZE = hidden_repr_size
+	self.is_training = is_training
 
         if weights_path == 'DEFAULT':
             self.WEIGHTS_PATH = 'bvlc_alexnet.npy'
@@ -43,6 +44,10 @@ class AlexNet(object):
 
         # Call the create function to build the computational graph of AlexNet
         self.create(reuse=reuse)
+
+
+ #~ h2 = tf.contrib.layers.batch_norm(h1,is_training,center=True,scale=True,scope='bn')
+
 
     def create(self,reuse=False):
         """Create the network graph."""
@@ -62,10 +67,12 @@ class AlexNet(object):
         # 3rd Layer: Conv (w ReLu)
         conv3 = conv(norm2, 3, 3, 384, 1, 1, name='conv3',reuse=reuse)
 	conv3 = dropout(conv3, self.KEEP_PROB_CONV)
+	#~ conv3 = tf.contrib.layers.batch_norm(conv3,self.is_training,center=True,scale=True,scope='bna3',reuse=reuse)
 
         # 4th Layer: Conv (w ReLu) splitted into two groups
         conv4 = conv(conv3, 3, 3, 384, 1, 1, groups=2, name='conv4',reuse=reuse)
 	conv4 = dropout(conv4, self.KEEP_PROB_CONV)
+	#~ conv4 = tf.contrib.layers.batch_norm(conv4,self.is_training,center=True,scale=True,scope='bna4',reuse=reuse)
 
         # 5th Layer: Conv (w ReLu) -> Pool splitted into two groups
         conv5 = conv(conv4, 3, 3, 256, 1, 1, groups=2, name='conv5',reuse=reuse)
@@ -76,13 +83,18 @@ class AlexNet(object):
         flattened = tf.reshape(pool5, [-1, 6*6*256])
         fc6 = fc(flattened, 6*6*256, 4096, name='fc6',reuse=reuse)
         dropout6 = dropout(fc6, self.KEEP_PROB_HIDDEN)
+	dropout6 = tf.contrib.layers.batch_norm(dropout6,self.is_training,center=True,scale=True,scope='bna6',reuse=reuse)
 
         # 7th Layer: FC (w ReLu) -> Dropout
         fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse)
         dropout7 = dropout(fc7, self.KEEP_PROB_HIDDEN)
+	dropout7 = tf.contrib.layers.batch_norm(dropout7,self.is_training,center=True,scale=True,scope='bna7',reuse=reuse)
+
         
         self.fc_repr = fc(dropout7, 4096, self.HIDDEN_REPR_SIZE, tanh=True, name='fc_repr',reuse=reuse)
         dropout_repr =  dropout(self.fc_repr, self.KEEP_PROB_HIDDEN)
+	dropout_repr = tf.contrib.layers.batch_norm(dropout_repr,self.is_training,center=True,scale=True,scope='bna_repr',reuse=reuse)
+
         
 
         # 8th Layer: FC and return unscaled activations
