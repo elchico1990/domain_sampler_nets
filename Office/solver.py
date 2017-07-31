@@ -20,10 +20,20 @@ import utils
 
 from sklearn.manifold import TSNE
 
+# AlexNet Avg Baselines
+#
+# AW  60.6
+# DW  95.4
+# WD  99.0
+# AD  64.2
+# DA  45.5
+# WA  48.3
+# Avg 68.8
+
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
-                 src_dir='webcam', trg_dir='dslr', log_dir='logs', sample_save_path='sample', 
+                 src_dir='amazon', trg_dir='webcam', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
@@ -88,13 +98,20 @@ class Solver(object):
 		for oi in obj_images:
 		    img = Image.open(oi)
 		    img = img.resize((227,227), Image.ANTIALIAS) - np.array([104., 117., 124.])
-		    img = np.expand_dims(img, axis=0)
+		    #~ img = np.expand_dims(img, axis=0)
+		    #~ img -= np.array([103.939, 116.779, 123.68])
+		    
+		    #~ img -= np.array([123.68, 116.779, 103.939]) 
+		    #~ img = img[:,:,::-1] #RGB_TO_BGR
+		    
+		    img = np.expand_dims(img, axis=0) 
 		    images[c] = img
 		    labels[c] = l
 		    c+=1
 	    	l+=1
 		
 	rnd_indices = np.arange(len(labels))
+	npr.seed(231)
 	npr.shuffle(rnd_indices)
 	images = images[rnd_indices]
 	labels = labels[rnd_indices]
@@ -122,11 +139,9 @@ class Solver(object):
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-	    epochs = 300
+	    epochs = 500
 	    
 	    t = 0
-	    
-	    self.batch_size = 32
 
 	    for i in range(epochs):
 		
@@ -142,23 +157,22 @@ class Solver(object):
 						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but actually useless. 
 		    
 		    sess.run(model.train_op, feed_dict)
-		    
-		    #~ qwe, asd = sess.run([model.src_pred, model.src_labels],feed_dict) 
-		    #~ print 'break'
-
 
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
 		src_rand_idxs = np.random.permutation(src_images.shape[0])[:100]
 		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:]
-		src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, model.trg_accuracy], 
+		src_acc, trg_acc, trg_pred, trg_labels = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred, model.trg_labels], 
 				       feed_dict={model.keep_prob : 1.0,
 						    model.src_images: src_images[src_rand_idxs], 
 						    model.src_labels: src_labels[src_rand_idxs],
-						    model.trg_images: trg_images[trg_rand_idxs], 
-						    model.trg_labels: trg_labels[trg_rand_idxs]})
+						    model.trg_images: trg_images, 
+						    model.trg_labels: trg_labels})
 		summary_writer.add_summary(summary, t)
 		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f]' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
+			   
+		with open('trg_acc_6.pkl','wb') as f:
+		    cPickle.dump((trg_pred,trg_labels),f,cPickle.HIGHEST_PROTOCOL)
 		
 		#~ # 'Saved.'
 		saver.save(sess, os.path.join(self.model_save_path, 'model'))
@@ -195,16 +209,16 @@ class Solver(object):
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 	    
-	    print ('Loading pretrained encoder disc.')
-	    variables_to_restore = slim.get_model_variables(scope='disc_e')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_sampler)
+	    #~ print ('Loading pretrained encoder disc.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.pretrained_sampler)
 
 
-	    print ('Loading sample generator.')
-	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_sampler)
+	    #~ print ('Loading sample generator.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.pretrained_sampler)
 
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
@@ -416,7 +430,7 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 500
+	    n_samples = 400
             src_labels = utils.one_hot(source_labels[:n_samples].astype(int),31)
 	    trg_labels = utils.one_hot(target_labels[:n_samples].astype(int),31)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
@@ -498,7 +512,9 @@ class Solver(object):
 		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
-		    variables_to_restore = tf.global_variables()
+		    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
+		    variables_to_restore = tf.global_variables() 
+		    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['Adam','encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.test_model)
 		
@@ -523,6 +539,50 @@ class Solver(object):
 			   %(t+1, self.pretrain_iter, src_acc, trg_acc))
 	
 		time.sleep(.5)
+	    
+    def test_ensemble(self):
+	
+	# load svhn dataset
+	src_images, src_labels = self.load_office(split=self.src_dir)
+        trg_images, trg_labels = self.load_office(split=self.trg_dir)
+	
+	
+	# build a graph
+	model = self.model
+	model.build_model()
+		
+	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	
+	preds = []
+	
+	with tf.Session(config=self.config) as sess:
+	    tf.global_variables_initializer().run()
+	    saver = tf.train.Saver()
+	    
+	    t = 0
+	    
+	    for i in ['1','2','3','4']:
+		
+		print ('Loading pretrained model.')
+		variables_to_restore = tf.global_variables()
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.base_path+'model/'+str(i)+'/model')
+		
+		t+=1
+    
+		src_acc, trg_acc, trg_pred = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred], 
+				       feed_dict={model.src_images: src_images, 
+						  model.src_labels: src_labels,
+						  model.trg_images: trg_images, 
+						  model.trg_labels: trg_labels})
+						  
+		preds.append(trg_pred)
+		  
+		print ('Step: [%d/%d] src acc [%.4f] trg acc [%.4f]' \
+			   %(t+1, self.pretrain_iter, src_acc, trg_acc))
+			   
+	print 'break'
+	
 		    
 if __name__=='__main__':
 

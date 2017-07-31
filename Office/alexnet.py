@@ -1,11 +1,21 @@
 import tensorflow as tf
 import numpy as np
 
+# AlexNet Avg Baselines
+#
+# AW  60.6
+# DW  95.4
+# WD  99.0
+# AD  64.2
+# DA  45.5
+# WA  48.3
+# Avg 68.8
+
 class AlexNet(object):
     """Implementation of the AlexNet."""
 
-    def __init__(self, x, keep_prob, num_classes, skip_layer,
-                 weights_path='DEFAULT',reuse=False):
+    def __init__(self, x, keep_prob_input, keep_prob_conv, keep_prob_hidden, num_classes, skip_layer,
+                 weights_path='DEFAULT',reuse=False, hidden_repr_size = 128):
         """Create the graph of the AlexNet model.
 
         Args:
@@ -20,8 +30,11 @@ class AlexNet(object):
         # Parse input arguments into class variables
         self.X = x
         self.NUM_CLASSES = num_classes
-        self.KEEP_PROB = keep_prob
+        self.KEEP_PROB_INPUT = keep_prob_input
+        self.KEEP_PROB_CONV = keep_prob_conv
+        self.KEEP_PROB_HIDDEN = keep_prob_hidden
         self.SKIP_LAYER = skip_layer
+	self.HIDDEN_REPR_SIZE = hidden_repr_size
 
         if weights_path == 'DEFAULT':
             self.WEIGHTS_PATH = 'bvlc_alexnet.npy'
@@ -34,40 +47,46 @@ class AlexNet(object):
     def create(self,reuse=False):
         """Create the network graph."""
         # 1st Layer: Conv (w ReLu) -> Pool -> Lrn
+	self.X = dropout(self.X,self.KEEP_PROB_INPUT)
         conv1 = conv(self.X, 11, 11, 96, 4, 4, padding='VALID', name='conv1',reuse=reuse)
+	conv1 = dropout(conv1, self.KEEP_PROB_CONV)
         pool1 = max_pool(conv1, 3, 3, 2, 2, padding='VALID', name='pool1')
         norm1 = lrn(pool1, 2, 2e-05, 0.75, name='norm1')
 
         # 2nd Layer: Conv (w ReLu) -> Pool -> Lrn with 2 groups
         conv2 = conv(norm1, 5, 5, 256, 1, 1, groups=2, name='conv2',reuse=reuse)
+	conv2 = dropout(conv2, self.KEEP_PROB_CONV)
         pool2 = max_pool(conv2, 3, 3, 2, 2, padding='VALID', name='pool2')
         norm2 = lrn(pool2, 2, 2e-05, 0.75, name='norm2')
 
         # 3rd Layer: Conv (w ReLu)
         conv3 = conv(norm2, 3, 3, 384, 1, 1, name='conv3',reuse=reuse)
+	conv3 = dropout(conv3, self.KEEP_PROB_CONV)
 
         # 4th Layer: Conv (w ReLu) splitted into two groups
         conv4 = conv(conv3, 3, 3, 384, 1, 1, groups=2, name='conv4',reuse=reuse)
+	conv4 = dropout(conv4, self.KEEP_PROB_CONV)
 
         # 5th Layer: Conv (w ReLu) -> Pool splitted into two groups
         conv5 = conv(conv4, 3, 3, 256, 1, 1, groups=2, name='conv5',reuse=reuse)
+	conv5 = dropout(conv5, self.KEEP_PROB_CONV)
         pool5 = max_pool(conv5, 3, 3, 2, 2, padding='VALID', name='pool5')
 
         # 6th Layer: Flatten -> FC (w ReLu) -> Dropout
         flattened = tf.reshape(pool5, [-1, 6*6*256])
         fc6 = fc(flattened, 6*6*256, 4096, name='fc6',reuse=reuse)
-        dropout6 = dropout(fc6, self.KEEP_PROB)
+        dropout6 = dropout(fc6, self.KEEP_PROB_HIDDEN)
 
         # 7th Layer: FC (w ReLu) -> Dropout
         fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse)
-        dropout7 = dropout(fc7, self.KEEP_PROB)
+        dropout7 = dropout(fc7, self.KEEP_PROB_HIDDEN)
         
-        self.fc_repr = fc(dropout7, 4096, 128, tanh=True, name='fc_repr',reuse=reuse)
-        dropout_repr =  dropout(self.fc_repr, self.KEEP_PROB)
+        self.fc_repr = fc(dropout7, 4096, self.HIDDEN_REPR_SIZE, tanh=True, name='fc_repr',reuse=reuse)
+        dropout_repr =  dropout(self.fc_repr, self.KEEP_PROB_HIDDEN)
         
 
         # 8th Layer: FC and return unscaled activations
-        self.fc8 = fc(dropout_repr, 128, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse)
+        self.fc8 = fc(dropout_repr, self.HIDDEN_REPR_SIZE, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse)
 
     def load_initial_weights(self, session):
         """Load weights from file into network.

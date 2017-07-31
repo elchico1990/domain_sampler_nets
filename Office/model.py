@@ -8,6 +8,15 @@ import cPickle
 
 from utils import conv_concat
 
+# AlexNet Avg Baselines
+#
+# AW  60.6
+# DW  95.4
+# WD  99.0
+# AD  64.2
+# DA  45.5
+# WA  48.3
+# Avg 68.8
 
 class DSN(object):
     """Domain Sampler Network
@@ -40,22 +49,23 @@ class DSN(object):
 		    net = slim.batch_norm(net, scope='sgen_bn1')
 		    net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
-		    net = slim.batch_norm(net, scope='sgen_bn2')
+		    net = slim.batch_norm(net, scope='sgen_bn3')
 		    net = slim.dropout(net, 0.5)
-		    #~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc_3')
-		    #~ net = slim.batch_norm(net, scope='sgen_bn3')
-		    #~ net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
 	
-	#~ if is_training:
-	    #~ keep_prob = 0.5
-	#~ else:
-	    #~ keep_prob = 1.0
+	if is_training:
+	    keep_prob_input = 0.9
+	    keep_prob_conv = 0.75
+	    keep_prob_hidden = 0.5
+	else:
+	    keep_prob_input = 1.0
+	    keep_prob_conv = 1.0
+	    keep_prob_hidden = 1.0
 
-	self.model_AlexNet = AlexNet(images, keep_prob = 1.0, skip_layer = ['fc8','fc_repr'], num_classes=31,reuse=reuse)
+	self.model_AlexNet = AlexNet(images, keep_prob_input = keep_prob_input, keep_prob_conv = keep_prob_conv, keep_prob_hidden = keep_prob_hidden, skip_layer = ['fc8','fc_repr'], num_classes=31,reuse=reuse, hidden_repr_size=self.hidden_repr_size)
 
 	with tf.variable_scope('encoder', reuse=reuse):
 	    	
@@ -86,7 +96,7 @@ class DSN(object):
 
     def build_model(self):
               
-        if self.mode == 'pretrain' or self.mode == 'test':
+        if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'test_ensemble':
             
 	    self.src_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'source_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'target_images')
@@ -107,18 +117,30 @@ class DSN(object):
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 	    
 	    t_vars = tf.trainable_variables()
+	    
+	    
 	    train_vars = t_vars#[var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
-	    
-            #~ self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
-            #~ self.optimizer = tf.train.AdamOptimizer(0.001) 
-            #~ self.train_op = slim.learning.create_train_op(self.loss, self.optimizer, train_vars)
-	    
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
 	    self.optimizer = tf.train.AdamOptimizer(0.0001)
 	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
 	    
+	    #~ train_vars_1 = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
+	    #~ self.loss_1 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
+	    #~ gradients_1 = tf.gradients(self.loss_1, train_vars_1)
+	    #~ gradients_1 = list(zip(gradients_1, train_vars_1))
+	    #~ self.optimizer_1 = tf.train.AdamOptimizer(0.01)
+	    #~ self.train_op_1 = self.optimizer_1.apply_gradients(grads_and_vars=gradients_1)
+	    
+	    #~ train_vars_2 = [var for var in t_vars if np.all([s not in var.name for s in['fc_repr','fc8']])]
+	    #~ self.loss_2 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
+	    #~ gradients_2 = tf.gradients(self.loss_2, train_vars_2)
+	    #~ gradients_2 = list(zip(gradients_2, train_vars_2))
+	    #~ self.optimizer_2 = tf.train.AdamOptimizer(0.0001)
+	    #~ self.train_op_2 = self.optimizer_2.apply_gradients(grads_and_vars=gradients_2)
+	    
+	    #~ self.loss = self.loss_1 + self.loss_2
 	    
             # summary op
             loss_summary = tf.summary.scalar('classification_loss', self.loss)
@@ -213,8 +235,8 @@ class DSN(object):
 	   
             
             t_vars = tf.trainable_variables()
-            E_vars = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
-	    #~ E_vars = [v for v in t_vars if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op']])]
+            #~ E_vars = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
+	    E_vars = [v for v in t_vars if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op']])]
 	    DE_vars = [var for var in t_vars if 'disc_e' in var.name]
             
 	    E_gradients = tf.gradients(self.E_loss, E_vars)
@@ -254,4 +276,6 @@ class DSN(object):
 		
 		
 		
+
+
 

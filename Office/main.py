@@ -22,6 +22,8 @@ def main(_):
 	    solver.eval_dsn()
     elif FLAGS.mode == 'test':
 	    solver.test()
+    elif FLAGS.mode == 'test_ensemble':
+	    solver.test_ensemble()
 
 
     else:
@@ -30,6 +32,14 @@ def main(_):
         
 if __name__ == '__main__':
     tf.app.run()
+
+
+
+
+
+
+
+
 
 
 
