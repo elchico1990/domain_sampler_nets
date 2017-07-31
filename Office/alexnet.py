@@ -46,9 +46,6 @@ class AlexNet(object):
         self.create(reuse=reuse)
 
 
- #~ h2 = tf.contrib.layers.batch_norm(h1,is_training,center=True,scale=True,scope='bn')
-
-
     def create(self,reuse=False):
         """Create the network graph."""
         # 1st Layer: Conv (w ReLu) -> Pool -> Lrn
@@ -88,12 +85,12 @@ class AlexNet(object):
         # 7th Layer: FC (w ReLu) -> Dropout
         fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse)
         dropout7 = dropout(fc7, self.KEEP_PROB_HIDDEN)
-	dropout7 = tf.contrib.layers.batch_norm(dropout7,self.is_training,center=True,scale=True,scope='bna7',reuse=reuse)
+	#~ dropout7 = tf.contrib.layers.batch_norm(dropout7,self.is_training,center=True,scale=True,scope='bna7',reuse=reuse)
 
         
         self.fc_repr = fc(dropout7, 4096, self.HIDDEN_REPR_SIZE, tanh=True, name='fc_repr',reuse=reuse)
         dropout_repr =  dropout(self.fc_repr, self.KEEP_PROB_HIDDEN)
-	dropout_repr = tf.contrib.layers.batch_norm(dropout_repr,self.is_training,center=True,scale=True,scope='bna_repr',reuse=reuse)
+	#~ dropout_repr = tf.contrib.layers.batch_norm(dropout_repr,self.is_training,center=True,scale=True,scope='bna_repr',reuse=reuse)
 
         
 
@@ -189,8 +186,8 @@ def fc(x, num_in, num_out, name, relu=True, tanh=False, reuse=False):
 
         # Create tf variables for the weights and biases
         weights = tf.get_variable('weights', shape=[num_in, num_out],
-                                  trainable=True)
-        biases = tf.get_variable('biases', [num_out], trainable=True)
+                                  trainable=True, initializer=tf.contrib.layers.xavier_initializer())
+        biases = tf.get_variable('biases', [num_out], trainable=True, initializer=tf.contrib.layers.xavier_initializer())
 
         # Matrix multiply weights and inputs and add bias
         act = tf.nn.xw_plus_b(x, weights, biases, name=scope.name)

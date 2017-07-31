@@ -87,6 +87,8 @@ class Solver(object):
 		    labels = office['y']
 	
 	elif self.user == 'Ric':
+	    VGG_MEAN = [103.939, 116.779, 123.68]
+
 	    images = np.zeros((self.no_images[split],227,227,3))
 	    labels = np.zeros((self.no_images[split],1))
 	    l = 0
@@ -97,13 +99,15 @@ class Solver(object):
 		#~ print str(l)+'/'+str(len(obj_categories))
 		for oi in obj_images:
 		    img = Image.open(oi)
-		    img = img.resize((227,227), Image.ANTIALIAS) - np.array([104., 117., 124.])
-		    #~ img = np.expand_dims(img, axis=0)
-		    #~ img -= np.array([103.939, 116.779, 123.68])
+		    img = img.resize((227,227), Image.ANTIALIAS)
 		    
-		    #~ img -= np.array([123.68, 116.779, 103.939]) 
-		    #~ img = img[:,:,::-1] #RGB_TO_BGR
 		    
+		    img = np.array(img, dtype=float) 
+		    
+		    img = img[:, :, [2,1,0]] # swap channel from RGB to BGR
+		    img[:,:,0] -= VGG_MEAN[0]
+		    img[:,:,1] -= VGG_MEAN[1]
+		    img[:,:,2] -= VGG_MEAN[2]
 		    img = np.expand_dims(img, axis=0) 
 		    images[c] = img
 		    labels[c] = l
@@ -126,18 +130,18 @@ class Solver(object):
         model = self.model
         model.build_model()
 	
-        with tf.Session(config=self.config) as sess:
-            tf.global_variables_initializer().run()
-	    saver = tf.train.Saver()
+	with tf.Session(config=self.config) as sess:
 	    
+	    tf.global_variables_initializer().run()
+	    saver = tf.train.Saver()
 	    model.model_AlexNet.load_initial_weights(sess)
 	    
-            #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_model)
+	    #~ print ('Loading pretrained model.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='encoder')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.pretrained_model)
 	    
-            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
 	    epochs = 500
 	    
@@ -173,6 +177,13 @@ class Solver(object):
 			   
 		with open('trg_acc_6.pkl','wb') as f:
 		    cPickle.dump((trg_pred,trg_labels),f,cPickle.HIGHEST_PROTOCOL)
+		    
+		#~ if trg_acc < 0.55:
+		    #~ print 'Restarting!'
+		    #~ tf.global_variables_initializer().run()
+		    #~ saver = tf.train.Saver()
+		    #~ model.model_AlexNet.load_initial_weights(sess)
+		    #~ continue
 		
 		#~ # 'Saved.'
 		saver.save(sess, os.path.join(self.model_save_path, 'model'))

@@ -57,9 +57,6 @@ class DSN(object):
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
 	
 	if is_training:
-	    #~ keep_prob_input = 0.9
-	    #~ keep_prob_conv = 0.75
-	    #~ keep_prob_hidden = 0.5
 	    keep_prob_input = 1.0
 	    keep_prob_conv = 1.0
 	    keep_prob_hidden = 1.0
