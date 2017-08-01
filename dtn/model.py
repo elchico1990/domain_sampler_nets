@@ -58,7 +58,9 @@ class DSN(object):
 		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
 		    net = tf.contrib.layers.flatten(net)
 		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
+		    #~ net = slim.batch_norm(net,is_training=is_training,scope='bnfc1')
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
+		    #~ net = slim.batch_norm(net,is_training=is_training,scope='bnfc2')
 		    if (self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
@@ -75,7 +77,7 @@ class DSN(object):
 		    #~ net = slim.flatten(inputs)
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
+		    net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 	    
     def G(self, inputs, labels, reuse=False, do_reshape=False):
@@ -281,13 +283,23 @@ class DSN(object):
 	    
 	    #~ self.DG_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_G_real, tf.ones_like(self.logits_G_real))
 	    #~ self.DG_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_G_fake, tf.zeros_like(self.logits_G_fake))
-	    self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.ones_like(self.logits_G_real)))
-	    self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.zeros_like(self.logits_G_fake)))
+	    self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.concat(axis=1,values=[self.trg_labels,tf.zeros((64,1))])))
+	    self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[tf.zeros_like(self.src_labels),tf.ones((64,1))])))
 	    
 	    self.DG_loss = self.DG_loss_real + self.DG_loss_fake
 	    
 	    #~ self.G_loss = slim.losses.sigmoid_cross_entropy(self.logits_G_fake, tf.ones_like(self.logits_G_fake))
-	    self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.ones_like(self.logits_G_fake)))
+	    self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[self.src_labels,tf.zeros((64,1))])))
+	    
+	    # 2-class D_e
+	    #~ self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.ones_like(self.logits_G_real)))
+	    #~ self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.zeros_like(self.logits_G_fake)))
+	    #~ self.DG_loss = self.DG_loss_real + self.DG_loss_fake
+	    #~ self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.ones_like(self.logits_G_fake)))
+	    
+	    
+	    
+	    
 	    
 	    # Trg const loss
 	    
