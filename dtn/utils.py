@@ -98,8 +98,8 @@ def conv_concat(x,y):
     x_shapes = x.get_shape()
     y_shapes = y.get_shape()
     #~ print x_shapes, y_shapes
-    #~ return tf.concat([x, y*tf.ones([64, x_shapes[1], x_shapes[2], 10])], axis=3)
-    return tf.concat([x, y*tf.ones([30000, x_shapes[1], x_shapes[2], 10])], axis=3)
+    return tf.concat([x, y*tf.ones([64, x_shapes[1], x_shapes[2], 10])], axis=3)
+    #~ return tf.concat([x, y*tf.ones([30000, x_shapes[1], x_shapes[2], 10])], axis=3)
 	
 def lrelu(inputs, leak=0.2, scope="lrelu"):
     """

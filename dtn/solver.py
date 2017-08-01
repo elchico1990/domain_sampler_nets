@@ -611,7 +611,7 @@ class Solver(object):
 		for i in range(len(samples_logits)):
 		    
 		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
-		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i]),np.squeeze(samples[i]), cmap='gray')
+		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
 		
 		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 		    
