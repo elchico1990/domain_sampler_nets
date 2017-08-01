@@ -193,7 +193,7 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 3500 # number of images per digit
+	no_images = 11000 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
 	images = np.zeros((10 * no_images,32,32,1))
@@ -598,8 +598,8 @@ class Solver(object):
 		source_labels[:] = str(n)
 
 		# train model for source domain S
-		src_labels = utils.one_hot(source_labels[:10000],10)
-		src_noise = utils.sample_Z(10000,100,'uniform')
+		src_labels = utils.one_hot(source_labels[:30000],10)
+		src_noise = utils.sample_Z(30000,100,'uniform')
 
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
