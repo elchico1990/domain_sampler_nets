@@ -1,2 +1,2 @@
-model_checkpoint_path: "sampler"
-all_model_checkpoint_paths: "sampler"
+model_checkpoint_path: "dtn"
+all_model_checkpoint_paths: "dtn"

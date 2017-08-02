@@ -514,7 +514,7 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -548,12 +548,12 @@ class Solver(object):
 		
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict) 
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict) 
 		
-		sess.run(model.G_train_op, feed_dict)
-		sess.run(model.DG_train_op, feed_dict) 
-		sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.G_train_op, feed_dict)
+		#~ sess.run(model.DG_train_op, feed_dict) 
+		#~ sess.run(model.const_train_op, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
