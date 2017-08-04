@@ -20,12 +20,11 @@ from sklearn.manifold import TSNE
 
 from scipy import misc
 
-
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
-		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
+		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', gen_model='model/model_gen', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
         self.model = model
@@ -43,12 +42,13 @@ class Solver(object):
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
         self.pretrained_model = pretrained_model
+	self.gen_model = gen_model
 	self.pretrained_sampler = pretrained_sampler
         self.test_model = test_model
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'amazon_reviews' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m, amazon_reviews
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -76,13 +76,33 @@ class Solver(object):
 
     def load_mnist(self, image_dir, split='train'):
         print ('Loading MNIST dataset.')
-        image_file = 'train.pkl' if split=='train' else 'test.pkl'
+	
+	if self.protocol == 'mnist_usps':
+	    image_file = 'train.pkl'
+        else:
+	    image_file = 'train.pkl' if split=='train' else 'test.pkl'
         image_dir = os.path.join(image_dir, image_file)
         with open(image_dir, 'rb') as f:
             mnist = pickle.load(f)
         images = mnist['X'] / 127.5 - 1
         labels = mnist['y']
-        return images, labels
+	
+	if self.protocol == 'mnist_usps':
+	    imgs = np.empty((0,32,32,1))
+	    lbls = np.empty((0,1))
+	    for i in range(10):
+		digits = images[np.where(labels==i)[0][:200]]
+		imgs = np.vstack((imgs,digits))
+		lbls = np.vstack((lbls,i*np.ones((200,1))))
+
+	    random_idx = np.arange(len(lbls))
+	    npr.seed(1230)
+	    npr.shuffle(random_idx)
+	    images = imgs[random_idx]
+	    labels = lbls[random_idx]
+	
+	
+        return images, np.squeeze(labels).astype(int)
 
     def load_mnist_m(self,image_dir, split='train'):
 	
@@ -123,13 +143,29 @@ class Solver(object):
         images = usps['X'] / 127.5 - 1
         labels = usps['y']
 	labels -= 1
-	labels[labels==255] = 0
+	labels[labels==255] = 9
+	
+	npr.seed(130)
+	
 	random_idx = np.arange(len(labels))
-	npr.seed(123)
 	npr.shuffle(random_idx)
+	
 	images = images[random_idx]
 	labels = labels[random_idx]
-        return images, np.squeeze(labels)
+	imgs = np.empty((0,32,32,1))
+	lbls = np.empty((0,1))
+	
+	for i in range(10):
+	    digits = images[np.where(labels==i)[0][:180]]
+	    imgs = np.vstack((imgs,digits))
+	    lbls = np.vstack((lbls,i*np.ones((180,1))))
+	    
+	random_idx = np.arange(len(lbls))
+	
+	npr.shuffle(random_idx)
+	imgs = imgs[random_idx]
+	lbls = lbls[random_idx]
+        return imgs, np.squeeze(lbls).astype(int)
 
     def load_amazon_reviews(self, data_dir, source_name = 'dvd', target_name = 'electronics', msda = False):
 
@@ -186,16 +222,16 @@ class Solver(object):
 	
 	'''
 	Loading images generated with eval_dsn()
-	Assuming that image_dir contains folder with
+	Assuming that ./sample contains folder with
 	subfolders 1,2,...,9.
 	'''
 	
 	print 'Loading generated images.'
 	
-	no_images = 1000 # number of images per digit
+	no_images = 4000 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
-	images = np.zeros((10 * no_images,28,28,1))
+	images = np.zeros((10 * no_images,32,32,1))
 	
 	for l in range(10):
 	    print l
@@ -207,7 +243,13 @@ class Solver(object):
 		images[l * no_images + counter] = im
 		labels[l * no_images + counter] = l
 		counter+=1
-	    
+	
+	npr.seed(231)
+	random_idx = np.arange(len(images))
+	npr.shuffle(random_idx)
+	images = images[random_idx]
+	labels = labels[random_idx]
+	
 	print 'break'
 	images = images / 127.5 - 1
 	return images, labels
@@ -243,13 +285,10 @@ class Solver(object):
 	elif self.protocol == 'mnist_usps':	
 	    
 	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	    src_images = src_images[:2000]
-	    src_labels = src_labels[:2000]
 	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	    
 	    trg_images, trg_labels = self.load_usps(self.usps_dir)
-	    trg_images = trg_images[:1800]
-	    trg_labels = trg_labels[:1800]
+
 	    trg_test_images = trg_images
 	    trg_test_labels = trg_labels
 	  
@@ -269,7 +308,7 @@ class Solver(object):
             #~ print ('Loading pretrained model.')
             #~ variables_to_restore = slim.get_model_variables(scope='encoder')
             #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.pretrained_model)
+            #~ restorer.restore(sess, self.test_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
@@ -291,8 +330,8 @@ class Solver(object):
 
 		    if (t+1) % 250 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:3000]
+			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
+			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
 			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
 					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 							  model.src_labels: src_test_labels[src_rand_idxs],
@@ -367,8 +406,6 @@ class Solver(object):
 	elif self.protocol == 'mnist_usps':	
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	    source_labels = utils.one_hot(source_labels, 10)
-	    source_images = source_images[:2000]
-	    source_labels = source_labels[:2000]
 				  
 	elif self.protocol == 'amazon_reviews':
 	    source_images, source_labels, _, _, _, _ = self.load_amazon_reviews(self.amazon_dir)
@@ -403,9 +440,6 @@ class Solver(object):
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 	    
-	    #~ feed_dict = {model.images: source_images[:10000]}
-	    #~ fx = sess.run(model.fx, feed_dict)
-		 	    
 	    t = 0
 	    
 	    for i in range(epochs):
@@ -454,10 +488,7 @@ class Solver(object):
 	elif self.protocol=='mnist_usps':
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	    target_images, target_labels = self.load_usps(self.usps_dir)
-	    source_images = source_images[:2000]
-	    source_labels = source_labels[:2000]
-	    target_images = target_images[:1800]
-	    target_labels = target_labels[:1800]
+
 	
 	elif self.protocol == 'amazon_reviews':
 	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
@@ -473,6 +504,7 @@ class Solver(object):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 
+
 	with tf.Session(config=self.config) as sess:
 	    	    
 	    # initialize G and D
@@ -483,28 +515,12 @@ class Solver(object):
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
-	    
-	    #~ print ('Loading pretrained encoder disc.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.pretrained_sampler)
-	    
-	    #~ print ('Loading pretrained G.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.test_model)
-	    
-	    #~ print ('Loading pretrained D_g.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='disc_g')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.test_model)
-	    
+	    	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_sampler)
 	    
-
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 	    saver = tf.train.Saver()
 
@@ -512,9 +528,9 @@ class Solver(object):
 	    trg_count = 0
 	    t = 0
 	    
-	    self.batch_size = 128
+	    self.batch_size = 64
 	    
-	    label_gen = utils.one_hot(np.array([0,0,0,1,1,1]),2)
+	    label_gen = utils.one_hot(np.array([0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
 	    
 	    for step in range(10000000):
 		
@@ -525,7 +541,7 @@ class Solver(object):
 		j = step % int(target_images.shape[0] / self.batch_size)
 		
 		src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
-		src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],2)
+		src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size],10)
 		src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
@@ -533,20 +549,20 @@ class Solver(object):
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
 		sess.run(model.E_train_op, feed_dict) 
-		sess.run(model.DE_train_op, feed_dict)
+		sess.run(model.DE_train_op, feed_dict) 
 		
-		#~ sess.run(model.const_train_op, feed_dict)		
-		#~ sess.run(model.G_train_op, feed_dict) 
+		#~ sess.run(model.G_train_op, feed_dict)
 		#~ sess.run(model.DG_train_op, feed_dict) 
-
-		logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
+		#~ sess.run(model.const_train_op, feed_dict)
+		
+		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
 		if (step+1) % 10 == 0:
 		    
-		    summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
+		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
-		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
-			       %(step+1, self.train_iter, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
+		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
+			       %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
 
 		    
 
@@ -567,43 +583,47 @@ class Solver(object):
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.test_model)
 	    
+	    print ('Loading pretrained E.')
+	    variables_to_restore = slim.get_model_variables(scope='encoder')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.test_model)
 	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_sampler)
 	    
+	    if self.protocol=='svhn_mnist':
+		source_images, source_labels = self.load_svhn(self.svhn_dir)
+	    elif self.protocol=='mnist_usps':
+		source_images, source_labels = self.load_mnist(self.mnist_dir)
+
 	    for n in range(10):
-	    
-		if self.protocol=='svhn_mnist':
-		    source_images, source_labels = self.load_svhn(self.svhn_dir)
-		    source_labels[:] = str(n)
-		elif self.protocol=='mnist_usps':
-		    source_images, source_labels = self.load_mnist(self.mnist_dir)
-		    source_labels[:] = str(n)
+
+		source_labels[:] = str(n)
 
 		# train model for source domain S
-		src_labels = utils.one_hot(source_labels[:10000],10)
-		src_noise = utils.sample_Z(10000,100,'uniform')
+		src_labels = utils.one_hot(source_labels[:1000],10)
+		src_noise = utils.sample_Z(1000,100,'uniform')
 
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
-		samples = sess.run(model.sampled_images, feed_dict)
-
-		for i in range(1000):
+		samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
+		samples_logits = samples_logits[:,n]
+		#~ samples = samples[samples_logits>10.]
+		#~ samples_logits = samples_logits[samples_logits>10.]
+		
+		for i in range(len(samples_logits)):
 		    
-		    print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
-		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
-
+		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i]),np.squeeze(samples[i]), cmap='gray')
+		
+		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
+		    
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
 	
-	random_idx = np.arange(len(src_images))
-	npr.shuffle(random_idx)
-	src_images = src_images[random_idx]
-	src_labels = src_labels[random_idx]
 	
 	if self.protocol == 'svhn_mnist':
 	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='test')
@@ -617,15 +637,15 @@ class Solver(object):
         # build a graph
         model = self.model
         model.build_model()
-	
+		
         with tf.Session(config=self.config) as sess:
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
 	    
-            #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.test_model)
+	    #~ print ('Loading pretrained encoder.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='encoder')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.test_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 	    
@@ -640,16 +660,16 @@ class Solver(object):
 		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
 		    
 		    t+=1
-		       
+		    
 		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but otherwise useless. 
 		    
 		    sess.run(model.train_op, feed_dict) 
-
-		    if (t+1) % 250 == 0:
+		    
+		    if (t+1) % 10 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:]
-			test_acc = sess.run(model.trg_accuracy, 
+			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:1000]
+			summary, l, src_acc, test_acc = sess.run([model.summary_op, model.loss, model.src_accuracy, model.trg_accuracy], 
 					       feed_dict={model.src_images: src_images[src_rand_idxs], 
 							  model.src_labels: src_labels[src_rand_idxs],
 							  model.trg_images: trg_images[trg_rand_idxs], 
@@ -726,8 +746,8 @@ class Solver(object):
 	    
             
 	    n_samples = 2000
-            src_labels = utils.one_hot(source_labels[:n_samples],2)
-	    trg_labels = utils.one_hot(target_labels[:n_samples],2)
+            src_labels = utils.one_hot(source_labels[:n_samples],10)
+	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
 	   
 	    
@@ -815,12 +835,8 @@ class Solver(object):
 	    
 	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
 	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    src_images = src_images[:2000]
-	    src_labels = src_labels[:2000]
 	    
 	    trg_images, trg_labels = self.load_usps(self.usps_dir)
-	    trg_images = trg_images[:1800]
-	    trg_labels = trg_labels[:1800]
 	    trg_test_images = trg_images
 	    trg_test_labels = trg_labels
 	
@@ -858,6 +874,12 @@ class Solver(object):
 		    variables_to_restore = slim.get_model_variables(scope='encoder')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.pretrained_model)
+		
+		elif sys.argv[1] == 'gen':
+		    print ('Loading gen model.')
+		    variables_to_restore = slim.get_model_variables(scope='encoder')
+		    restorer = tf.train.Saver(variables_to_restore)
+		    restorer.restore(sess, self.gen_model)
 		    
 		else:
 		    raise NameError('Unrecognized mode.')
@@ -892,7 +914,7 @@ class Solver(object):
 		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   #~ %(t+1, self.pretrain_iter, gen_acc))
 	
-		time.sleep(15.)
+		time.sleep(.1)
 		    
 if __name__=='__main__':
 
