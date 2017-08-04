@@ -51,7 +51,7 @@ class DSN(object):
 	with tf.variable_scope('encoder', reuse=reuse):
 	    	
 	    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-		net = self.model_AlexNet.fc8
+		net = self.model_model_vgg16
 	    else:
 		net = self.model_AlexNet.fc_repr
 	    return net
