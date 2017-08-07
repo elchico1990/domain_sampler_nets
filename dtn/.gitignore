@@ -9,3 +9,7 @@
 /sample
 /logs
 /model
+/mnist
+/svhn
+/usps
+/logs
