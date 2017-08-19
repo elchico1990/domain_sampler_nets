@@ -52,9 +52,9 @@ class DSN(object):
 	with tf.variable_scope('encoder', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
 		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='VALID'):
-		    net = slim.conv2d(images, 64, 5, scope='conv1')
+		    net = slim.conv2d(images, 32, 5, scope='conv1')
 		    net = slim.max_pool2d(net, 2, stride=2, scope='pool1')
-		    net = slim.conv2d(net, 128, 5, scope='conv2')
+		    net = slim.conv2d(net, 64, 5, scope='conv2')
 		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
 		    net = tf.contrib.layers.flatten(net)
 		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
@@ -111,7 +111,7 @@ class DSN(object):
 	    
     def D_g(self, images, labels, reuse=False):
 	
-	labels = tf.reshape(labels, [64, 1, 1, 10])
+	labels = tf.reshape(labels, [-1, 1, 1, 10])
 
 	if images.get_shape()[3] == 3:
             images = tf.image.rgb_to_grayscale(images)
@@ -261,7 +261,7 @@ class DSN(object):
 	    
 	    
 	    self.gen_trg_images = self.G(self.fzy, self.src_labels, reuse=True)
-	    self.gen_trg_images_show = self.G(self.sampler_generator(self.src_noise[:64,:],self.labels_gen, reuse=True), self.labels_gen, reuse=True, do_reshape=True)
+	    self.gen_trg_images_show = self.G(self.sampler_generator(self.src_noise[:128,:],self.labels_gen[:128], reuse=True), self.labels_gen[:128], reuse=True, do_reshape=True)
 	    
 	    # E losses
 	    
@@ -315,8 +315,8 @@ class DSN(object):
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.DG_optimizer = tf.train.AdamOptimizer(0.0000001)
-            self.G_optimizer = tf.train.AdamOptimizer(0.0000001)
+            self.DG_optimizer = tf.train.AdamOptimizer(0.00001)
+            self.G_optimizer = tf.train.AdamOptimizer(0.00001)
             self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             
             
@@ -341,7 +341,7 @@ class DSN(object):
             DE_loss_summary = tf.summary.scalar('DE_loss', self.DE_loss)
             G_loss_summary = tf.summary.scalar('G_loss', self.G_loss)
             DG_loss_summary = tf.summary.scalar('DG_loss', self.DG_loss)
-            gen_trg_images_summary = tf.summary.image('gen_trg_images', self.gen_trg_images_show, max_outputs=30)
+            gen_trg_images_summary = tf.summary.image('gen_trg_images', self.gen_trg_images_show, max_outputs=16)
             rec_trg_images_summary = tf.summary.image('rec_trg_images', self.GE_trg, max_outputs=10)
             self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary, 
                                                     G_loss_summary, DG_loss_summary,

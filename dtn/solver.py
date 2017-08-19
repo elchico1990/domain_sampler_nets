@@ -49,7 +49,6 @@ class Solver(object):
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
 	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m, amazon_reviews
-
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
         
@@ -228,7 +227,7 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 5300 # number of images per digit
+	no_images = 7600 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
 	images = np.zeros((10 * no_images,32,32,1))
@@ -525,10 +524,10 @@ class Solver(object):
 	    trg_count = 0
 	    t = 0
 	    
-	    self.batch_size = 64
+	    self.batch_size = 128
 	    
-	    label_gen = utils.one_hot(np.array([0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
-	    
+	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
+	    label_gen = np.matlib.repmat(label_gen,5,1)
 	    for step in range(10000000):
 		
 		trg_count += 1
@@ -639,10 +638,10 @@ class Solver(object):
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
 	    
-	    print ('Loading pretrained encoder.')
-	    variables_to_restore = slim.get_model_variables(scope='encoder')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    #~ print ('Loading pretrained encoder.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='encoder')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.test_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 	    
