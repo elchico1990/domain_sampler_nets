@@ -5,7 +5,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 import scipy.io
 import glob
 
-def resize_images(image_arrays, size=[32, 32]):
+def resize_images(image_arrays, size=[28, 28]):
     # convert float type to integer 
     image_arrays = (image_arrays * 255).astype('uint8')
     
@@ -32,13 +32,13 @@ def main():
     test = {'X': resize_images(mnist.test.images.reshape(-1, 28, 28)),
             'y': mnist.test.labels}
         
-    save_pickle(train, 'mnist/train.pkl')
-    save_pickle(test, 'mnist/test.pkl')
+    save_pickle(train, 'data/mnist/train.pkl')
+    save_pickle(test, 'data/mnist/test.pkl')
 
 def usps():
 	
 
-	uspsData = scipy.io.loadmat('./usps/USPS.mat')
+	uspsData = scipy.io.loadmat('./data/usps/USPS.mat')
 	
 	images = (uspsData['fea'] + 1)/2.
 	
@@ -51,7 +51,7 @@ def usps():
 
 	train = {'X': images, 'y': labels}
 
-	save_pickle(train, 'usps/train.pkl')
+	save_pickle(train, 'data/usps/train.pkl')
 
 def office():
 	

@@ -4,6 +4,7 @@
 *.data*
 *.jpg
 *.pyc
+*.index
 /model
 /mnist
 /svhn

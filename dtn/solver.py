@@ -48,7 +48,8 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'usps_mnist' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m, amazon_reviews
+    
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
         
@@ -76,7 +77,7 @@ class Solver(object):
     def load_mnist(self, image_dir, split='train'):
         print ('Loading MNIST dataset.')
 	
-	if self.protocol == 'mnist_usps':
+	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
 	    image_file = 'train.pkl'
         else:
 	    image_file = 'train.pkl' if split=='train' else 'test.pkl'
@@ -86,8 +87,8 @@ class Solver(object):
         images = mnist['X'] / 127.5 - 1
         labels = mnist['y']
 	
-	if self.protocol == 'mnist_usps':
-	    imgs = np.empty((0,32,32,1))
+	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
+	    imgs = np.empty((0,28,28,1))
 	    lbls = np.empty((0,1))
 	    for i in range(10):
 		digits = images[np.where(labels==i)[0][:200]]
@@ -95,7 +96,7 @@ class Solver(object):
 		lbls = np.vstack((lbls,i*np.ones((200,1))))
 
 	    random_idx = np.arange(len(lbls))
-	    npr.seed(1230)
+	    npr.seed(130)
 	    npr.shuffle(random_idx)
 	    images = imgs[random_idx]
 	    labels = lbls[random_idx]
@@ -144,14 +145,14 @@ class Solver(object):
 	labels -= 1
 	labels[labels==255] = 9
 	
-	npr.seed(130)
+	npr.seed(36)
 	
 	random_idx = np.arange(len(labels))
 	npr.shuffle(random_idx)
 	
 	images = images[random_idx]
 	labels = labels[random_idx]
-	imgs = np.empty((0,32,32,1))
+	imgs = np.empty((0,28,28,1))
 	lbls = np.empty((0,1))
 	
 	for i in range(10):
@@ -227,10 +228,10 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 7600 # number of images per digit
+	no_images = 500 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
-	images = np.zeros((10 * no_images,32,32,1))
+	images = np.zeros((10 * no_images,28,28,1))
 	
 	for l in range(10):
 	    print l
@@ -291,6 +292,16 @@ class Solver(object):
 	    trg_test_images = trg_images
 	    trg_test_labels = trg_labels
 	  
+	elif self.protocol == 'usps_mnist':	
+	    
+	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	    
+	    src_images, src_labels = self.load_usps(self.usps_dir)
+
+	    src_test_images = src_images
+	    src_test_labels = src_labels
+	  
 	elif self.protocol == 'amazon_reviews':
 	    
 	    src_images, src_labels, trg_images, trg_labels, trg_test_images, trg_test_labels = self.load_amazon_reviews(self.amazon_dir)
@@ -311,7 +322,7 @@ class Solver(object):
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
-	    epochs = 100
+	    epochs = 200
 	    
 	    t = 0
 
@@ -327,22 +338,20 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if (t+1) % 250 == 0:
-			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
-			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-							  model.src_labels: src_test_labels[src_rand_idxs],
-							  model.trg_images: trg_test_images[trg_rand_idxs], 
-							  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.4f]' \
-				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
-			
-		    if (t+1) % 250 == 0:
-			#~ print 'Saved.'
-			saver.save(sess, os.path.join(self.model_save_path, 'model'))
+		summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
+		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
+		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
+		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
+				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
+						  model.src_labels: src_test_labels[src_rand_idxs],
+						  model.trg_images: trg_test_images[trg_rand_idxs], 
+						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+		summary_writer.add_summary(summary, t)
+		print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.4f]' \
+			   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
+		
+		#~ print 'Saved.'
+		saver.save(sess, os.path.join(self.model_save_path, 'model'))
 
     def train_convdeconv(self):
 
@@ -404,6 +413,10 @@ class Solver(object):
 
 	elif self.protocol == 'mnist_usps':	
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    source_labels = utils.one_hot(source_labels, 10)
+
+	elif self.protocol == 'usps_mnist':	
+	    source_images, source_labels = self.load_usps(self.usps_dir)
 	    source_labels = utils.one_hot(source_labels, 10)
 				  
 	elif self.protocol == 'amazon_reviews':
@@ -488,6 +501,10 @@ class Solver(object):
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	    target_images, target_labels = self.load_usps(self.usps_dir)
 	
+	elif self.protocol=='usps_mnist':
+	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	    source_images, source_labels = self.load_usps(self.usps_dir)
+	
 	elif self.protocol == 'amazon_reviews':
 	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
 	
@@ -511,6 +528,11 @@ class Solver(object):
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.test_model)
+	    
+	    #~ print ('Loading pretrained generator.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.test_model)
 	    	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -524,7 +546,6 @@ class Solver(object):
 	    trg_count = 0
 	    t = 0
 	    
-	    self.batch_size = 128
 	    
 	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
 	    label_gen = np.matlib.repmat(label_gen,5,1)
@@ -544,13 +565,14 @@ class Solver(object):
 		
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict) 
 		
-		sess.run(model.G_train_op, feed_dict)
-		if step%10==0:
+		#~ sess.run(model.E_train_op, feed_dict) 
+		#~ sess.run(model.DE_train_op, feed_dict)
+		if step%1==0:    
+		    sess.run(model.G_train_op, feed_dict)
 		    sess.run(model.DG_train_op, feed_dict) 
 		sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.const_train_op_2, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
@@ -596,22 +618,25 @@ class Solver(object):
 		source_images, source_labels = self.load_mnist(self.mnist_dir)
 
 	    for n in range(10):
+		print n
 	    #~ for n in [9]:
 
-		source_labels = n * np.ones((10000,),dtype=int)
+		source_labels = n * np.ones((2000,),dtype=int)
 
 		# train model for source domain S
-		src_labels = utils.one_hot(source_labels[:10000],10)
-		src_noise = utils.sample_Z(10000,100,'uniform')
+		src_labels = utils.one_hot(source_labels[:2000],10)
+		src_noise = utils.sample_Z(2000,100,'uniform')
 
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
 		samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
 		samples_logits = samples_logits[:,n]
-		samples = samples[samples_logits>12.]
-		samples_logits = samples_logits[samples_logits>12.]
+		samples = samples[samples_logits>10.]
+		samples_logits = samples_logits[samples_logits>10.]
 		
 		for i in range(len(samples_logits)):
+		    
+		    #~ print str(i)+'/'+str(len(samples_logits))-
 		    
 		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
 		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i]),np.squeeze(samples[i]), cmap='gray')
@@ -629,6 +654,8 @@ class Solver(object):
 	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='test')
 	elif self.protocol == 'mnist_usps':
 	    trg_images, trg_labels = self.load_usps(self.usps_dir)
+	elif self.protocol == 'usps_mnist':
+	    trg_images, trg_labels = self.load_mnist(self.mnist_dir)
 	
         # build a graph
         model = self.model
@@ -835,6 +862,15 @@ class Solver(object):
 	    trg_images, trg_labels = self.load_usps(self.usps_dir)
 	    trg_test_images = trg_images
 	    trg_test_labels = trg_labels
+	    
+	elif self.protocol == 'usps_mnist':
+	    
+	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	    
+	    src_images, src_labels = self.load_usps(self.usps_dir)
+	    src_test_images = src_images
+	    src_test_labels = src_labels
 	
 	elif self.protocol == 'amazon_reviews':
 	    src_images, src_labels, trg_images, trg_labels, trg_test_images, trg_test_labels = self.load_amazon_reviews(self.amazon_dir)
