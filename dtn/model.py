@@ -99,10 +99,10 @@ class DSN(object):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                      activation_fn=tf.nn.relu, is_training=(self.mode=='train_dsn')):
 
-                    net = slim.conv2d_transpose(inputs, 128, [7, 7], padding='VALID', scope='conv_transpose1')   # (batch_size, 7, 7, 512)
+                    net = slim.conv2d_transpose(inputs, 512, [7, 7], padding='VALID', scope='conv_transpose1')   # (batch_size, 7, 7, 512)
                     net = slim.batch_norm(net, scope='bn1')
 		    net = conv_concat(net, labels)
-                    net = slim.conv2d_transpose(net, 64, [3, 3], scope='conv_transpose2')  # (batch_size, 14, 14, 256)
+                    net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 14, 14, 256)
                     net = slim.batch_norm(net, scope='bn2')
                     net = conv_concat(net, labels)
 		    net = slim.conv2d_transpose(net, 1, [3, 3], activation_fn=tf.tanh, scope='conv_transpose4')   # (batch_size, 28, 28, 1)
@@ -124,13 +124,13 @@ class DSN(object):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                     activation_fn=lrelu, is_training=(self.mode=='train_dsn')):
                     
-                    net = slim.conv2d(images, 32, [3, 3], scope='conv1')   # (batch_size, 14, 14 128)
+                    net = slim.conv2d(images, 128, [3, 3], scope='conv1')   # (batch_size, 14, 14 128)
                     net = slim.batch_norm(net, scope='bn1')
 		    net = conv_concat(net, labels)
-                    net = slim.conv2d(net, 64, [3, 3], scope='conv2')   # (batch_size, 7, 7, 256)
+                    net = slim.conv2d(net, 256, [3, 3], scope='conv2')   # (batch_size, 7, 7, 256)
                     net = slim.batch_norm(net, scope='bn2')
 		    net = conv_concat(net, labels)
-                    net = slim.conv2d(net, 128, [3, 3], scope='conv3')   # (batch_size, 7, 7, 256)
+                    net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 7, 7, 256)
                     net = slim.batch_norm(net, scope='bn3')
 		    net = conv_concat(net, labels)
                     net = slim.flatten(net)
@@ -307,7 +307,7 @@ class DSN(object):
 	    
 	    # Trg const loss
 	    
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 10.0 
+	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 15.0 
 	    self.const_loss_2 = tf.reduce_mean(tf.square(self.EG_trg - self.fzy)) * 15
 	    #~ self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 10.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    
@@ -316,8 +316,8 @@ class DSN(object):
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.DG_optimizer = tf.train.AdamOptimizer(0.000001)
-            self.G_optimizer = tf.train.AdamOptimizer(0.000001)
+            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             self.const_optimizer_2 = tf.train.AdamOptimizer(self.learning_rate)
             
@@ -352,4 +352,4 @@ class DSN(object):
             
 
             for var in tf.trainable_variables():
-		tf.summary.histogram(var.op.name, var) 
+		tf.summary.histogram(var.op.name, var)
