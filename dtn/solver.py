@@ -49,7 +49,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'usps_mnist' # possibilities: svhn_mnist, mnist_usps, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
     
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -339,22 +339,30 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
-		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		test_src_acc, test_trg_acc, trg_pred = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred], 
-				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-						  model.src_labels: src_test_labels[src_rand_idxs],
-						  model.trg_images: trg_test_images[trg_rand_idxs], 
-						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-		summary_writer.add_summary(summary, t)
-		print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.4f]' \
-			   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
-			   
-		print confusion_matrix(trg_test_labels[trg_rand_idxs], trg_pred)
-		
-		#~ print 'Saved.'
-		saver.save(sess, os.path.join(self.model_save_path, 'model'))
+		    if t%10==0:
+
+			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
+			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
+			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
+			test_src_acc, test_trg_acc, trg_pred = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred], 
+					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
+							  model.src_labels: src_test_labels[src_rand_idxs],
+							  model.trg_images: trg_test_images[trg_rand_idxs], 
+							  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.4f]' \
+				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
+				   
+			print confusion_matrix(trg_test_labels[trg_rand_idxs], trg_pred)
+			
+			#~ print 'Saved.'
+			saver.save(sess, os.path.join(self.model_save_path, 'model'))
+			
+			if test_trg_acc > 0.78:
+			    break
+		    
+		if test_trg_acc > 0.78:
+		    break
 
     def train_convdeconv(self):
 
@@ -530,7 +538,7 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    
 	    #~ print ('Loading pretrained generator.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
@@ -569,12 +577,12 @@ class Solver(object):
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict)
-		if step%1==0:    
-		    sess.run(model.G_train_op, feed_dict)
-		    sess.run(model.DG_train_op, feed_dict) 
-		sess.run(model.const_train_op, feed_dict)
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict)
+		#~ if step%1==0:    
+		    #~ sess.run(model.G_train_op, feed_dict)
+		    #~ sess.run(model.DG_train_op, feed_dict) 
+		#~ sess.run(model.const_train_op, feed_dict)
 		#~ sess.run(model.const_train_op_2, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
