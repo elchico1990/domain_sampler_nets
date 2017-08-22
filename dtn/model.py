@@ -58,7 +58,9 @@ class DSN(object):
 		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
 		    net = tf.contrib.layers.flatten(net)
 		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
+		    net = slim.dropout(net, 0.5, is_training=is_training)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
+		    net = slim.dropout(net, 0.5, is_training=is_training)
 		    if (self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
@@ -132,7 +134,7 @@ class DSN(object):
                     net = slim.batch_norm(net, scope='bn3')
 		    net = conv_concat(net, labels)
                     net = slim.flatten(net)
-		    net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
+		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
 		    return net
 
     def build_model(self):
@@ -282,16 +284,16 @@ class DSN(object):
 	    
 	    #~ self.DG_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_G_real, tf.ones_like(self.logits_G_real))
 	    #~ self.DG_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_G_fake, tf.zeros_like(self.logits_G_fake))
-	    #~ self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.ones_like(self.trg_labels)))
-	    #~ self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.zeros_like(self.src_labels)))
-	    self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.concat(axis=1,values=[self.trg_labels,tf.zeros((64,1))])))
-	    self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[tf.zeros_like(self.src_labels),tf.ones((64,1))])))
+	    self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.ones_like(self.trg_labels)))
+	    self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.zeros_like(self.src_labels)))
+	    #~ self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.concat(axis=1,values=[self.trg_labels,tf.zeros((64,1))])))
+	    #~ self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[tf.zeros_like(self.src_labels),tf.ones((64,1))])))
 	    
 	    self.DG_loss = self.DG_loss_real + self.DG_loss_fake
 	    
 	    #~ self.G_loss = slim.losses.sigmoid_cross_entropy(self.logits_G_fake, tf.ones_like(self.logits_G_fake))
-	    #~ self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.ones_like(self.src_labels)))
-	    self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[self.src_labels,tf.zeros((64,1))])))
+	    self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.ones_like(self.src_labels)))
+	    #~ self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[self.src_labels,tf.zeros((64,1))])))
 	    
 	    # 2-class D_e
 	    #~ self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.ones_like(self.logits_G_real)))
@@ -314,8 +316,8 @@ class DSN(object):
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.DG_optimizer = tf.train.AdamOptimizer(0.00001)
-            self.G_optimizer = tf.train.AdamOptimizer(0.00001)
+            self.DG_optimizer = tf.train.AdamOptimizer(0.000001)
+            self.G_optimizer = tf.train.AdamOptimizer(0.000001)
             self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             self.const_optimizer_2 = tf.train.AdamOptimizer(self.learning_rate)
             

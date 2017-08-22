@@ -229,7 +229,7 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 3800 # number of images per digit
+	no_images = 4280 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
 	images = np.zeros((10 * no_images,28,28,1))
@@ -623,19 +623,21 @@ class Solver(object):
 	    for n in range(10):
 		print n
 	    #~ for n in [9]:
+	    
+		no_gen = 5000
 
-		source_labels = n * np.ones((5000,),dtype=int)
+		source_labels = n * np.ones((no_gen,),dtype=int)
 
 		# train model for source domain S
-		src_labels = utils.one_hot(source_labels[:5000],10)
-		src_noise = utils.sample_Z(5000,100,'uniform')
+		src_labels = utils.one_hot(source_labels[:no_gen],10)
+		src_noise = utils.sample_Z(no_gen,100,'uniform')
 
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
 		samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
 		samples_logits = samples_logits[:,n]
-		samples = samples[samples_logits>10.]
-		samples_logits = samples_logits[samples_logits>10.]
+		samples = samples[samples_logits>8.]
+		samples_logits = samples_logits[samples_logits>8.]
 		
 		for i in range(len(samples_logits)):
 		    
