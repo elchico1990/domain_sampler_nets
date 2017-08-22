@@ -229,7 +229,7 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 500 # number of images per digit
+	no_images = 3800 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
 	images = np.zeros((10 * no_images,28,28,1))
@@ -530,7 +530,7 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_model)
+	    restorer.restore(sess, self.test_model)
 	    
 	    #~ print ('Loading pretrained generator.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
@@ -569,12 +569,12 @@ class Solver(object):
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
 		
-		sess.run(model.E_train_op, feed_dict) 
-		sess.run(model.DE_train_op, feed_dict)
-		#~ if step%1==0:    
-		    #~ sess.run(model.G_train_op, feed_dict)
-		    #~ sess.run(model.DG_train_op, feed_dict) 
-		#~ sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.E_train_op, feed_dict) 
+		#~ sess.run(model.DE_train_op, feed_dict)
+		if step%1==0:    
+		    sess.run(model.G_train_op, feed_dict)
+		    sess.run(model.DG_train_op, feed_dict) 
+		sess.run(model.const_train_op, feed_dict)
 		#~ sess.run(model.const_train_op_2, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
@@ -624,11 +624,11 @@ class Solver(object):
 		print n
 	    #~ for n in [9]:
 
-		source_labels = n * np.ones((2000,),dtype=int)
+		source_labels = n * np.ones((5000,),dtype=int)
 
 		# train model for source domain S
-		src_labels = utils.one_hot(source_labels[:2000],10)
-		src_noise = utils.sample_Z(2000,100,'uniform')
+		src_labels = utils.one_hot(source_labels[:5000],10)
+		src_noise = utils.sample_Z(5000,100,'uniform')
 
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
@@ -691,10 +691,16 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 		    
-		    if (t+1) % 10 == 0:
+		    
+		    if (t+1) % 100 == 0:
+			#~ print 'Saved.'
+			#~ saver.save(sess, os.path.join(self.model_save_path, 'model_gen'))
+			
+			
+			
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:2000]
+			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:]
 			summary, l, src_acc, test_acc = sess.run([model.summary_op, model.loss, model.src_accuracy, model.trg_accuracy], 
 					       feed_dict={model.src_images: src_images[src_rand_idxs], 
 							  model.src_labels: src_labels[src_rand_idxs],
@@ -704,10 +710,6 @@ class Solver(object):
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.3f] test acc [%.3f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_acc))
 			
-		    if (t+1) % 250 == 0:
-			#~ print 'Saved.'
-			saver.save(sess, os.path.join(self.model_save_path, 'model_gen'))
-
     def check_TSNE(self):
 	
 	if self.protocol == 'svhn_mnist':

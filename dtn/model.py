@@ -314,8 +314,8 @@ class DSN(object):
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.DG_optimizer = tf.train.AdamOptimizer(0.0000001)
-            self.G_optimizer = tf.train.AdamOptimizer(0.0000001)
+            self.DG_optimizer = tf.train.AdamOptimizer(0.00001)
+            self.G_optimizer = tf.train.AdamOptimizer(0.00001)
             self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             self.const_optimizer_2 = tf.train.AdamOptimizer(self.learning_rate)
             
