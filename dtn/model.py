@@ -70,14 +70,14 @@ class DSN(object):
 	with tf.variable_scope('disc_e',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=lrelu, is_training=(self.mode=='train_sampler')):
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs, 512, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+			net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    elif self.mode == 'train_dsn':
-			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc3')
+			net = slim.fully_connected(inputs, 1024, scope='sdisc_fc1')
+			net = slim.fully_connected(net, 2048, scope='sdisc_fc2')
+			net = slim.fully_connected(net, 2048, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 	    
@@ -132,7 +132,7 @@ class DSN(object):
                     net = slim.batch_norm(net, scope='bn3')
 		    net = conv_concat(net, labels)
                     net = slim.flatten(net)
-		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
+		    net = slim.fully_connected(net,11,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
 		    return net
 
     def build_model(self):

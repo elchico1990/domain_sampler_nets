@@ -17,6 +17,7 @@ import seaborn as sns
 
 import utils
 from sklearn.manifold import TSNE
+from sklearn.metrics import confusion_matrix
 
 from scipy import misc
 
@@ -74,36 +75,6 @@ class Solver(object):
         labels[np.where(labels==10)] = 0
         return images, labels
 
-    def load_mnist(self, image_dir, split='train'):
-        print ('Loading MNIST dataset.')
-	
-	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
-	    image_file = 'train.pkl'
-        else:
-	    image_file = 'train.pkl' if split=='train' else 'test.pkl'
-        image_dir = os.path.join(image_dir, image_file)
-        with open(image_dir, 'rb') as f:
-            mnist = pickle.load(f)
-        images = mnist['X'] / 127.5 - 1
-        labels = mnist['y']
-	
-	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
-	    imgs = np.empty((0,28,28,1))
-	    lbls = np.empty((0,1))
-	    for i in range(10):
-		digits = images[np.where(labels==i)[0][:200]]
-		imgs = np.vstack((imgs,digits))
-		lbls = np.vstack((lbls,i*np.ones((200,1))))
-
-	    random_idx = np.arange(len(lbls))
-	    npr.seed(130)
-	    npr.shuffle(random_idx)
-	    images = imgs[random_idx]
-	    labels = lbls[random_idx]
-	
-	
-        return images, np.squeeze(labels).astype(int)
-
     def load_mnist_m(self,image_dir, split='train'):
 	
 	print ('Loading MNIST_M dataset.')
@@ -133,6 +104,36 @@ class Solver(object):
 	images = images / 127.5 - 1
 	return images, labels
 
+    def load_mnist(self, image_dir, split='train'):
+        print ('Loading MNIST dataset.')
+	
+	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
+	    image_file = 'train.pkl'
+        else:
+	    image_file = 'train.pkl' if split=='train' else 'test.pkl'
+        image_dir = os.path.join(image_dir, image_file)
+        with open(image_dir, 'rb') as f:
+            mnist = pickle.load(f)
+        images = mnist['X'] / 127.5 - 1
+        labels = mnist['y']
+	
+	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
+	    imgs = np.empty((0,28,28,1))
+	    lbls = np.empty((0,1))
+	    for i in range(10):
+		digits = images[np.where(labels==i)[0][:200]]
+		imgs = np.vstack((imgs,digits))
+		lbls = np.vstack((lbls,i*np.ones((200,1))))
+
+	    random_idx = np.arange(len(lbls))
+	    npr.seed(90)
+	    npr.shuffle(random_idx)
+	    images = imgs[random_idx]
+	    labels = lbls[random_idx]
+	
+	
+        return images, np.squeeze(labels).astype(int)
+
     def load_usps(self, image_dir):
         
 	print ('Loading USPS dataset.')
@@ -145,7 +146,7 @@ class Solver(object):
 	labels -= 1
 	labels[labels==255] = 9
 	
-	npr.seed(36)
+	npr.seed(856)
 	
 	random_idx = np.arange(len(labels))
 	npr.shuffle(random_idx)
@@ -341,7 +342,7 @@ class Solver(object):
 		summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
 		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
+		test_src_acc, test_trg_acc, trg_pred = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred], 
 				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 						  model.src_labels: src_test_labels[src_rand_idxs],
 						  model.trg_images: trg_test_images[trg_rand_idxs], 
@@ -349,6 +350,8 @@ class Solver(object):
 		summary_writer.add_summary(summary, t)
 		print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.4f]' \
 			   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
+			   
+		print confusion_matrix(trg_test_labels[trg_rand_idxs], trg_pred)
 		
 		#~ print 'Saved.'
 		saver.save(sess, os.path.join(self.model_save_path, 'model'))
@@ -527,7 +530,7 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    
 	    #~ print ('Loading pretrained generator.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
@@ -547,7 +550,7 @@ class Solver(object):
 	    t = 0
 	    
 	    
-	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
+	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
 	    label_gen = np.matlib.repmat(label_gen,5,1)
 	    for step in range(10000000):
 		
@@ -566,12 +569,12 @@ class Solver(object):
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict)
-		if step%1==0:    
-		    sess.run(model.G_train_op, feed_dict)
-		    sess.run(model.DG_train_op, feed_dict) 
-		sess.run(model.const_train_op, feed_dict)
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict)
+		#~ if step%1==0:    
+		    #~ sess.run(model.G_train_op, feed_dict)
+		    #~ sess.run(model.DG_train_op, feed_dict) 
+		#~ sess.run(model.const_train_op, feed_dict)
 		#~ sess.run(model.const_train_op_2, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
@@ -920,7 +923,7 @@ class Solver(object):
     
 		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
 		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
-		test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
+		test_src_acc, test_trg_acc, trg_pred = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred], 
 				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 						  model.src_labels: src_test_labels[src_rand_idxs],
 						  model.trg_images: trg_test_images[trg_rand_idxs], 
@@ -932,7 +935,9 @@ class Solver(object):
 						  
 		print ('Step: [%d/%d] src train acc [%.3f]  src test acc [%.3f] trg test acc [%.3f]' \
 			   %(t+1, self.pretrain_iter, src_acc, test_src_acc, test_trg_acc))
-			   
+		
+		print confusion_matrix(trg_test_labels[trg_rand_idxs], trg_pred)	   
+		
 		acc.append(test_trg_acc)
 		with open('test_acc.pkl', 'wb') as f:
 		    cPickle.dump(acc,f,cPickle.HIGHEST_PROTOCOL)
@@ -946,7 +951,7 @@ class Solver(object):
 		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   #~ %(t+1, self.pretrain_iter, gen_acc))
 	
-		time.sleep(.1)
+		time.sleep(10.1)
 		    
 if __name__=='__main__':
 
