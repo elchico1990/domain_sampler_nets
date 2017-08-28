@@ -16,28 +16,28 @@ class DSN(object):
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 128
     
-    # as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
-    def vgg16(inputs):
-	with slim.arg_scope([slim.conv2d, slim.fully_connected],
-			  activation_fn=tf.nn.relu,
-			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
-			  weights_regularizer=slim.l2_regularizer(0.0005)):
-	    net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1')
-	    net = slim.max_pool2d(net, [2, 2], scope='pool1')
-	    net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
-	    net = slim.max_pool2d(net, [2, 2], scope='pool2')
-	    net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
-	    net = slim.max_pool2d(net, [2, 2], scope='pool3')
-	    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
-	    net = slim.max_pool2d(net, [2, 2], scope='pool4')
-	    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
-	    net = slim.max_pool2d(net, [2, 2], scope='pool5')
-	    net = slim.fully_connected(net, 4096, scope='fc6')
-	    net = slim.dropout(net, 0.5, scope='dropout6')
-	    net = slim.fully_connected(net, 4096, scope='fc7')
-	    net = slim.dropout(net, 0.5, scope='dropout7')
-	    preds = slim.fully_connected(net, 19, activation_fn=None, scope='fc8')
-	return net, preds
+    #~ # as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
+    #~ def vgg16(inputs):
+	#~ with slim.arg_scope([slim.conv2d, slim.fully_connected],
+			  #~ activation_fn=tf.nn.relu,
+			  #~ weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
+			  #~ weights_regularizer=slim.l2_regularizer(0.0005)):
+	    #~ net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1')
+	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool1')
+	    #~ net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
+	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool2')
+	    #~ net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
+	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool3')
+	    #~ net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
+	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool4')
+	    #~ net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
+	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool5')
+	    #~ net = slim.fully_connected(net, 4096, scope='fc6')
+	    #~ net = slim.dropout(net, 0.5, scope='dropout6')
+	    #~ net = slim.fully_connected(net, 4096, scope='fc7')
+	    #~ net = slim.dropout(net, 0.5, scope='dropout7')
+	    #~ preds = slim.fully_connected(net, 19, activation_fn=None, scope='fc8')
+	#~ return net, preds
     
     def sampler_generator(self, z, y, reuse=False):
 	
@@ -69,7 +69,7 @@ class DSN(object):
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
 
-	with tf.variable_scope('encoder', reuse=reuse):
+	with tf.variable_scope('vgg_16', reuse=reuse):
 	    # vgg16  as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
 	    with slim.arg_scope([slim.conv2d, slim.fully_connected],
 			  activation_fn=tf.nn.relu,
@@ -85,12 +85,12 @@ class DSN(object):
 		net = slim.max_pool2d(net, [2, 2], scope='pool4')
 		net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
 		net = slim.max_pool2d(net, [2, 2], scope='pool5')
-		net = slim.fully_connected(net, 4096, scope='fc6')
-		net = slim.dropout(net, 0.5, scope='dropout6')
-		net = slim.fully_connected(net, 4096, scope='fc7')
-		net = slim.dropout(net, 0.5, scope='dropout7')
+		net = slim.conv2d(net, 4096, [7, 7], padding='VALID', scope='fc6')
+		net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
+		net = slim.conv2d(net, 4096, [1, 1], padding='VALID', scope='fc7')
+		net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
 		if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-		    net = slim.fully_connected(net, 19, activation_fn=None, scope='fc8')
+		    net = slim.conv2d(net, 19, [1,1], activation_fn=None, scope='fc8')
 		    
 	return net
 			    
@@ -117,8 +117,8 @@ class DSN(object):
               
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'test_ensemble':
             
-	    self.src_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'source_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'target_images')
+	    self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'source_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'target_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'source_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'target_labels')
 	    self.keep_prob = tf.placeholder(tf.float32)
@@ -139,7 +139,7 @@ class DSN(object):
 	    
 	    
 	    train_vars = t_vars #[var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
-	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
+	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,19)))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
 	    self.optimizer = tf.train.AdamOptimizer(0.0001)

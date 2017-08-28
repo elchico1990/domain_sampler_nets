@@ -26,7 +26,7 @@ class Solver(object):
     def __init__(self, model, batch_size=128, pretrain_iter=20000, train_iter=20000, sample_iter=2000, 
                  log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
-		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
+		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv', vgg16_ckpt='vgg_16.ckpt'):
         
         self.model = model
         self.batch_size = batch_size
@@ -43,15 +43,16 @@ class Solver(object):
 	self.no_images = {'source':2186, 'target':2401}
 	self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
+	self.vgg16_ckpt = vgg16_ckpt
 
 	
 
     def load_NYUD(self, split, image_dir='./NYUD_domain_adaptation'):
-        print ('Loading NYUD dataset -> ', split)
+        print ('Loading NYUD dataset -> '+split)
 	
 	VGG_MEAN = [103.939, 116.779, 123.68]
 
-	images = np.zeros((self.no_images[split],227,227,3))
+	images = np.zeros((self.no_images[split],224,224,3))
 	labels = np.zeros((self.no_images[split],1))
 	l = 0
 	c = 0
@@ -61,7 +62,7 @@ class Solver(object):
 	    #~ print str(l)+'/'+str(len(obj_categories))
 	    for oi in obj_images:
 		img = Image.open(oi)
-		img = img.resize((227,227), Image.ANTIALIAS)
+		img = img.resize((224,224), Image.ANTIALIAS)
 		
 		
 		img = np.array(img, dtype=float) 
@@ -95,16 +96,23 @@ class Solver(object):
 	with tf.Session(config=self.config) as sess:
 	    
 	    tf.global_variables_initializer().run()
-	    saver = tf.train.Saver()
-	    model.model_AlexNet.load_initial_weights(sess)
 	    
-	    #~ print ('Loading pretrained model.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='encoder')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.pretrained_model)
+	    
+	    print ('Loading pretrained vgg16...')
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    # get rid of fc8
+	    variables_to_restore = [vv for vv in variables_to_restore if 'fc8' not in vv.name]	    
+
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.vgg16_ckpt)
+	    print('Loaded!')
+	    
+	    saver = tf.train.Saver()
 	    
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-
+	    
+	    #~ time.sleep(30)
+	    
 	    epochs = 500
 	    
 	    t = 0
@@ -137,17 +145,11 @@ class Solver(object):
 		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f]' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
 			   
-		with open('trg_acc_6.pkl','wb') as f:
+		with open('trg_acc.pkl','wb') as f:
 		    cPickle.dump((trg_pred,trg_labels),f,cPickle.HIGHEST_PROTOCOL)
-		    
-		#~ if trg_acc < 0.55:
-		    #~ print 'Restarting!'
-		    #~ tf.global_variables_initializer().run()
-		    #~ saver = tf.train.Saver()
-		    #~ model.model_AlexNet.load_initial_weights(sess)
-		    #~ continue
+
 		
-		#~ # 'Saved.'
+
 		saver.save(sess, os.path.join(self.model_save_path, 'model'))
     
     def train_sampler(self):
