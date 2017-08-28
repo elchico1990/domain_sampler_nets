@@ -20,20 +20,11 @@ import utils
 
 from sklearn.manifold import TSNE
 
-# AlexNet Avg Baselines
-#
-# AW  60.6
-# DW  95.4
-# WD  99.0
-# AD  64.2
-# DA  45.5
-# WA  48.3
-# Avg 68.8
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
-                 src_dir='amazon', trg_dir='webcam', log_dir='logs', sample_save_path='sample', 
+    def __init__(self, model, batch_size=128, pretrain_iter=20000, train_iter=20000, sample_iter=2000, 
+                 log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
@@ -42,77 +33,48 @@ class Solver(object):
         self.pretrain_iter = pretrain_iter
         self.train_iter = train_iter
         self.sample_iter = sample_iter
-        self.src_dir = src_dir
-        self.trg_dir = trg_dir	
-	self.base_path = src_dir+'2'+trg_dir+'/'
-        self.log_dir = self.base_path+log_dir
-        self.sample_save_path = self.base_path+sample_save_path
-        self.model_save_path = self.base_path+model_save_path
-        self.pretrained_model = self.base_path+pretrained_model
-	self.pretrained_sampler = self.base_path+pretrained_sampler
-        self.test_model = self.base_path+test_model
-	self.convdeconv_model = self.base_path+convdeconv_model
-	
+        self.log_dir = log_dir
+        self.sample_save_path = sample_save_path
+        self.model_save_path = model_save_path
+        self.pretrained_model = pretrained_model
+	self.pretrained_sampler = pretrained_sampler
+        self.test_model = test_model
+	self.convdeconv_model = convdeconv_model
+	self.no_images = {'source':2186, 'target':2401}
 	self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	
-	self.user = 'Ric' # to load the dataset.
-	
-	self.no_images = {'amazon':2817, 'dslr':498, 'webcam':795}
 
-    def load_office(self, split, image_dir='./office'):
-        print ('Loading OFFICE dataset -> '+split)
-
-	if self.user == 'Pie':
-	    if split == 'amazon':
-		image_file1 = 'amazon_1.pkl'
-		image_file2 = 'amazon_2.pkl' 
-		image_dir1 = os.path.join(image_dir, image_file1)
-		image_dir2 = os.path.join(image_dir, image_file2)
-		with open(image_dir1, 'rb') as f:
-		    office = pickle.load(f)
-		    images = office['X']
-		    labels = office['y']
-		with open(image_dir2, 'rb') as f:
-		    office = pickle.load(f)
-		    images = np.concatenate([images, office['X']], axis=0)
-		    labels = np.concatenate([labels, office['y']], axis=0)
-		    
-	    else:
-		image_file = split+'.pkl' 
-		image_dir = os.path.join(image_dir, image_file)
-		with open(image_dir, 'rb') as f:
-		    office = pickle.load(f)
-		    images = office['X']
-		    labels = office['y']
 	
-	elif self.user == 'Ric':
-	    VGG_MEAN = [103.939, 116.779, 123.68]
 
-	    images = np.zeros((self.no_images[split],227,227,3))
-	    labels = np.zeros((self.no_images[split],1))
-	    l = 0
-	    c = 0
-	    obj_categories = sorted(glob.glob(image_dir + '/' + split + '/images/*'))
-	    for oc in obj_categories:
-		obj_images = sorted(glob.glob(oc+'/*'))
-		#~ print str(l)+'/'+str(len(obj_categories))
-		for oi in obj_images:
-		    img = Image.open(oi)
-		    img = img.resize((227,227), Image.ANTIALIAS)
-		    
-		    
-		    img = np.array(img, dtype=float) 
-		    
-		    img = img[:, :, [2,1,0]] # swap channel from RGB to BGR
-		    img[:,:,0] -= VGG_MEAN[0]
-		    img[:,:,1] -= VGG_MEAN[1]
-		    img[:,:,2] -= VGG_MEAN[2]
-		    img = np.expand_dims(img, axis=0) 
-		    images[c] = img
-		    labels[c] = l
-		    c+=1
-	    	l+=1
+    def load_NYUD(self, split, image_dir='./NYUD_domain_adaptation'):
+        print ('Loading NYUD dataset -> ', split)
+	
+	VGG_MEAN = [103.939, 116.779, 123.68]
+
+	images = np.zeros((self.no_images[split],227,227,3))
+	labels = np.zeros((self.no_images[split],1))
+	l = 0
+	c = 0
+	obj_categories = sorted(glob.glob(image_dir + '/' + split + '/*'))
+	for oc in obj_categories:
+	    obj_images = sorted(glob.glob(oc+'/*'))
+	    #~ print str(l)+'/'+str(len(obj_categories))
+	    for oi in obj_images:
+		img = Image.open(oi)
+		img = img.resize((227,227), Image.ANTIALIAS)
+		
+		
+		img = np.array(img, dtype=float) 
+		
+		img = img[:, :, [2,1,0]] # swap channel from RGB to BGR
+		img[:,:,0] -= VGG_MEAN[0]
+		img[:,:,1] -= VGG_MEAN[1]
+		img[:,:,2] -= VGG_MEAN[2]
+		img = np.expand_dims(img, axis=0) 
+		images[c] = img
+		labels[c] = l
+		c+=1
+	    l+=1
 		
 	rnd_indices = np.arange(len(labels))
 	npr.seed(231)
@@ -122,8 +84,8 @@ class Solver(object):
         return images, np.squeeze(labels)
 
     def pretrain(self):
-        src_images, src_labels = self.load_office(split=self.src_dir)
-        trg_images, trg_labels = self.load_office(split=self.trg_dir)
+        src_images, src_labels = self.load_NYUD(split='source')
+        trg_images, trg_labels = self.load_NYUD(split='target')
 	        
 
         # build a graph

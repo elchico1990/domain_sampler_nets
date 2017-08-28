@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 # Issue #6064: slim does not import nets, must import manually
-import tensorflow.contrib.slim.nets as nets
+# import tensorflow.contrib.slim.nets as nets # implemented here to return fc layers
 
 import numpy as np
 
@@ -15,6 +15,29 @@ class DSN(object):
         self.mode = mode
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 128
+    
+    # as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
+    def vgg16(inputs):
+	with slim.arg_scope([slim.conv2d, slim.fully_connected],
+			  activation_fn=tf.nn.relu,
+			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
+			  weights_regularizer=slim.l2_regularizer(0.0005)):
+	    net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1')
+	    net = slim.max_pool2d(net, [2, 2], scope='pool1')
+	    net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
+	    net = slim.max_pool2d(net, [2, 2], scope='pool2')
+	    net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
+	    net = slim.max_pool2d(net, [2, 2], scope='pool3')
+	    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
+	    net = slim.max_pool2d(net, [2, 2], scope='pool4')
+	    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
+	    net = slim.max_pool2d(net, [2, 2], scope='pool5')
+	    net = slim.fully_connected(net, 4096, scope='fc6')
+	    net = slim.dropout(net, 0.5, scope='dropout6')
+	    net = slim.fully_connected(net, 4096, scope='fc7')
+	    net = slim.dropout(net, 0.5, scope='dropout7')
+	    preds = slim.fully_connected(net, 19, activation_fn=None, scope='fc8')
+	return net, preds
     
     def sampler_generator(self, z, y, reuse=False):
 	
@@ -46,15 +69,30 @@ class DSN(object):
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
 
-	self.model_vgg16 = nets.vgg16
-
 	with tf.variable_scope('encoder', reuse=reuse):
-	    	
-	    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-		net = self.model_model_vgg16
-	    else:
-		net = self.model_AlexNet.fc_repr
-	    return net
+	    # vgg16  as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
+	    with slim.arg_scope([slim.conv2d, slim.fully_connected],
+			  activation_fn=tf.nn.relu,
+			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
+			  weights_regularizer=slim.l2_regularizer(0.0005)):
+		net = slim.repeat(images, 2, slim.conv2d, 64, [3, 3], scope='conv1')
+		net = slim.max_pool2d(net, [2, 2], scope='pool1')
+		net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
+		net = slim.max_pool2d(net, [2, 2], scope='pool2')
+		net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
+		net = slim.max_pool2d(net, [2, 2], scope='pool3')
+		net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
+		net = slim.max_pool2d(net, [2, 2], scope='pool4')
+		net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
+		net = slim.max_pool2d(net, [2, 2], scope='pool5')
+		net = slim.fully_connected(net, 4096, scope='fc6')
+		net = slim.dropout(net, 0.5, scope='dropout6')
+		net = slim.fully_connected(net, 4096, scope='fc7')
+		net = slim.dropout(net, 0.5, scope='dropout7')
+		if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
+		    net = slim.fully_connected(net, 19, activation_fn=None, scope='fc8')
+		    
+	return net
 			    
     def D_e(self, inputs, y, reuse=False):
 		
@@ -100,7 +138,7 @@ class DSN(object):
 	    t_vars = tf.trainable_variables()
 	    
 	    
-	    train_vars = t_vars#[var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
+	    train_vars = t_vars #[var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
