@@ -15,29 +15,7 @@ class DSN(object):
         self.mode = mode
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 128
-    
-    #~ # as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
-    #~ def vgg16(inputs):
-	#~ with slim.arg_scope([slim.conv2d, slim.fully_connected],
-			  #~ activation_fn=tf.nn.relu,
-			  #~ weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
-			  #~ weights_regularizer=slim.l2_regularizer(0.0005)):
-	    #~ net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1')
-	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool1')
-	    #~ net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
-	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool2')
-	    #~ net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
-	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool3')
-	    #~ net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
-	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool4')
-	    #~ net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
-	    #~ net = slim.max_pool2d(net, [2, 2], scope='pool5')
-	    #~ net = slim.fully_connected(net, 4096, scope='fc6')
-	    #~ net = slim.dropout(net, 0.5, scope='dropout6')
-	    #~ net = slim.fully_connected(net, 4096, scope='fc7')
-	    #~ net = slim.dropout(net, 0.5, scope='dropout7')
-	    #~ preds = slim.fully_connected(net, 19, activation_fn=None, scope='fc8')
-	#~ return net, preds
+
     
     def sampler_generator(self, z, y, reuse=False):
 	
@@ -156,10 +134,10 @@ class DSN(object):
 	
 	elif self.mode == 'train_sampler':
 				
-	    self.images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'svhn_images')
+	    self.images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'svhn_images')
 	    self.fx = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'features')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-	    self.labels = tf.placeholder(tf.int64, [None, 31], 'labels_real')
+	    self.labels = tf.placeholder(tf.int64, [None, 19], 'labels_real')
 	    try:
 		self.dummy_fx = self.E(self.images)
 	    except:
@@ -199,9 +177,9 @@ class DSN(object):
         
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.src_labels = tf.placeholder(tf.float32, [None, 31], 'labels')
-	    self.src_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'src_images')
-	    self.trg_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'trg_images')
+            self.src_labels = tf.placeholder(tf.float32, [None, 19], 'labels')
+	    self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'src_images')
+	    self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'trg_images')
             
 	    self.fx_src = self.E(self.src_images, is_training=False)  
             self.fx_trg = self.E(self.trg_images, reuse=True, is_training=False) 
@@ -211,12 +189,12 @@ class DSN(object):
 	elif self.mode == 'train_dsn':
 	    
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.src_labels = tf.placeholder(tf.float32, [None, 31], 'labels')
-            self.src_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 227, 227, 3], 'mnist_images')
+            self.src_labels = tf.placeholder(tf.float32, [None, 19], 'labels')
+            self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'mnist_images')
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
-	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),31)
+	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),19)
 	    
 	    self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
