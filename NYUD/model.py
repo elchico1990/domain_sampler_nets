@@ -75,23 +75,26 @@ class DSN(object):
 			  activation_fn=tf.nn.relu,
 			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
 			  weights_regularizer=slim.l2_regularizer(0.0005)):
-		net = slim.repeat(images, 2, slim.conv2d, 64, [3, 3], scope='conv1')
-		net = slim.max_pool2d(net, [2, 2], scope='pool1')
-		net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
-		net = slim.max_pool2d(net, [2, 2], scope='pool2')
-		net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
-		net = slim.max_pool2d(net, [2, 2], scope='pool3')
-		net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
-		net = slim.max_pool2d(net, [2, 2], scope='pool4')
-		net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
-		net = slim.max_pool2d(net, [2, 2], scope='pool5')
-		net = slim.conv2d(net, 4096, [7, 7], padding='VALID', scope='fc6')
-		net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
-		net = slim.conv2d(net, 4096, [1, 1], padding='VALID', scope='fc7')
-		net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
-		if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-		    net = slim.conv2d(net, 19, [1,1], activation_fn=None, scope='fc8')
-		    
+		with tf.device('/gpu:0'):
+		    net = slim.repeat(images, 2, slim.conv2d, 64, [3, 3], scope='conv1')
+		    net = slim.max_pool2d(net, [2, 2], scope='pool1')
+		    net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
+		    net = slim.max_pool2d(net, [2, 2], scope='pool2')
+		    net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
+		    net = slim.max_pool2d(net, [2, 2], scope='pool3')
+		    	
+		with tf.device('/gpu:1'):
+		    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
+		    net = slim.max_pool2d(net, [2, 2], scope='pool4')
+		    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
+		    net = slim.max_pool2d(net, [2, 2], scope='pool5')
+		    net = slim.conv2d(net, 4096, [7, 7], padding='VALID', scope='fc6')
+		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
+		    net = slim.conv2d(net, 4096, [1, 1], padding='VALID', scope='fc7')
+		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
+		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
+			net = slim.conv2d(net, 19, [1,1], activation_fn=None, scope='fc8')
+			
 	return net
 			    
     def D_e(self, inputs, y, reuse=False):
@@ -125,13 +128,13 @@ class DSN(object):
 	    
 	    self.src_logits = self.E(self.src_images, is_training = True)
 		
-	    self.src_pred = tf.argmax(self.src_logits, 1)
-            self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
+	    self.src_pred = tf.argmax(tf.squeeze(self.src_logits), 1) #logits are [19,1,1,8], need to squeeze
+            self.src_correct_pred = tf.equal(self.src_pred, self.src_labels) 
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
 		
             self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
 		
-	    self.trg_pred = tf.argmax(self.trg_logits, 1)
+	    self.trg_pred = tf.argmax(tf.squeeze(self.trg_logits), 1) #logits are [19,1,1,8], need to squeeze
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 	    

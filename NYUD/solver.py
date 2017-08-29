@@ -42,7 +42,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
 	self.no_images = {'source':2186, 'target':2401}
 	self.config = tf.ConfigProto()
-        self.config.gpu_options.allow_growth=True
+        #~ self.config.gpu_options.allow_growth=True
 	self.vgg16_ckpt = vgg16_ckpt
 
 	
@@ -124,23 +124,23 @@ class Solver(object):
 		src_images, src_labels = src_images[src_rand], src_labels[src_rand]
 		
 		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
-		    
+		    #~ print(t)
 		    t+=1
 		       
-		    feed_dict = {model.keep_prob : 1.0, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
+		    feed_dict = {model.keep_prob : 0.5, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
 						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but actually useless. 
 		    
 		    sess.run(model.train_op, feed_dict)
 
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
-		src_rand_idxs = np.random.permutation(src_images.shape[0])[:100]
-		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:]
+		src_rand_idxs = np.random.permutation(src_images.shape[0])[:64]
+		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:64]
 		src_acc, trg_acc, trg_pred, trg_labels = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred, model.trg_labels], 
 				       feed_dict={model.keep_prob : 1.0,
 						    model.src_images: src_images[src_rand_idxs], 
 						    model.src_labels: src_labels[src_rand_idxs],
-						    model.trg_images: trg_images, 
-						    model.trg_labels: trg_labels})
+						    model.trg_images: trg_images[trg_rand_idxs], 
+						    model.trg_labels: trg_labels[trg_rand_idxs]})
 		summary_writer.add_summary(summary, t)
 		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f]' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
