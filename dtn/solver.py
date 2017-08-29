@@ -24,10 +24,10 @@ from scipy import misc
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
+    def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=100, sample_iter=2000, 
                  svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
 		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', gen_model='model/model_gen', pretrained_sampler='model/sampler', 
-		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
+		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv', start_img=0, end_img=1600):
         
         self.model = model
         self.batch_size = batch_size
@@ -51,6 +51,9 @@ class Solver(object):
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
 	self.protocol = 'syn_svhn' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	
+	self.start_img = start_img
+	self.end_img = end_img
     
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -86,7 +89,7 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 15000 # number of images per digit
+	no_images = 3000 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
 	images = np.zeros((10 * no_images,32,32,3))
@@ -108,11 +111,13 @@ class Solver(object):
 	    print l
 	    counter = 0
 	    
-	    img_files = np.array(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))
-	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
-	    img_files = img_files[np.argsort(values)[:no_images]]
+	    img_files = sorted(np.array(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*')))
+	    #~ values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
+	    #~ img_files = img_files[np.argsort(values)[:no_images]]
+	    img_files = img_files[:no_images]
 	    
 	    for img_dir in img_files:
+		#~ print img_dir
 		im = misc.imread(img_dir)
 		im = np.expand_dims(im, axis=0)
 		images[no_images * l + counter] = im
@@ -308,8 +313,8 @@ class Solver(object):
 	if self.protocol=='syn_svhn':
 	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
 	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
-	    target_images = target_images[:1600]
-	    target_labels = target_labels[:1600]
+	    target_images = target_images[self.start_img:self.end_img]
+	    target_labels = target_labels[self.start_img:self.end_img]
 
         # build a graph
         model = self.model
@@ -358,7 +363,10 @@ class Solver(object):
 	    
 	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
 	    
-	    for step in range(50000):
+	    for step in range(self.train_iter):
+		
+		if step%100==0:
+		    npr.shuffle(target_images)
 		
 		trg_count += 1
 		t+=1
@@ -384,7 +392,7 @@ class Solver(object):
 
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
-		if (step+1) % 10 == 0:
+		if (step+1) % 100 == 0:
 		    
 		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -396,7 +404,7 @@ class Solver(object):
 		if (step+1) % 250 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 
-    def eval_dsn(self):
+    def eval_dsn(self, name = '1600'):
         # build model
         model = self.model
         model.build_model()
@@ -432,7 +440,7 @@ class Solver(object):
 		
 		print n
 	    
-		no_gen = 10000
+		no_gen = 1000
 
 		source_labels = n * np.ones((no_gen,),dtype=int)
 
@@ -444,13 +452,15 @@ class Solver(object):
 
 		samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
 		samples_logits = samples_logits[:,n]
-		samples = samples[samples_logits>12.]
-		samples_logits = samples_logits[samples_logits>12.]
+		#~ samples = samples[samples_logits>8.]
+		#~ samples_logits = samples_logits[samples_logits>8.]
 		
 		for i in range(len(samples_logits)):
-		    
-		    imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i])+'.png',np.squeeze(samples[i]))
-		    
+		    try:
+			imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+name+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i])+'.png',np.squeeze(samples[i]))
+		    except:
+			os.mkdir('./sample/'+str(np.argmax(src_labels[i]))+'/'+name+'/')
+			
 		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 		    
     def train_gen_images(self):
@@ -763,7 +773,7 @@ class Solver(object):
 if __name__=='__main__':
 
     from model import DSN
-    model = DSN(mode='eval_dsn', learning_rate=0.0003)
+    model = DSN(mode='eval_dsn')
     solver = Solver(model)
     solver.check_TSNE()
 

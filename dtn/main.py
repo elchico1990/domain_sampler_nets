@@ -35,19 +35,24 @@ def main(_):
 	    solver.train_gen_images()
     
     
-    elif FLAGS.mode == 'train_all':		
-	#~ model = DSN(mode='pretrain', learning_rate=0.0003)
-	#~ solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-	#~ solver.pretrain()
-	model = DSN(mode='train_sampler', learning_rate=0.0003)
-	solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-	solver.train_sampler()
-	model = DSN(mode='train_dsn', learning_rate=0.0001)
-	solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-	solver.train_dsn()
+    elif FLAGS.mode == 'train_all':
+	
+	start_img = 0
+	end_img = 1600
+	
+	for alpha in [1.0,0.1,10.0]:
+	    for beta in [1.0, 0.1, 10.0]:
+		for gamma in [100.,50.,20.,10.,5.]:
+	    		
+		    model = DSN(mode='train_dsn', learning_rate=0.0001, alpha = alpha, beta = beta, gamma = gamma)
+		    solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path, start_img = start_img, end_img = end_img)
+		    solver.train_dsn()
+		    model = DSN(mode='eval_dsn')
+		    solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
+		    solver.eval_dsn(name=str(alpha)+str(beta)+str(gamma))
 
     else:
-	    print 'Unrecognized mode.'
+	print 'Unrecognized mode.'
 	
         
 if __name__ == '__main__':
