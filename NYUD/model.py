@@ -148,22 +148,6 @@ class DSN(object):
 	    self.optimizer = tf.train.AdamOptimizer(0.0001)
 	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
 	    
-	    #~ train_vars_1 = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
-	    #~ self.loss_1 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
-	    #~ gradients_1 = tf.gradients(self.loss_1, train_vars_1)
-	    #~ gradients_1 = list(zip(gradients_1, train_vars_1))
-	    #~ self.optimizer_1 = tf.train.AdamOptimizer(0.01)
-	    #~ self.train_op_1 = self.optimizer_1.apply_gradients(grads_and_vars=gradients_1)
-	    
-	    #~ train_vars_2 = [var for var in t_vars if np.all([s not in var.name for s in['fc_repr','fc8']])]
-	    #~ self.loss_2 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
-	    #~ gradients_2 = tf.gradients(self.loss_2, train_vars_2)
-	    #~ gradients_2 = list(zip(gradients_2, train_vars_2))
-	    #~ self.optimizer_2 = tf.train.AdamOptimizer(0.0001)
-	    #~ self.train_op_2 = self.optimizer_2.apply_gradients(grads_and_vars=gradients_2)
-	    
-	    #~ self.loss = self.loss_1 + self.loss_2
-	    
             # summary op
             loss_summary = tf.summary.scalar('classification_loss', self.loss)
             src_accuracy_summary = tf.summary.scalar('src_accuracy', self.src_accuracy)
