@@ -1,0 +1,1 @@
+rm logs/* && rm model/*
