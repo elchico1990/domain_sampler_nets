@@ -12,11 +12,14 @@ from utils import conv_concat, lrelu
 class DSN(object):
     """Domain Sampler Network
     """
-    def __init__(self, mode='train', learning_rate=0.0003):
+    def __init__(self, mode='train', learning_rate=0.0003, alpha = 1., beta = 1., gamma = 1.):
         self.mode = mode
 	self.batch_size = 16
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 512
+	self.alpha = alpha
+	self.beta = beta
+	self.gamma = gamma
     
     def sampler_generator(self, z, y, reuse=False):
 	
@@ -92,11 +95,12 @@ class DSN(object):
 	
 	labels = tf.reshape(labels, [-1, 1, 1, 10])
 			    
+	#~ inputs = slim.fully_connected(inputs, 1024, scope='qwe')     
+	#~ inputs = slim.fully_connected(inputs, 1024, scope='asd')     
 	if inputs.get_shape()[1] != 1:
 	    inputs = tf.expand_dims(inputs, 1)
 	    inputs = tf.expand_dims(inputs, 1)
-	    
-	inputs = conv_concat(inputs, labels)
+	inputs = conv_concat(inputs, labels, self.mode)
 	
 	with tf.variable_scope('generator', reuse=reuse):
             with slim.arg_scope([slim.conv2d_transpose], padding='SAME', activation_fn=None,           
@@ -106,13 +110,13 @@ class DSN(object):
 			
                     net = slim.conv2d_transpose(inputs, 512, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
                     net = slim.batch_norm(net, scope='bn1')
-		    net = conv_concat(net, labels)
+		    net = conv_concat(net, labels, self.mode)
                     net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 8, 8, 256)
                     net = slim.batch_norm(net, scope='bn2')
-                    net = conv_concat(net, labels)
+                    net = conv_concat(net, labels, self.mode)
 		    net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 16, 16, 128)
                     net = slim.batch_norm(net, scope='bn3')
-                    net = conv_concat(net, labels)
+                    net = conv_concat(net, labels, self.mode)
 		    net = slim.conv2d_transpose(net, 3, [3, 3], activation_fn=tf.tanh, scope='conv_transpose4')   # (batch_size, 32, 32, 3)
 		    return net
 	    
@@ -123,7 +127,7 @@ class DSN(object):
 	if images.get_shape()[3] == 3:
             images = tf.image.rgb_to_grayscale(images)
 	
-	images = conv_concat(images, labels)
+	images = conv_concat(images, labels, self.mode)
 	
         # images: (batch, 32, 32, 1)
         with tf.variable_scope('disc_g', reuse=reuse):
@@ -134,13 +138,13 @@ class DSN(object):
                     
                     net = slim.conv2d(images, 128, [3, 3], activation_fn=tf.nn.relu, scope='conv1')   # (batch_size, 16, 16, 128)
                     net = slim.batch_norm(net, scope='bn1')
-		    net = conv_concat(net, labels)
+		    net = conv_concat(net, labels, self.mode)
                     net = slim.conv2d(net, 256, [3, 3], scope='conv2')   # (batch_size, 8, 8, 256)
                     net = slim.batch_norm(net, scope='bn2')
-		    net = conv_concat(net, labels)
+		    net = conv_concat(net, labels, self.mode)
                     net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 8, 8, 512)
                     net = slim.batch_norm(net, scope='bn3')
-		    net = conv_concat(net, labels)
+		    net = conv_concat(net, labels, self.mode)
                     net = slim.flatten(net)
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
 		    return net
@@ -223,12 +227,17 @@ class DSN(object):
 	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images')
 	    self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images_trg')
             
-            # source domain (svhn to mnist)
-            self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-            
-	    self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
-	    self.sampled_images_logits = self.E(self.sampled_images, make_preds=True) 
+            try:
+		self.fzy = self.sampler_generator(self.src_noise,self.src_labels)             
+		self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
+		self.sampled_images_logits = self.E(self.sampled_images, make_preds=True) 
 	    
+            except:
+		self.fzy = self.sampler_generator(self.src_noise,self.src_labels, reuse=True)             
+		self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True, reuse=True)
+		self.sampled_images_logits = self.E(self.sampled_images, make_preds=True, reuse=True) 
+	    
+		
 	elif self.mode == 'train_dsn':
 	    
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
@@ -240,7 +249,11 @@ class DSN(object):
 	    #~ self.src_images = tf.image.rgb_to_grayscale(self.src_images)
 	    #~ self.trg_images = tf.image.rgb_to_grayscale(self.trg_images)
 	    
-	    self.trg_labels = self.E(self.trg_images, make_preds=True)
+	    try:
+		self.trg_labels = self.E(self.trg_images, make_preds=True)
+	    except:
+		self.trg_labels = self.E(self.trg_images, make_preds=True, reuse=True)
+		
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
 	    
@@ -250,11 +263,18 @@ class DSN(object):
 	    
 	    self.orig_src_fx = self.E(self.src_images, reuse=True)
 	    
-	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    try:
+		self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    except:
+		self.fzy = self.sampler_generator(self.src_noise,self.src_labels, reuse=True) # instead of extracting the hidden representation from a src image, 
+	    
 	    self.fx = self.E(self.images, reuse=True)
 	    
 	    
-	    self.GE_trg = self.G(self.E(self.trg_images, reuse=True) , self.trg_labels)  
+	    try:
+		self.GE_trg = self.G(self.E(self.trg_images, reuse=True) , self.trg_labels)  
+	    except:
+		self.GE_trg = self.G(self.E(self.trg_images, reuse=True) , self.trg_labels, reuse=True)  
 	    
 	    
 	    self.gen_trg_images = self.G(self.fzy, self.src_labels, reuse=True)
@@ -263,7 +283,11 @@ class DSN(object):
 	    
 	    # E losses
 	    
-	    self.logits_E_real = self.D_e(self.fzy, self.src_labels)
+	    try:
+		self.logits_E_real = self.D_e(self.fzy, self.src_labels)
+	    except:
+		self.logits_E_real = self.D_e(self.fzy, self.src_labels, reuse=True)
+		
 	    self.logits_E_fake = self.D_e(self.fx, self.labels, reuse=True)
 	    
 	    #~ self.DE_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_E_real, tf.ones_like(self.logits_E_real))
@@ -275,40 +299,46 @@ class DSN(object):
 	    
 	    self.E_loss = tf.reduce_mean(tf.square(self.logits_E_fake - tf.ones_like(self.logits_E_fake)))
 	    
-	    
-	    
-	    
 	    # G losses
 	    
-	    self.logits_G_real = self.D_g(self.trg_images, self.trg_labels)
+	    # Hyperparameters to balance losses 
+	    alpha = self.alpha
+	    beta = self.beta
+	    gamma = self.gamma
+	    
+	    try:
+		self.logits_G_real = self.D_g(self.trg_images, self.trg_labels)
+	    except:
+		self.logits_G_real = self.D_g(self.trg_images, self.trg_labels, reuse=True)
+		
 	    self.logits_G_fake = self.D_g(self.gen_trg_images, self.src_labels, reuse=True)
 	    
 	    #~ self.DG_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_G_real, tf.ones_like(self.logits_G_real))
 	    #~ self.DG_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_G_fake, tf.zeros_like(self.logits_G_fake))
-	    self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.ones_like(self.logits_G_real)))
-	    self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.zeros_like(self.logits_G_real)))
-	    #~ self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.concat(axis=1,values=[self.trg_labels,tf.zeros((16,1))])))
-	    #~ self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[tf.zeros_like(self.src_labels),tf.ones((16,1))])))
+	    self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.ones_like(self.trg_labels)))
+	    self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.zeros_like(self.src_labels)))
+	    #~ self.DG_loss_real = tf.reduce_mean(tf.square(self.logits_G_real - tf.concat(axis=1,values=[self.trg_labels,tf.zeros((64,1))])))
+	    #~ self.DG_loss_fake = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[tf.zeros_like(self.src_labels),tf.ones((64,1))])))
 	    
-	    self.DG_loss = self.DG_loss_real + self.DG_loss_fake
+	    self.DG_loss = alpha * (self.DG_loss_real + self.DG_loss_fake)
 	    
 	    #~ self.G_loss = slim.losses.sigmoid_cross_entropy(self.logits_G_fake, tf.ones_like(self.logits_G_fake))
-	    self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.ones_like(self.logits_G_fake)))
-	    #~ self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[self.src_labels,tf.zeros((16,1))])))
+	    self.G_loss = beta * tf.reduce_mean(tf.square(self.logits_G_fake - tf.ones_like(self.src_labels)))
+	    #~ self.G_loss = tf.reduce_mean(tf.square(self.logits_G_fake - tf.concat(axis=1,values=[self.src_labels,tf.zeros((64,1))])))
 	    
 	    
 	    # Trg const loss
 	    
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 1.0 
+	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * gamma 
 	    
 	    
 	    # Optimizers
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.DG_optimizer = tf.train.AdamOptimizer(0.000001)
-            self.G_optimizer = tf.train.AdamOptimizer(0.000001)
-            self.const_optimizer = tf.train.AdamOptimizer(0.0001)
+            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+            self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             
             
             t_vars = tf.trainable_variables()
