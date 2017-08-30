@@ -161,8 +161,8 @@ class Solver(object):
 	
 	print 'Training sampler.'
         
-	source_images, source_labels = self.load_NYUD(split=self.src_dir)
-        source_labels = utils.one_hot(source_labels.astype(int), 31)
+	source_images, source_labels = self.load_NYUD(split='source')
+        source_labels = utils.one_hot(source_labels.astype(int), 19)
 	
         # build a graph
         model = self.model
@@ -183,11 +183,11 @@ class Solver(object):
             # restore variables of F
             
 	    print ('Computing latent representation.')
-	    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
-	    variables_to_restore = tf.global_variables() 
-	    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
-	    restorer = tf.train.Saver(variables_to_restore)
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+            restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
+	    
+	    
 	    feed_dict = {model.noise: utils.sample_Z(1, noise_dim, 'uniform'), model.images: source_images, model.labels: source_labels, model.fx: np.ones((1,128))}
 	    source_fx = sess.run(model.dummy_fx, feed_dict)
 
@@ -195,26 +195,12 @@ class Solver(object):
         with tf.Session(config=self.config) as sess:
             # initialize G and D
             tf.global_variables_initializer().run()
-            # restore variables of F
             
 	    print ('Loading pretrained model.')
-	    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
-	    variables_to_restore = tf.global_variables() 
-	    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
-	    restorer = tf.train.Saver(variables_to_restore)
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+            restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 	    
-	    #~ print ('Loading pretrained encoder disc.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.pretrained_sampler)
-
-
-	    #~ print ('Loading sample generator.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.pretrained_sampler)
-
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
 	    
@@ -390,7 +376,7 @@ class Solver(object):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 			
-	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	#~ self.config = tf.ConfigProto(device_count = {'GPU': 0})
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -398,33 +384,24 @@ class Solver(object):
 	    
 	    if sys.argv[1] == 'test':
 		print ('Loading test model.')
-		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
 		variables_to_restore = tf.global_variables() 
-		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
+		#~ variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.test_model)	    
+		restorer.restore(sess, self.test_model)	
+		    
 	    elif sys.argv[1] == 'pretrain':
 		print ('Loading pretrained model.')
-		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
-		variables_to_restore = tf.global_variables() 
-		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
+		variables_to_restore = slim.get_model_variables(scope='vgg_16')
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_model)
-		
-	    
-	    elif sys.argv[1] == 'convdeconv':
-		print ('Loading convdeconv model.')
-		variables_to_restore = slim.get_model_variables(scope='conv_deconv')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.convdeconv_model)
 		
 	    else:
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 400
-            src_labels = utils.one_hot(source_labels[:n_samples].astype(int),31)
-	    trg_labels = utils.one_hot(target_labels[:n_samples].astype(int),31)
+	    n_samples = self.no_images['source']
+            src_labels = utils.one_hot(source_labels[:n_samples].astype(int),19)
+	    trg_labels = utils.one_hot(target_labels[:n_samples].astype(int),19)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
 	   
 	    
@@ -435,10 +412,10 @@ class Solver(object):
 		
 	    else:
 	    
-		print ('Loading sampler.')
-		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_sampler)
+		#~ print ('Loading sampler.')
+		#~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+		#~ restorer = tf.train.Saver(variables_to_restore)
+		#~ restorer.restore(sess, self.pretrained_sampler)
 	
 		
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:n_samples], model.trg_images: target_images[:n_samples]}
@@ -454,7 +431,7 @@ class Solver(object):
 
 	       
 	    if sys.argv[2] == '1':
-		TSNE_hA = model.fit_transform(np.vstack((fx_src)))
+		TSNE_hA = model.fit_transform(np.squeeze(fx_src))
 		plt.figure(2)
 		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples)))), s=3, cmap = mpl.cm.jet)
 		plt.figure(3)
@@ -600,7 +577,7 @@ class Solver(object):
 if __name__=='__main__':
 
     from model import DSN
-    model = DSN(mode='eval_dsn', learning_rate=0.0003)
+    model = DSN(mode='eval_dsn', learning_rate=0.0001)
     solver = Solver(model)
     solver.check_TSNE()
 
