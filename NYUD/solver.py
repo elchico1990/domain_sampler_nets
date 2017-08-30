@@ -43,6 +43,7 @@ class Solver(object):
 	self.no_images = {'source':2186, 'target':2401}
 	self.config = tf.ConfigProto()
         #~ self.config.gpu_options.allow_growth=True
+	#~ self.config.allow_soft_placement=True
 	self.vgg16_ckpt = vgg16_ckpt
 
 	
@@ -116,7 +117,9 @@ class Solver(object):
 	    epochs = 500
 	    
 	    t = 0
-
+	    
+	    print('Finetuning VGG16 on NYUD')
+	    
 	    for i in range(epochs):
 		
 		print 'Epoch',str(i)
@@ -158,7 +161,7 @@ class Solver(object):
 	
 	print 'Training sampler.'
         
-	source_images, source_labels = self.load_office(split=self.src_dir)
+	source_images, source_labels = self.load_NYUD(split=self.src_dir)
         source_labels = utils.one_hot(source_labels.astype(int), 31)
 	
         # build a graph
@@ -250,8 +253,8 @@ class Solver(object):
 
     def train_dsn(self):
         
-	source_images, source_labels = self.load_office(split=self.src_dir)
-        target_images, target_labels = self.load_office(split=self.trg_dir)
+	source_images, source_labels = self.load_NYUD(split='source')
+        target_images, target_labels = self.load_NYUD(split='target')
 	
 
         # build a graph
@@ -374,8 +377,8 @@ class Solver(object):
 
     def check_TSNE(self):
 	
-	source_images, source_labels = self.load_office(split=self.src_dir)
-	target_images, target_labels = self.load_office(split=self.trg_dir)
+	source_images, source_labels = self.load_NYUD(split='target')
+	target_images, target_labels = self.load_NYUD(split='target')
         
 
         # build a graph
@@ -481,8 +484,8 @@ class Solver(object):
     def test(self):
 	
 	# load svhn dataset
-	src_images, src_labels = self.load_office(split=self.src_dir)
-        trg_images, trg_labels = self.load_office(split=self.trg_dir)
+	src_images, src_labels = self.load_NYUD(split='source')
+        trg_images, trg_labels = self.load_NYUD(split='target')
 	
 	
 	# build a graph
@@ -493,10 +496,10 @@ class Solver(object):
 	
 	with tf.Session(config=self.config) as sess:
 	    tf.global_variables_initializer().run()
-	    saver = tf.train.Saver()
+	    #~ saver = tf.train.Saver()
 	    
-	    t = 0
-	    
+	    #~ t = 0
+	    print(sys.argv[1])
 	    while(True):
 		
 		if sys.argv[1] == 'test':
@@ -516,24 +519,45 @@ class Solver(object):
 		else:
 		    raise NameError('Unrecognized mode.')
 	    
-		t+=1
-    
-		src_acc, trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-				       feed_dict={model.src_images: src_images, 
-						  model.src_labels: src_labels,
-						  model.trg_images: trg_images, 
-						  model.trg_labels: trg_labels})
-		  
-		print ('Step: [%d/%d] src acc [%.4f] trg acc [%.4f]' \
-			   %(t+1, self.pretrain_iter, src_acc, trg_acc))
+		#~ t+=1
+		
+		#~ num_batches = self.no_images('target')/self.batch_size
+		
+		# Eval on target
+		trg_acc = 0.
+		num_batches = 0
+		for start, end in zip(range(0, self.no_images['target'], self.batch_size), range(self.batch_size, self.no_images['target'], self.batch_size)):
+		    feed_dict = {model.keep_prob : 1.0,    model.src_images: src_images[0:2], 
+							    model.src_labels: src_labels[0:2], 
+							    model.trg_images: trg_images[start:end], 
+							    model.trg_labels: trg_labels[start:end]}
+		    trg_acc_ = sess.run(fetches=[model.trg_accuracy], feed_dict=feed_dict)
+		    trg_acc += trg_acc_[0]
+		    num_batches += 1
+		print ('trg acc [%.4f]' %(trg_acc/num_batches))
+		#
+			
+		# Eval on source
+		src_acc = 0.
+		num_batches = 0
+		for start, end in zip(range(0, self.no_images['source'], self.batch_size), range(self.batch_size, self.no_images['source'], self.batch_size)):
+		    feed_dict = {model.keep_prob : 1.0,    model.src_images: src_images[start:end], 
+							    model.src_labels: src_labels[start:end], 
+							    model.trg_images: trg_images[0:2], 
+							    model.trg_labels: trg_labels[0:2]}
+		    src_acc_ = sess.run(fetches=[model.src_accuracy], feed_dict=feed_dict)
+		    src_acc += src_acc_[0]
+		    num_batches += 1
+		print ('src acc [%.4f]' %(src_acc/num_batches))
+		#
 	
-		time.sleep(.5)
+		time.sleep(5)
 	    
     def test_ensemble(self):
 	
 	# load svhn dataset
-	src_images, src_labels = self.load_office(split=self.src_dir)
-        trg_images, trg_labels = self.load_office(split=self.trg_dir)
+	src_images, src_labels = self.load_NYUD(split='source')
+        trg_images, trg_labels = self.load_NYUD(split='target')
 	
 	
 	# build a graph
