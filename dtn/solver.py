@@ -24,7 +24,7 @@ from scipy import misc
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=100, sample_iter=2000, 
+    def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=51000, sample_iter=2000, 
                  svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
 		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', gen_model='model/model_gen', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv', start_img=0, end_img=1600):
@@ -79,7 +79,7 @@ class Solver(object):
         labels[np.where(labels==10)] = 0
         return images, labels
 
-    def load_gen_images(self):
+    def load_gen_images_NOT_USED(self):
 	
 	'''
 	Loading images generated with eval_dsn()
@@ -125,6 +125,58 @@ class Solver(object):
 		counter+=1
 	
 	npr.seed(2301)
+	random_idx = np.arange(len(images))
+	npr.shuffle(random_idx)
+	images = images[random_idx]
+	labels = labels[random_idx]
+	
+	print 'break'
+	images = images / 127.5 - 1
+	return images, labels
+
+    def load_gen_images(self):
+	
+	'''
+	Loading images generated with eval_dsn()
+	Assuming that ./sample contains folder with
+	subfolders 1,2,...,9.
+	'''
+	
+	print 'Loading generated images.'
+	
+	no_images = 0
+	v_threshold = 8.0
+	experiment = '1.01.0100.0'
+	
+	for l in range(10):
+	    counter = 0
+	    img_files = sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/'+experiment+'/*'))
+	    print img_files[-1]
+	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
+	    no_images += len(values[values>=v_threshold])
+	
+	labels = np.zeros((no_images,)).astype(int)
+	images = np.zeros((no_images,32,32,3))
+	
+	counter = 0
+	
+	for l in range(10):
+	    
+	    img_files = np.array(sorted(np.array(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/'+experiment+'/*'))))
+	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
+	    img_files = img_files[values >= v_threshold]
+	    
+	    for img_dir in img_files:
+		#~ print img_dir
+		im = misc.imread(img_dir)
+		im = np.expand_dims(im, axis=0)
+		images[counter] = im
+		labels[counter] = l
+		counter+=1
+		
+	    print l, counter 
+	
+	npr.seed(231)
 	random_idx = np.arange(len(images))
 	npr.shuffle(random_idx)
 	images = images[random_idx]
@@ -361,7 +413,7 @@ class Solver(object):
 	    t = 0
 	    
 	    
-	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
+	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5]),10)
 	    
 	    for step in range(self.train_iter):
 		
@@ -392,7 +444,7 @@ class Solver(object):
 
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
-		if (step+1) % 100 == 0:
+		if (step+1) % 1000 == 0:
 		    
 		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -401,7 +453,7 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 250 == 0:
+		if (step+1) % 10000 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 
     def eval_dsn(self, name = '1600'):
@@ -436,11 +488,10 @@ class Solver(object):
 	    npr.seed(190)
 
 	    for n in range(10):
-	    #~ for n in [8]:
 		
 		print n
 	    
-		no_gen = 1000
+		no_gen = 10000
 
 		source_labels = n * np.ones((no_gen,),dtype=int)
 

@@ -40,16 +40,23 @@ def main(_):
 	start_img = 0
 	end_img = 1600
 	
-	for alpha in [1.0,0.1,10.0]:
-	    for beta in [1.0, 0.1, 10.0]:
-		for gamma in [100.,50.,20.,10.,5.]:
+	for alpha in [0.01]:
+	    for beta in [0.01]:
+		for gamma in [10.,100.,50.,20.,5.]:
+		    
+		    if alpha==1.0 and beta==1.0 and gamma== 10.0:
+			print 'Skipping.'
+			continue
 	    		
 		    model = DSN(mode='train_dsn', learning_rate=0.0001, alpha = alpha, beta = beta, gamma = gamma)
 		    solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path, start_img = start_img, end_img = end_img)
 		    solver.train_dsn()
+		    
 		    model = DSN(mode='eval_dsn')
 		    solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-		    solver.eval_dsn(name=str(alpha)+str(beta)+str(gamma))
+		    solver.eval_dsn(name=str(alpha)+'_'+str(beta)+'_'+str(gamma))
+
+		    tf.reset_default_graph()
 
     else:
 	print 'Unrecognized mode.'

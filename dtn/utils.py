@@ -98,7 +98,7 @@ def conv_concat(x,y,mode):
     x_shapes = x.get_shape()
     y_shapes = y.get_shape()
     if mode == 'eval_dsn':
-	return tf.concat([x, y*tf.ones([1000, x_shapes[1], x_shapes[2], 10])], axis=3)
+	return tf.concat([x, y*tf.ones([10000, x_shapes[1], x_shapes[2], 10])], axis=3)
     else:
 	return tf.concat([x, y*tf.ones([16, x_shapes[1], x_shapes[2], 10])], axis=3)
     
