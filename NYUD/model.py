@@ -80,7 +80,7 @@ class DSN(object):
 		    net = slim.conv2d(net, 4096, [7, 7], padding='VALID', scope='fc6')
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
 		    ## differs from vgg
-		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', scope='fc7')
+		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', activation=tf.tanh, scope='fc7')
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
 			net = slim.conv2d(net, self.no_classes , [1,1], activation_fn=None, scope='fc8')
@@ -97,7 +97,7 @@ class DSN(object):
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs, 32, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+			net = slim.fully_connected(inputs, 3, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')

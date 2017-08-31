@@ -376,7 +376,7 @@ class Solver(object):
 
     def check_TSNE(self):
 	
-	source_images, source_labels = self.load_NYUD(split='target')
+	source_images, source_labels = self.load_NYUD(split='source')
 	target_images, target_labels = self.load_NYUD(split='target')
         
 
@@ -411,31 +411,42 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 200 #self.no_images['source']
-            src_labels = utils.one_hot(source_labels[:n_samples].astype(int),self.no_classes )
-	    trg_labels = utils.one_hot(target_labels[:n_samples].astype(int),self.no_classes )
+
+	    n_samples = self.no_images['source']# Some trg samples are discarded 
+	    target_images = target_images[:n_samples]
+	    target_labels = target_labels[:n_samples]
+	    assert len(target_labels) == len(source_labels)
+	    
+	    src_labels = utils.one_hot(source_labels.astype(int),self.no_classes )
+	    trg_labels = utils.one_hot(target_labels.astype(int),self.no_classes )
+	    
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
-	   
+
+	    fzy = np.empty((0,model.hidden_repr_size))
+	    fx_src = np.empty((0,model.hidden_repr_size))
+	    fx_trg = np.empty((0,model.hidden_repr_size))
 	    
-	    if sys.argv[1] == 'convdeconv':
+	    for src_im, src_lab, trg_im, trg_lab, src_n  in zip(np.array_split(source_images, 40),  
+								np.array_split(src_labels, 40),
+								np.array_split(target_images, 40),  
+								np.array_split(trg_labels, 40),
+								np.array_split(src_noise, 40),
+								):
+								    
+		feed_dict = {model.src_noise: src_n, model.src_labels: src_lab, model.src_images: src_im, model.trg_images: trg_im}
+		
+		fzy_, fx_src_, fx_trg_ = sess.run([model.fzy, model.fx_src, model.fx_trg], feed_dict)
+		
+		
+		fzy = np.vstack((fzy, fzy_))
+		fx_src = np.vstack((fx_src, np.squeeze(fx_src_)) )
+		fx_trg = np.vstack((fx_trg, np.squeeze(fx_trg_)) )
 	    
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images, model.trg_images: target_images[:n_samples]}
-		h_repr = sess.run(model.h_repr, feed_dict)
-		
-	    else:
+	    src_labels = np.argmax(src_labels,1)
+	    trg_labels = np.argmax(trg_labels[:n_samples],1)
 	    
-		#~ print ('Loading sampler.')
-		#~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-		#~ restorer = tf.train.Saver(variables_to_restore)
-		#~ restorer.restore(sess, self.pretrained_sampler)
-	
-		
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: source_images[:n_samples], model.trg_images: target_images[:n_samples]}
-		
-		fzy, fx_src, fx_trg = sess.run([model.fzy, model.fx_src, model.fx_trg], feed_dict)
-		
-		src_labels = np.argmax(src_labels,1)
-		trg_labels = np.argmax(trg_labels,1)
+	    assert len(src_labels) == len(fx_src)
+	    assert len(trg_labels) == len(fx_trg)
 
 	    print 'Computing T-SNE.'
 
