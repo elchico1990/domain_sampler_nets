@@ -80,7 +80,7 @@ class DSN(object):
 		    net = slim.conv2d(net, 4096, [7, 7], padding='VALID', scope='fc6')
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
 		    ## differs from vgg
-		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', activation=tf.tanh, scope='fc7')
+		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', activation_fn=tf.nn.tanh, scope='fc7')
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
 			net = slim.conv2d(net, self.no_classes , [1,1], activation_fn=None, scope='fc8')
