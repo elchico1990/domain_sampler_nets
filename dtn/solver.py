@@ -24,7 +24,7 @@ from scipy import misc
 
 class Solver(object):
 
-    def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=100, sample_iter=2000, 
+    def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=50000, sample_iter=2000, 
                  svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
 		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', gen_model='model/model_gen', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv', start_img=0, end_img=1600):
@@ -361,7 +361,7 @@ class Solver(object):
 	    t = 0
 	    
 	    
-	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
+	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5]),10)
 	    
 	    for step in range(self.train_iter):
 		
@@ -436,11 +436,10 @@ class Solver(object):
 	    npr.seed(190)
 
 	    for n in range(10):
-	    #~ for n in [8]:
 		
 		print n
 	    
-		no_gen = 1000
+		no_gen = 10000
 
 		source_labels = n * np.ones((no_gen,),dtype=int)
 

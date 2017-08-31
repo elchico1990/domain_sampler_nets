@@ -348,13 +348,22 @@ class DSN(object):
             DG_vars = [var for var in t_vars if 'disc_g' in var.name]
             
             # train op
-            with tf.variable_scope('training_op',reuse=False):
-                self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
-                self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
-                self.G_train_op = slim.learning.create_train_op(self.G_loss, self.G_optimizer, variables_to_train=G_vars)
-                self.DG_train_op = slim.learning.create_train_op(self.DG_loss, self.DG_optimizer, variables_to_train=DG_vars)
-                self.const_train_op = slim.learning.create_train_op(self.const_loss, self.const_optimizer, variables_to_train=G_vars)
-                
+	    try:
+		with tf.variable_scope('training_op',reuse=False):
+		    self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
+		    self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
+		    self.G_train_op = slim.learning.create_train_op(self.G_loss, self.G_optimizer, variables_to_train=G_vars)
+		    self.DG_train_op = slim.learning.create_train_op(self.DG_loss, self.DG_optimizer, variables_to_train=DG_vars)
+		    self.const_train_op = slim.learning.create_train_op(self.const_loss, self.const_optimizer, variables_to_train=G_vars)
+		    
+	    except:
+		with tf.variable_scope('training_op',reuse=True):
+		    self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
+		    self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
+		    self.G_train_op = slim.learning.create_train_op(self.G_loss, self.G_optimizer, variables_to_train=G_vars)
+		    self.DG_train_op = slim.learning.create_train_op(self.DG_loss, self.DG_optimizer, variables_to_train=DG_vars)
+		    self.const_train_op = slim.learning.create_train_op(self.const_loss, self.const_optimizer, variables_to_train=G_vars)
+		    
 	    
             
             # summary op
