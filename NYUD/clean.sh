@@ -1,1 +1,2 @@
-rm logs/* && rm model/*
+rm model/*
+rm logs/*

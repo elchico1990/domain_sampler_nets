@@ -45,7 +45,7 @@ class Solver(object):
         #~ self.config.gpu_options.allow_growth=True
 	#~ self.config.allow_soft_placement=True
 	self.vgg16_ckpt = vgg16_ckpt
-
+	self.no_classes = model.no_classes
 	
 
     def load_NYUD(self, split, image_dir='./NYUD_domain_adaptation'):
@@ -103,6 +103,7 @@ class Solver(object):
 	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 	    # get rid of fc8
 	    variables_to_restore = [vv for vv in variables_to_restore if 'fc8' not in vv.name]	    
+	    variables_to_restore = [vv for vv in variables_to_restore if 'fc7' not in vv.name]	    
 
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.vgg16_ckpt)
@@ -132,7 +133,8 @@ class Solver(object):
 		    #~ print(t)
 		    
 		    feed_dict = {model.keep_prob : 0.5, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
-						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but actually useless. 
+						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} 
+						#trg here is just needed by the model but actually useless for training. 
 		    
 		    sess.run(model.train_op, feed_dict)
 		    
@@ -162,8 +164,10 @@ class Solver(object):
 	print 'Training sampler.'
         
 	source_images, source_labels = self.load_NYUD(split='source')
-        source_labels = utils.one_hot(source_labels.astype(int), 19)
-	
+	#~ source_images = source_images[:64]
+	source_labels = utils.one_hot(source_labels.astype(int), self.no_classes )
+	#~ source_labels = source_labels[:64]
+        
         # build a graph
         model = self.model
         model.build_model()
@@ -177,20 +181,29 @@ class Solver(object):
 	noise_dim = 100
 	epochs = 500000
 	
-	with tf.Session(config=tf.ConfigProto(device_count = {'GPU': 0})) as sess:
-            # initialize G and D
-            tf.global_variables_initializer().run()
-            # restore variables of F
-            
+	## Computing latent representation for the source split
+	#~ with tf.Session(config=tf.ConfigProto(device_count = {'GPU': 0})) as sess:
+	with tf.Session(config=self.config) as sess:
+	    
 	    print ('Computing latent representation.')
+            tf.global_variables_initializer().run()
 	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
             restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 	    
-	    
-	    feed_dict = {model.noise: utils.sample_Z(1, noise_dim, 'uniform'), model.images: source_images, model.labels: source_labels, model.fx: np.ones((1,128))}
-	    source_fx = sess.run(model.dummy_fx, feed_dict)
-
+	    ## Must do it batchwise
+	    source_fx = np.empty((0, model.hidden_repr_size))
+	    #~ counter = 0
+	    for spl_im, spl_lab in zip(np.array_split(source_images, 40),  np.array_split(source_labels, 40)):
+		feed_dict = {model.noise: utils.sample_Z(1, noise_dim, 'uniform'), 
+				model.images: spl_im, 
+				model.labels: spl_lab, 
+				model.fx: np.ones((1,128))}
+		s_fx = sess.run(model.dummy_fx, feed_dict)
+		source_fx = np.vstack((source_fx, np.squeeze(s_fx)))
+		#~ print(counter)
+		#~ counter+=1
+		
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -385,7 +398,6 @@ class Solver(object):
 	    if sys.argv[1] == 'test':
 		print ('Loading test model.')
 		variables_to_restore = tf.global_variables() 
-		#~ variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','disc_e','source_train_op']])]
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.test_model)	
 		    
@@ -399,9 +411,9 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = self.no_images['source']
-            src_labels = utils.one_hot(source_labels[:n_samples].astype(int),19)
-	    trg_labels = utils.one_hot(target_labels[:n_samples].astype(int),19)
+	    n_samples = 200 #self.no_images['source']
+            src_labels = utils.one_hot(source_labels[:n_samples].astype(int),self.no_classes )
+	    trg_labels = utils.one_hot(target_labels[:n_samples].astype(int),self.no_classes )
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
 	   
 	    

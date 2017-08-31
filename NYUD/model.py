@@ -11,10 +11,11 @@ import numpy as np
 class DSN(object):
     """Domain Sampler Network
     """
-    def __init__(self, mode='train', learning_rate=0.0003):
+    def __init__(self, mode='train', learning_rate=0.0001):
         self.mode = mode
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 128
+	self.no_classes = 19
 
     
     def sampler_generator(self, z, y, reuse=False):
@@ -39,15 +40,21 @@ class DSN(object):
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		    net = slim.batch_norm(net, scope='sgen_bn1')
 		    net = slim.dropout(net, 0.5)
-		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
+		    net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sgen_fc2')
+		    net = slim.batch_norm(net, scope='sgen_bn2')
+		    net = slim.dropout(net, 0.5)
+		    net = slim.fully_connected(net, 4096, activation_fn = tf.nn.relu, scope='sgen_fc3')
 		    net = slim.batch_norm(net, scope='sgen_bn3')
+		    net = slim.dropout(net, 0.5)
+		    net = slim.fully_connected(net, 4096, activation_fn = tf.nn.relu, scope='sgen_fc4')
+		    net = slim.batch_norm(net, scope='sgen_bn4')
 		    net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
 	
-	_mode = self.mode == 'eval_dsn'
+	#~ _mode = self.mode == 'eval_dsn'
 	
 	with tf.variable_scope('vgg_16', reuse=reuse):
 	    # vgg16  as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
@@ -55,8 +62,8 @@ class DSN(object):
 			  activation_fn=tf.nn.relu,
 			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
 			  weights_regularizer=slim.l2_regularizer(0.0005)):
-		with tf.device('/gpu:0' if not _mode else '/cpu:0'):
-		#~ with tf.device('/gpu:0'):
+		#~ with tf.device('/gpu:0' if not _mode else '/cpu:0'):
+		with tf.device('/gpu:0'):
 		    net = slim.repeat(images, 2, slim.conv2d, 64, [3, 3], scope='conv1')
 		    net = slim.max_pool2d(net, [2, 2], scope='pool1')
 		    net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
@@ -64,24 +71,25 @@ class DSN(object):
 		    net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
 		    net = slim.max_pool2d(net, [2, 2], scope='pool3')	
 		    	
-		with tf.device('/gpu:1' if not _mode else '/cpu:0'):
-		#~ with tf.device('/gpu:1'):
+		#~ with tf.device('/gpu:1' if not _mode else '/cpu:0'):
+		with tf.device('/gpu:1'):
 		    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
 		    net = slim.max_pool2d(net, [2, 2], scope='pool4')
 		    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
 		    net = slim.max_pool2d(net, [2, 2], scope='pool5')
 		    net = slim.conv2d(net, 4096, [7, 7], padding='VALID', scope='fc6')
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
-		    net = slim.conv2d(net, 4096, [1, 1], padding='VALID', scope='fc7')
+		    ## differs from vgg
+		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', scope='fc7')
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-			net = slim.conv2d(net, 19, [1,1], activation_fn=None, scope='fc8')
+			net = slim.conv2d(net, self.no_classes , [1,1], activation_fn=None, scope='fc8')
 			
 	return net
 			    
     def D_e(self, inputs, y, reuse=False):
 		
-	inputs = tf.concat(axis=1, values=[tf.squeeze(inputs), tf.cast(y,tf.float32)])
+	inputs = tf.concat(axis=1, values=[tf.contrib.layers.flatten(inputs), tf.cast(y,tf.float32)])
 	
 	with tf.variable_scope('disc_e',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
@@ -89,7 +97,7 @@ class DSN(object):
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+			net = slim.fully_connected(inputs, 32, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
@@ -110,13 +118,13 @@ class DSN(object):
 	    
 	    self.src_logits = self.E(self.src_images, is_training = True)
 		
-	    self.src_pred = tf.argmax(tf.squeeze(self.src_logits), 1) #logits are [19,1,1,8], need to squeeze
+	    self.src_pred = tf.argmax(tf.squeeze(self.src_logits), 1) #logits are [self.no_classes ,1,1,8], need to squeeze
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels) 
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
 		
             self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
 		
-	    self.trg_pred = tf.argmax(tf.squeeze(self.trg_logits), 1) #logits are [19,1,1,8], need to squeeze
+	    self.trg_pred = tf.argmax(tf.squeeze(self.trg_logits), 1) #logits are [self.no_classes ,1,1,8], need to squeeze
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 	    
@@ -124,10 +132,10 @@ class DSN(object):
 	    
 	    
 	    train_vars = t_vars #[var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
-	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,19)))
+	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,self.no_classes )))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
-	    self.optimizer = tf.train.AdamOptimizer(0.0001)
+	    self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
 	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
 	    
             # summary op
@@ -141,7 +149,7 @@ class DSN(object):
 	    self.images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'svhn_images')
 	    self.fx = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'features')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-	    self.labels = tf.placeholder(tf.int64, [None, 19], 'labels_real')
+	    self.labels = tf.placeholder(tf.int64, [None, self.no_classes ], 'labels_real')
 	    try:
 		self.dummy_fx = self.E(self.images)
 	    except:
@@ -181,7 +189,7 @@ class DSN(object):
         
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.src_labels = tf.placeholder(tf.float32, [None, 19], 'labels')
+            self.src_labels = tf.placeholder(tf.float32, [None, self.no_classes ], 'labels')
 	    self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'src_images')
 	    self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'trg_images')
             
@@ -193,12 +201,12 @@ class DSN(object):
 	elif self.mode == 'train_dsn':
 	    
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.src_labels = tf.placeholder(tf.float32, [None, 19], 'labels')
+            self.src_labels = tf.placeholder(tf.float32, [None, self.no_classes ], 'labels')
             self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'mnist_images')
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
-	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),19)
+	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),self.no_classes )
 	    
 	    self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
