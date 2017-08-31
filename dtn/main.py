@@ -40,8 +40,8 @@ def main(_):
 	start_img = 0
 	end_img = 1600
 	
-	for alpha in [1.0,0.1,10.0]:
-	    for beta in [1.0, 0.1, 10.0]:
+	for alpha in [0.01]:
+	    for beta in [0.01]:
 		for gamma in [10.,100.,50.,20.,5.]:
 		    
 		    if alpha==1.0 and beta==1.0 and gamma== 10.0:
@@ -54,7 +54,7 @@ def main(_):
 		    
 		    model = DSN(mode='eval_dsn')
 		    solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
-		    solver.eval_dsn(name=str(alpha)+str(beta)+str(gamma))
+		    solver.eval_dsn(name=str(alpha)+'_'+str(beta)+'_'+str(gamma))
 
 		    tf.reset_default_graph()
 

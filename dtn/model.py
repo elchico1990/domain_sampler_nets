@@ -142,9 +142,9 @@ class DSN(object):
                     net = slim.conv2d(net, 256, [3, 3], scope='conv2')   # (batch_size, 8, 8, 256)
                     net = slim.batch_norm(net, scope='bn2')
 		    net = conv_concat(net, labels, self.mode)
-                    net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 8, 8, 512)
-                    net = slim.batch_norm(net, scope='bn3')
-		    net = conv_concat(net, labels, self.mode)
+                    #~ net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 8, 8, 512)
+                    #~ net = slim.batch_norm(net, scope='bn3')
+		    #~ net = conv_concat(net, labels, self.mode)
                     net = slim.flatten(net)
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
 		    return net
