@@ -46,22 +46,26 @@ class DSN(object):
 		    return net
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
-
+	
+	_mode = self.mode == 'eval_dsn'
+	
 	with tf.variable_scope('vgg_16', reuse=reuse):
 	    # vgg16  as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
 	    with slim.arg_scope([slim.conv2d, slim.fully_connected],
 			  activation_fn=tf.nn.relu,
 			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
 			  weights_regularizer=slim.l2_regularizer(0.0005)):
-		with tf.device('/gpu:0'):
+		with tf.device('/gpu:0' if not _mode else '/cpu:0'):
+		#~ with tf.device('/gpu:0'):
 		    net = slim.repeat(images, 2, slim.conv2d, 64, [3, 3], scope='conv1')
 		    net = slim.max_pool2d(net, [2, 2], scope='pool1')
 		    net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
 		    net = slim.max_pool2d(net, [2, 2], scope='pool2')
 		    net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
-		    net = slim.max_pool2d(net, [2, 2], scope='pool3')
+		    net = slim.max_pool2d(net, [2, 2], scope='pool3')	
 		    	
-		with tf.device('/gpu:1'):
+		with tf.device('/gpu:1' if not _mode else '/cpu:0'):
+		#~ with tf.device('/gpu:1'):
 		    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
 		    net = slim.max_pool2d(net, [2, 2], scope='pool4')
 		    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
@@ -77,7 +81,7 @@ class DSN(object):
 			    
     def D_e(self, inputs, y, reuse=False):
 		
-	inputs = tf.concat(axis=1, values=[inputs, tf.cast(y,tf.float32)])
+	inputs = tf.concat(axis=1, values=[tf.squeeze(inputs), tf.cast(y,tf.float32)])
 	
 	with tf.variable_scope('disc_e',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
