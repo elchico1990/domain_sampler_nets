@@ -14,7 +14,7 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0001):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 128
+	self.hidden_repr_size = 512
 	self.no_classes = 19
 
     
@@ -58,7 +58,7 @@ class DSN(object):
 	
 	with tf.variable_scope('vgg_16', reuse=reuse):
 	    # vgg16  as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
-	    with slim.arg_scope([slim.conv2d, slim.fully_connected],
+	    with slim.arg_scope([slim.conv2d],
 			  activation_fn=tf.nn.relu,
 			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
 			  weights_regularizer=slim.l2_regularizer(0.0005)):
@@ -80,7 +80,7 @@ class DSN(object):
 		    net = slim.conv2d(net, 4096, [7, 7], padding='VALID', scope='fc6')
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
 		    ## differs from vgg
-		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', activation_fn=tf.nn.tanh, scope='fc7')
+		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', activation_fn=tf.tanh, scope='fc7')
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
 			net = slim.conv2d(net, self.no_classes , [1,1], activation_fn=None, scope='fc8')
