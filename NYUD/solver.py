@@ -115,7 +115,7 @@ class Solver(object):
 	    
 	    #~ time.sleep(30)
 	    
-	    epochs = 500
+	    epochs = 600
 	    
 	    t = 0
 	    
@@ -198,7 +198,7 @@ class Solver(object):
 		feed_dict = {model.noise: utils.sample_Z(1, noise_dim, 'uniform'), 
 				model.images: spl_im, 
 				model.labels: spl_lab, 
-				model.fx: np.ones((1,128))}
+				model.fx: np.ones((1,model.hidden_repr_size))}
 		s_fx = sess.run(model.dummy_fx, feed_dict)
 		source_fx = np.vstack((source_fx, np.squeeze(s_fx)))
 		#~ print(counter)
@@ -395,6 +395,11 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
 	    
+	    print ('Loading sampler.')
+	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
+	    
 	    if sys.argv[1] == 'test':
 		print ('Loading test model.')
 		variables_to_restore = tf.global_variables() 
@@ -412,7 +417,7 @@ class Solver(object):
 	    
             
 
-	    n_samples = self.no_images['source']# Some trg samples are discarded 
+	    n_samples = len(source_labels)# Some trg samples are discarded 
 	    target_images = target_images[:n_samples]
 	    target_labels = target_labels[:n_samples]
 	    assert len(target_labels) == len(source_labels)
@@ -502,6 +507,7 @@ class Solver(object):
 	    print(sys.argv[1])
 	    while(True):
 		
+		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
 		    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
@@ -519,14 +525,11 @@ class Solver(object):
 		else:
 		    raise NameError('Unrecognized mode.')
 	    
-		#~ t+=1
-		
-		#~ num_batches = self.no_images('target')/self.batch_size
 		
 		# Eval on target
 		trg_acc = 0.
 		num_batches = 0
-		for start, end in zip(range(0, self.no_images['target'], self.batch_size), range(self.batch_size, self.no_images['target'], self.batch_size)):
+		for start, end in zip(range(0, len(trg_labels), self.batch_size), range(self.batch_size, len(trg_labels), self.batch_size)):
 		    feed_dict = {model.keep_prob : 1.0,    model.src_images: src_images[0:2], 
 							    model.src_labels: src_labels[0:2], 
 							    model.trg_images: trg_images[start:end], 
@@ -540,7 +543,7 @@ class Solver(object):
 		# Eval on source
 		src_acc = 0.
 		num_batches = 0
-		for start, end in zip(range(0, self.no_images['source'], self.batch_size), range(self.batch_size, self.no_images['source'], self.batch_size)):
+		for start, end in zip(range(0, len(src_labels), self.batch_size), range(self.batch_size, len(src_labels), self.batch_size)):
 		    feed_dict = {model.keep_prob : 1.0,    model.src_images: src_images[start:end], 
 							    model.src_labels: src_labels[start:end], 
 							    model.trg_images: trg_images[0:2], 

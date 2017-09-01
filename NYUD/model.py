@@ -43,12 +43,12 @@ class DSN(object):
 		    net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sgen_fc2')
 		    net = slim.batch_norm(net, scope='sgen_bn2')
 		    net = slim.dropout(net, 0.5)
-		    net = slim.fully_connected(net, 4096, activation_fn = tf.nn.relu, scope='sgen_fc3')
-		    net = slim.batch_norm(net, scope='sgen_bn3')
-		    net = slim.dropout(net, 0.5)
-		    net = slim.fully_connected(net, 4096, activation_fn = tf.nn.relu, scope='sgen_fc4')
-		    net = slim.batch_norm(net, scope='sgen_bn4')
-		    net = slim.dropout(net, 0.5)
+		    #~ net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sgen_fc3')
+		    #~ net = slim.batch_norm(net, scope='sgen_bn3')
+		    #~ net = slim.dropout(net, 0.5)
+		    #~ net = slim.fully_connected(net, 4096, activation_fn = tf.nn.relu, scope='sgen_fc4')
+		    #~ net = slim.batch_norm(net, scope='sgen_bn4')
+		    #~ net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
@@ -97,7 +97,7 @@ class DSN(object):
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs, 3, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+			net = slim.fully_connected(inputs, 8, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
