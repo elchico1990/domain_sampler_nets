@@ -49,15 +49,12 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'mnist_usps_2' # possibilities: svhn_mnist, mnist_usps, mnist_usps_2, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
 
     def load_mnist(self, image_dir, split='train'):
         print ('Loading MNIST dataset.')
 	
-	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
-	    image_file = 'train.pkl'
-        else:
-	    image_file = 'train.pkl' if split=='train' else 'test.pkl'
+	image_file = 'train.pkl' if split=='train' else 'test.pkl'
         image_dir = os.path.join(image_dir, image_file)
         with open(image_dir, 'rb') as f:
             mnist = pickle.load(f)
@@ -100,20 +97,13 @@ class Solver(object):
 	
 	images = images[random_idx]
 	labels = labels[random_idx]
-	imgs = np.empty((0,28,28,1))
-	lbls = np.empty((0,1))
 	
-	for i in range(10):
-	    digits = images[np.where(labels==i)[0][:180]]
-	    imgs = np.vstack((imgs,digits))
-	    lbls = np.vstack((lbls,i*np.ones((180,1))))
-	    
-	random_idx = np.arange(len(lbls))
-	
-	npr.shuffle(random_idx)
-	imgs = imgs[random_idx]
-	lbls = lbls[random_idx]
-        return imgs, np.squeeze(lbls).astype(int)
+	if split == 'train':
+	    return imgs[:6562], np.squeeze(lbls[:6562]).astype(int)
+	elif split == 'validation':
+	    return imgs[6562:7291], np.squeeze(lbls[6562:7291]).astype(int)
+	elif split == 'test':
+	    return imgs[7291:], np.squeeze(lbls[7291:]).astype(int)
 
     def load_gen_images(self):
 	
@@ -154,56 +144,15 @@ class Solver(object):
     def pretrain(self):
 	
 	print 'Pretraining.'
-        
-	if self.protocol == 'svhn_mnist':	
-	    
-	    src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	    src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	
-	elif self.protocol == 'mnist_mnist_m':	
-	    
-	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist_m(self.mnist_m_dir, split='test')
-        
-	elif self.protocol == 'syn_svhn':	
-	    
-	    src_images, src_labels = self.load_syn(self.syn_dir, split='train')
-	    src_test_images, src_test_labels = self.load_syn(self.syn_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	#mnist_usps_protocol_2
 
-	elif self.protocol == 'mnist_usps':	
-	    
-	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_usps(self.usps_dir)
+	src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+	src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
 
-	    trg_test_images = trg_images
-	    trg_test_labels = trg_labels
-	  
-	elif self.protocol == 'usps_mnist':	
-	    
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    src_images, src_labels = self.load_usps(self.usps_dir)
+	trg_images, trg_labels = self.load_usps(self.usps_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_usps(self.usps_dir, split='test')
 
-	    src_test_images = src_images
-	    src_test_labels = src_labels
-	  
-	elif self.protocol == 'amazon_reviews':
-	    
-	    src_images, src_labels, trg_images, trg_labels, trg_test_images, trg_test_labels = self.load_amazon_reviews(self.amazon_dir)
-	    src_test_images, src_test_labels = src_images, src_labels
-	
         # build a graph
         model = self.model
         model.build_model()
@@ -211,11 +160,6 @@ class Solver(object):
         with tf.Session(config=self.config) as sess:
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
-	    
-            #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.test_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
@@ -238,7 +182,7 @@ class Solver(object):
 		    if t%10==0:
 
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
+			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
 			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
 			test_src_acc, test_trg_acc, trg_pred = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred], 
 					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
@@ -259,76 +203,12 @@ class Solver(object):
 		    
 		if test_trg_acc > 0.78:
 		    break
-
-    def train_convdeconv(self):
-
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-
-        # build a graph
-        model = self.model
-        model.build_model()
-	
-        with tf.Session(config=self.config) as sess:
-            tf.global_variables_initializer().run()
-            saver = tf.train.Saver()
-	    
-            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-
-	    epochs = 100
-	    
-	    t = 0
-
-	    for i in range(epochs):
-		
-		print 'Epoch',str(i)
-		
-		for start, end in zip(range(0, len(trg_images), self.batch_size), range(self.batch_size, len(trg_images), self.batch_size)):
-		    
-		    t+=1
-		       
-		    feed_dict = {model.images: trg_images[start:end]}
-		    
-		    sess.run(model.train_op, feed_dict) 
-
-		    if (t+1) % 250 == 0:
-			rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
-			summary, l = sess.run([model.summary_op, model.loss], feed_dict = {model.images: trg_test_images[rand_idxs]})
-			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] loss: [%.6f]' \
-				   %(t+1, self.pretrain_iter, l))
-			
-		    if (t+1) % 250 == 0:
-			#~ print 'Saved.'
-			saver.save(sess, os.path.join(self.model_save_path, 'conv_deconv'))
 	    
     def train_sampler(self):
-	
-	print 'Training sampler.'
-        
-	if self.protocol == 'svhn_mnist':	
-	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	    source_labels = utils.one_hot(source_labels, 10)
-        
-	if self.protocol == 'mnist_mnist_m':	
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	    source_labels = utils.one_hot(source_labels, 10)
-        
-	elif self.protocol == 'syn_svhn':	
-	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
-	    source_labels = utils.one_hot(source_labels, 10)
 
-	elif self.protocol == 'mnist_usps':	
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	    source_labels = utils.one_hot(source_labels, 10)
+	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	source_labels = utils.one_hot(source_labels, 10)
 
-	elif self.protocol == 'usps_mnist':	
-	    source_images, source_labels = self.load_usps(self.usps_dir)
-	    source_labels = utils.one_hot(source_labels, 10)
-				  
-	elif self.protocol == 'amazon_reviews':
-	    source_images, source_labels, _, _, _, _ = self.load_amazon_reviews(self.amazon_dir)
-	    source_labels = utils.one_hot(source_labels, 2)
 	
 	#~ svhn_images = svhn_images[np.where(np.argmax(svhn_labels,1)==1)]
 	#~ svhn_labels = svhn_labels[np.where(np.argmax(svhn_labels,1)==1)]
@@ -391,29 +271,9 @@ class Solver(object):
     def train_dsn(self):
         
 	print 'Training DSN.'
-	
-	if self.protocol=='svhn_mnist':
-	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
 
-	if self.protocol == 'mnist_mnist_m':
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	    target_images, target_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
-	
-	elif self.protocol=='syn_svhn':
-	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
-	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
-
-	elif self.protocol=='mnist_usps':
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	    target_images, target_labels = self.load_usps(self.usps_dir)
-	
-	elif self.protocol=='usps_mnist':
-	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
-	    source_images, source_labels = self.load_usps(self.usps_dir)
-	
-	elif self.protocol == 'amazon_reviews':
-	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
+	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	target_images, target_labels = self.load_usps(self.usps_dir, split='train')
 	
         # build a graph
         model = self.model
@@ -522,10 +382,7 @@ class Solver(object):
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_sampler)
 	    
-	    if self.protocol=='svhn_mnist':
-		source_images, source_labels = self.load_svhn(self.svhn_dir)
-	    elif self.protocol=='mnist_usps':
-		source_images, source_labels = self.load_mnist(self.mnist_dir)
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='test')
 
 	    for n in range(10):
 		
@@ -558,16 +415,7 @@ class Solver(object):
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
-	
-	
-	if self.protocol == 'svhn_mnist':
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='test')
-	if self.protocol == 'syn_svhn':
-	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='test')
-	elif self.protocol == 'mnist_usps':
-	    trg_images, trg_labels = self.load_usps(self.usps_dir)
-	elif self.protocol == 'usps_mnist':
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir)
+	trg_images, trg_labels = self.load_usps(self.usps_dir, split='test')
 	
         # build a graph
         model = self.model
@@ -621,29 +469,8 @@ class Solver(object):
 			
     def check_TSNE(self):
 	
-	if self.protocol == 'svhn_mnist':
-	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
-	
-	if self.protocol == 'mnist_mnist_m':
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	    target_images, target_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
-	
-	if self.protocol == 'syn_svhn':
-	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
-	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
-	
-	elif self.protocol == 'mnist_usps':
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	    target_images, target_labels = self.load_usps(self.usps_dir)
-	    source_images = source_images[:2000]
-	    source_labels = source_labels[:2000]
-	    target_images = target_images[:1800]
-	    target_labels = target_labels[:1800]
-	
-	elif self.protocol == 'amazon_reviews':
-	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
-	    
+	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	target_images, target_labels = self.load_usps(self.usps_dir, split='train')
 	
         # build a graph
         model = self.model
@@ -744,52 +571,13 @@ class Solver(object):
 	    
     def test(self):
 	
-	if self.protocol == 'svhn_mnist':
 	    
-	    src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	    src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
+	src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	
-	elif self.protocol == 'mnist_mnist_m':
-	    
-	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist_m(self.mnist_m_dir, split='test')
-	
-	elif self.protocol == 'syn_svhn':
-	    
-	    src_images, src_labels = self.load_syn(self.syn_dir, split='train')
-	    src_test_images, src_test_labels = self.load_syn(self.syn_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='test')
-	    trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
-	
-	elif self.protocol == 'mnist_usps':
-	    
-	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_usps(self.usps_dir)
-	    trg_test_images = trg_images
-	    trg_test_labels = trg_labels
-	    
-	elif self.protocol == 'usps_mnist':
-	    
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    src_images, src_labels = self.load_usps(self.usps_dir)
-	    src_test_images = src_images
-	    src_test_labels = src_labels
-	
-	elif self.protocol == 'amazon_reviews':
-	    src_images, src_labels, trg_images, trg_labels, trg_test_images, trg_test_labels = self.load_amazon_reviews(self.amazon_dir)
-	    src_test_images, src_test_labels = src_images, src_labels
-	
+	trg_images, trg_labels = self.load_usps(self.usps_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_usps(self.usps_dir, split='test')
+    
 	
 	#~ gen_images, gen_labels = self.load_gen_images()
 
