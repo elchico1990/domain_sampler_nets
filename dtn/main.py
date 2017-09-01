@@ -37,8 +37,8 @@ def main(_):
     
     elif FLAGS.mode == 'train_all':
 	
-	start_img = 0
-	end_img = 1600
+	start_img = 1600
+	end_img = 3200
 	
 	for alpha in [0.01]:
 	    for beta in [0.01]:
