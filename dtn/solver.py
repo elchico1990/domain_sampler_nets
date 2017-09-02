@@ -78,7 +78,7 @@ class Solver(object):
 	
         return images, np.squeeze(labels).astype(int)
 
-    def load_usps(self, image_dir):
+    def load_usps(self, image_dir, split='train'):
         
 	print ('Loading USPS dataset.')
         image_file = 'train.pkl'
@@ -90,7 +90,7 @@ class Solver(object):
 	labels -= 1
 	labels[labels==255] = 9
 	
-	npr.seed(856)
+	npr.seed(8346)
 	
 	random_idx = np.arange(len(labels))
 	npr.shuffle(random_idx)
@@ -99,11 +99,11 @@ class Solver(object):
 	labels = labels[random_idx]
 	
 	if split == 'train':
-	    return imgs[:6562], np.squeeze(lbls[:6562]).astype(int)
+	    return images[:6562], np.squeeze(labels[:6562]).astype(int)
 	elif split == 'validation':
-	    return imgs[6562:7291], np.squeeze(lbls[6562:7291]).astype(int)
+	    return images[6562:7291], np.squeeze(labels[6562:7291]).astype(int)
 	elif split == 'test':
-	    return imgs[7291:], np.squeeze(lbls[7291:]).astype(int)
+	    return images[7291:], np.squeeze(labels[7291:]).astype(int)
 
     def load_gen_images(self):
 	
@@ -115,7 +115,7 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 4300 # number of images per digit
+	no_images = 9000 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
 	images = np.zeros((10 * no_images,28,28,1))
@@ -179,7 +179,7 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if t%10==0:
+		    if t%100==0:
 
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
@@ -198,12 +198,6 @@ class Solver(object):
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 			
-			if test_trg_acc > 0.78:
-			    break
-		    
-		if test_trg_acc > 0.78:
-		    break
-	    
     def train_sampler(self):
 
 	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
@@ -294,12 +288,7 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
-	    
-	    #~ print ('Loading pretrained generator.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -333,17 +322,13 @@ class Solver(object):
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict)
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict)
 
-		if step%1==0:
-		    sess.run(model.G_train_op, feed_dict)
-		    sess.run(model.DG_train_op, feed_dict) 
-		
-		sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.G_train_op, feed_dict)
+		#~ sess.run(model.DG_train_op, feed_dict) 
+		#~ sess.run(model.const_train_op, feed_dict)
 
-		#~ sess.run(model.const_train_op_2, feed_dict)
-		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
 		if (step+1) % 10 == 0:
@@ -388,7 +373,7 @@ class Solver(object):
 		
 		print n
 	    
-		no_gen = 5000
+		no_gen = 10000
 
 		source_labels = n * np.ones((no_gen,),dtype=int)
 
@@ -415,7 +400,7 @@ class Solver(object):
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
-	trg_images, trg_labels = self.load_usps(self.usps_dir, split='test')
+	trg_images, trg_labels = self.load_usps(self.usps_dir, split='validation')
 	
         # build a graph
         model = self.model
@@ -571,7 +556,6 @@ class Solver(object):
 	    
     def test(self):
 	
-	    
 	src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
 	src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	

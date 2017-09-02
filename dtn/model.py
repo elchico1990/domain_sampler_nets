@@ -72,7 +72,7 @@ class DSN(object):
 	with tf.variable_scope('disc_e',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
+                                    activation_fn=lrelu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
 			net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
