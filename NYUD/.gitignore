@@ -1,4 +1,4 @@
 NYUD_domain_adaptation/
-model/
+model*/
 logs/
 *.ckpt

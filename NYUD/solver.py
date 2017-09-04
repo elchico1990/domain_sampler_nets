@@ -178,7 +178,7 @@ class Solver(object):
         tf.gfile.MakeDirs(self.log_dir)
 	
 	batch_size = self.batch_size
-	noise_dim = 100
+	noise_dim = model.noise_dim
 	epochs = 500000
 	
 	## Computing latent representation for the source split
@@ -225,6 +225,8 @@ class Solver(object):
 	    for i in range(epochs):
 		
 		#~ print 'Epoch',str(i)
+		src_rand = np.random.permutation(source_images.shape[0])
+		source_images, source_labels = source_images[src_rand], source_labels[src_rand]
 		
 		for start, end in zip(range(0, len(source_images), batch_size), range(batch_size, len(source_images), batch_size)):
 		    
@@ -243,9 +245,9 @@ class Solver(object):
 		    if (t+1) % 250 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
-			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
+			print ('Step: [%d/%d] g_loss: [%.6f] d_loss: [%.6f]' \
+				   %(t+1, int(epochs*len(source_images) /batch_size), gl, dl))
+			print '\t avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
                     if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
@@ -301,7 +303,7 @@ class Solver(object):
 		G_loss = 1.
 		DG_loss = 1.
 		
-		noise_dim = 100		
+		noise_dim = model.noise_dim		
 		
 		for step in range(10000000):
 		    
@@ -313,7 +315,7 @@ class Solver(object):
 		    
 		    src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
 		    src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size].astype(int),31)
-		    src_noise = utils.sample_Z(self.batch_size,100,'uniform')
+		    src_noise = utils.sample_Z(self.batch_size,noise_dim,'uniform')
 		    trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
 		    
 		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
@@ -362,7 +364,7 @@ class Solver(object):
 
 	    # train model for source domain S
 	    src_labels = utils.one_hot(source_labels[:1000],10)
-	    src_noise = utils.sample_Z(1000,100,'uniform')
+	    src_noise = utils.sample_Z(1000,model.noise_dim,'uniform')
 
 	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
@@ -395,10 +397,11 @@ class Solver(object):
             # initialize G and D
             tf.global_variables_initializer().run()
 	    
-	    print ('Loading sampler.')
-	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_sampler)
+	    if sys.argv[2] == '2':
+		print ('Loading sampler.')
+		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.pretrained_sampler)
 	    
 	    if sys.argv[1] == 'test':
 		print ('Loading test model.')
@@ -425,7 +428,7 @@ class Solver(object):
 	    src_labels = utils.one_hot(source_labels.astype(int),self.no_classes )
 	    trg_labels = utils.one_hot(target_labels.astype(int),self.no_classes )
 	    
-	    src_noise = utils.sample_Z(n_samples,100,'uniform')
+	    src_noise = utils.sample_Z(n_samples,model.noise_dim,'uniform')
 
 	    fzy = np.empty((0,model.hidden_repr_size))
 	    fx_src = np.empty((0,model.hidden_repr_size))

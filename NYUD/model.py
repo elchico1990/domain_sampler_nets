@@ -14,8 +14,9 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0001):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 512
+	self.hidden_repr_size = 128
 	self.no_classes = 19
+	self.noise_dim = 200
 
     
     def sampler_generator(self, z, y, reuse=False):
@@ -32,22 +33,25 @@ class DSN(object):
 	#~ inputs = z
 	
 	with tf.variable_scope('sampler_generator', reuse=reuse):
-	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
+	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.constant_initializer(0.01)):
 		
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		    net = slim.batch_norm(net, scope='sgen_bn1')
-		    net = slim.dropout(net, 0.5)
-		    net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sgen_fc2')
+		    #~ net = slim.dropout(net, 0.5)
+		    net = slim.fully_connected(net, 1024 , activation_fn = tf.nn.relu, scope='sgen_fc2')
 		    net = slim.batch_norm(net, scope='sgen_bn2')
-		    net = slim.dropout(net, 0.5)
-		    #~ net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sgen_fc3')
+		    #~ net = slim.dropout(net, 0.5)
+		    #~ net = slim.fully_connected(net, 4096, activation_fn = tf.nn.relu, scope='sgen_fc3')
 		    #~ net = slim.batch_norm(net, scope='sgen_bn3')
 		    #~ net = slim.dropout(net, 0.5)
-		    #~ net = slim.fully_connected(net, 4096, activation_fn = tf.nn.relu, scope='sgen_fc4')
+		    #~ net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc4')
 		    #~ net = slim.batch_norm(net, scope='sgen_bn4')
+		    #~ net = slim.dropout(net, 0.5)
+		    #~ net = slim.fully_connected(net, 2048 , activation_fn = tf.nn.relu, scope='sgen_fc5')
+		    #~ net = slim.batch_norm(net, scope='sgen_bn5')
 		    #~ net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
@@ -97,7 +101,7 @@ class DSN(object):
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs, 8, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+			net = slim.fully_connected(inputs,128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
@@ -146,9 +150,9 @@ class DSN(object):
 	
 	elif self.mode == 'train_sampler':
 				
-	    self.images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'svhn_images')
+	    self.images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'source_images')
 	    self.fx = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'features')
-	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+	    self.noise = tf.placeholder(tf.float32, [None, self.noise_dim], 'noise')
 	    self.labels = tf.placeholder(tf.int64, [None, self.no_classes ], 'labels_real')
 	    try:
 		self.dummy_fx = self.E(self.images)
@@ -167,8 +171,8 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    self.d_optimizer = tf.train.AdamOptimizer(0.0001)
-	    self.g_optimizer = tf.train.AdamOptimizer(0.0001)
+	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate)
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'disc_e' in var.name]
@@ -188,7 +192,7 @@ class DSN(object):
 		tf.summary.histogram(var.op.name, var)
         
 	elif self.mode == 'eval_dsn':
-            self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+            self.src_noise = tf.placeholder(tf.float32, [None, self.noise_dim], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, self.no_classes ], 'labels')
 	    self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'src_images')
 	    self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'trg_images')
@@ -200,10 +204,10 @@ class DSN(object):
 
 	elif self.mode == 'train_dsn':
 	    
-            self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+            self.src_noise = tf.placeholder(tf.float32, [None, self.noise_dim], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, self.no_classes ], 'labels')
-            self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'mnist_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'source_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'target_images')
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),self.no_classes )
