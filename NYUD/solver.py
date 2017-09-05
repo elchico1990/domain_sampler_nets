@@ -101,7 +101,7 @@ class Solver(object):
 	    
 	    print ('Loading pretrained vgg16...')
 	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
-	    # get rid of fc8
+	    # get rid of fc8 (and possibily fc7, for a more compact representation)
 	    variables_to_restore = [vv for vv in variables_to_restore if 'fc8' not in vv.name]	    
 	    variables_to_restore = [vv for vv in variables_to_restore if 'fc7' not in vv.name]	    
 
