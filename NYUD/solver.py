@@ -267,72 +267,60 @@ class Solver(object):
         tf.gfile.MakeDirs(self.log_dir)
 
 	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
-	    with tf.device('/gpu:2'):
 			    
-		# initialize G and D
-		tf.global_variables_initializer().run()
-		# restore variables of F
-		
-		print ('Loading pretrained model.')
-		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
-		variables_to_restore = tf.global_variables() 
-		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_model)
+	    # initialize G and D
+	    tf.global_variables_initializer().run()
+	    # restore variables of F
+	    
+	    print ('Loading Encoder.')
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+	    
+	    
+	    print ('Loading sample generator.')
+	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
 
-		#~ print ('Loading pretrained encoder disc.')
-		#~ variables_to_restore = slim.get_model_variables(scope='disc_e')
-		#~ restorer = tf.train.Saver(variables_to_restore)
-		#~ restorer.restore(sess, self.pretrained_sampler)
-		
-		
-		print ('Loading sample generator.')
-		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_sampler)
-		
+	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+	    saver = tf.train.Saver()
 
-		summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-		saver = tf.train.Saver()
-
-		print ('Start training.')
-		trg_count = 0
-		t = 0
+	    print ('Start training.')
+	    trg_count = 0
+	    t = 0
+	    
+	    
+	    noise_dim = model.noise_dim		
+	    
+	    for step in range(10000000):
 		
-		G_loss = 1.
-		DG_loss = 1.
+		trg_count += 1
+		t+=1
 		
-		noise_dim = model.noise_dim		
+		i = step % int(source_images.shape[0] / self.batch_size)
+		j = step % int(target_images.shape[0] / self.batch_size)
 		
-		for step in range(10000000):
-		    
-		    trg_count += 1
-		    t+=1
-		    
-		    i = step % int(source_images.shape[0] / self.batch_size)
-		    j = step % int(target_images.shape[0] / self.batch_size)
-		    
-		    src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
-		    src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size].astype(int),31)
-		    src_noise = utils.sample_Z(self.batch_size,noise_dim,'uniform')
-		    trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
-		    
-		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
-		    
-		    sess.run(model.E_train_op, feed_dict) 
-		    sess.run(model.DE_train_op, feed_dict) 
-		    
-		    if (step+1) % 10 == 0:
-			logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
-			summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
-			summary_writer.add_summary(summary, step)
-			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
-				   %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
+		src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
+		src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size].astype(int),model.no_classes)
+		src_noise = utils.sample_Z(self.batch_size,noise_dim,'uniform')
+		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
+		
+		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
+		
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict) 
+		
+		if (step+1) % 10 == 0:
+		    logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
+		    summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
+		    summary_writer.add_summary(summary, step)
+		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
+			       %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
-			
 
-		    if (step+1) % 20 == 0:
-			saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
+		if (step+1) % 20 == 0:
+		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
     def eval_dsn(self):
         # build model
