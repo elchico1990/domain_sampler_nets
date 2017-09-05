@@ -101,7 +101,11 @@ def conv_concat(x,y,mode='G'):
 		bz = tf.shape(x)[0]
 		y = tf.reshape(y, [bz, 1, 1, 10])
 		return tf.concat([x, y*tf.ones([bz, 32, 32, 10])], 3)
-	
+
+def lrelu(input, leak=0.2, scope='lrelu'):
+    
+    return tf.maximum(input, leak*input)
+
 if __name__=='__main__':
 	
 	computeTSNE()

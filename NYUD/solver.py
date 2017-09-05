@@ -138,7 +138,8 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict)
 		    
-		    
+		
+		# eval on a random batch
 		src_rand_idxs = np.random.permutation(src_images.shape[0])[:64]
 		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:64]
 		feed_dict={model.keep_prob : 1.0, model.src_images: src_images[src_rand_idxs], 
@@ -164,9 +165,7 @@ class Solver(object):
 	print 'Training sampler.'
         
 	source_images, source_labels = self.load_NYUD(split='source')
-	#~ source_images = source_images[:64]
 	source_labels = utils.one_hot(source_labels.astype(int), self.no_classes )
-	#~ source_labels = source_labels[:64]
         
         # build a graph
         model = self.model
@@ -203,7 +202,7 @@ class Solver(object):
 		source_fx = np.vstack((source_fx, np.squeeze(s_fx)))
 		#~ print(counter)
 		#~ counter+=1
-		
+	    assert source_fx.shape == (source_images.shape[0], model.hidden_repr_size)
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -226,7 +225,7 @@ class Solver(object):
 		
 		#~ print 'Epoch',str(i)
 		src_rand = np.random.permutation(source_images.shape[0])
-		source_images, source_labels = source_images[src_rand], source_labels[src_rand]
+		source_labels, source_fx = source_labels[src_rand], source_fx[src_rand]
 		
 		for start, end in zip(range(0, len(source_images), batch_size), range(batch_size, len(source_images), batch_size)):
 		    
@@ -249,7 +248,7 @@ class Solver(object):
 				   %(t+1, int(epochs*len(source_images) /batch_size), gl, dl))
 			print '\t avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
-                    if (t+1) % 1000 == 0:  
+                    if (t+1) % 5000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
 
     def train_dsn(self):

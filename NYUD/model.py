@@ -6,17 +6,18 @@ import tensorflow.contrib.slim as slim
 
 import numpy as np
 
+from utils import lrelu
 
 
 class DSN(object):
     """Domain Sampler Network
     """
-    def __init__(self, mode='train', learning_rate=0.0001):
+    def __init__(self, mode='train', learning_rate=0.00001):
         self.mode = mode
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 128
 	self.no_classes = 19
-	self.noise_dim = 200
+	self.noise_dim = 100
 
     
     def sampler_generator(self, z, y, reuse=False):
@@ -33,24 +34,24 @@ class DSN(object):
 	#~ inputs = z
 	
 	with tf.variable_scope('sampler_generator', reuse=reuse):
-	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.constant_initializer(0.01)):
+	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.constant_initializer(0.0)):
 		
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
-		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
+		    net = slim.fully_connected(inputs, 4096, activation_fn = tf.nn.relu, scope='sgen_fc1')
 		    net = slim.batch_norm(net, scope='sgen_bn1')
-		    #~ net = slim.dropout(net, 0.5)
-		    net = slim.fully_connected(net, 1024 , activation_fn = tf.nn.relu, scope='sgen_fc2')
+		    net = slim.dropout(net, 0.5)
+		    net = slim.fully_connected(net, 4096 , activation_fn = tf.nn.relu, scope='sgen_fc2')
 		    net = slim.batch_norm(net, scope='sgen_bn2')
-		    #~ net = slim.dropout(net, 0.5)
-		    #~ net = slim.fully_connected(net, 4096, activation_fn = tf.nn.relu, scope='sgen_fc3')
+		    net = slim.dropout(net, 0.5)
+		    #~ net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sgen_fc3')
 		    #~ net = slim.batch_norm(net, scope='sgen_bn3')
 		    #~ net = slim.dropout(net, 0.5)
-		    #~ net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sgen_fc4')
+		    #~ net = slim.fully_connected(inputs, 4096, activation_fn = tf.nn.relu, scope='sgen_fc4')
 		    #~ net = slim.batch_norm(net, scope='sgen_bn4')
 		    #~ net = slim.dropout(net, 0.5)
-		    #~ net = slim.fully_connected(net, 2048 , activation_fn = tf.nn.relu, scope='sgen_fc5')
+		    #~ net = slim.fully_connected(net, 4096 , activation_fn = tf.nn.relu, scope='sgen_fc5')
 		    #~ net = slim.batch_norm(net, scope='sgen_bn5')
 		    #~ net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
@@ -85,8 +86,8 @@ class DSN(object):
 		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
 		    ## differs from vgg
 		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', activation_fn=tf.tanh, scope='fc7')
-		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
+			#~ net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
 			net = slim.conv2d(net, self.no_classes , [1,1], activation_fn=None, scope='fc8')
 			
 	return net
@@ -98,11 +99,11 @@ class DSN(object):
 	with tf.variable_scope('disc_e',reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
+                                    activation_fn=lrelu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs,128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
+			net = slim.fully_connected(inputs,128, activation_fn = lrelu, scope='sdisc_fc1')
+			#~ net = slim.fully_connected(net, 64, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
