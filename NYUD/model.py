@@ -119,7 +119,7 @@ class DSN(object):
             self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'target_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'source_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'target_labels')
-	    self.keep_prob = tf.placeholder(tf.float32)
+	    #~ self.keep_prob = tf.placeholder(tf.float32)
 	    
 	    self.src_logits = self.E(self.src_images, is_training = True)
 		
@@ -212,6 +212,14 @@ class DSN(object):
 	    
 	    self.trg_logits = tf.squeeze(self.E(self.trg_images, make_preds=True))
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_logits,1),self.no_classes )
+	    
+	    #################
+	    #temporarily added just to print out test accuracy during dsn training
+	    self.trg_pred = tf.argmax(tf.squeeze(self.trg_logits), 1) #logits are [self.no_classes ,1,1,8], need to squeeze
+	    self.target_labels = tf.placeholder(tf.int64, [None], 'target_labels')
+            self.trg_correct_pred = tf.equal(self.trg_pred, self.target_labels)
+            self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
+	    #################
 	    
 	    self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
 	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
