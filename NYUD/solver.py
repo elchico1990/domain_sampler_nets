@@ -319,7 +319,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
 
-		if (step+1) % 20 == 0:
+		if (step+1) % 100 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
     def eval_dsn(self):
@@ -500,49 +500,50 @@ class Solver(object):
 		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
-		    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
-		    variables_to_restore = tf.global_variables() 
-		    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['Adam','encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
+		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.test_model)
+		    print ('Done!')
 		
 		elif sys.argv[1] == 'pretrain':
 		    print ('Loading pretrained model.')
-		    variables_to_restore = tf.global_variables()
+		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.pretrained_model)
+		    print ('Done!')
+
 		    
 		else:
 		    raise NameError('Unrecognized mode.')
 	    
-		
 		# Eval on target
 		trg_acc = 0.
-		num_batches = 0
-		for start, end in zip(range(0, len(trg_labels), self.batch_size), range(self.batch_size, len(trg_labels), self.batch_size)):
-		    feed_dict = {model.keep_prob : 1.0,    model.src_images: src_images[0:2], 
-							    model.src_labels: src_labels[0:2], 
-							    model.trg_images: trg_images[start:end], 
-							    model.trg_labels: trg_labels[start:end]}
-		    trg_acc_ = sess.run(fetches=[model.trg_accuracy], feed_dict=feed_dict)
-		    trg_acc += trg_acc_[0]
-		    num_batches += 1
-		print ('trg acc [%.4f]' %(trg_acc/num_batches))
-		#
+		for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
+						np.array_split(trg_labels, 40),
+						):
+		    feed_dict = {model.keep_prob : 1.0, model.src_images: src_images[0:2],  #dummy
+							    model.src_labels: src_labels[0:2], #dummy
+							    model.trg_images: trg_im, 
+							    model.trg_labels: trg_lab}
+		    trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+		    trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		    
+		print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
+		
 			
 		# Eval on source
 		src_acc = 0.
-		num_batches = 0
-		for start, end in zip(range(0, len(src_labels), self.batch_size), range(self.batch_size, len(src_labels), self.batch_size)):
-		    feed_dict = {model.keep_prob : 1.0,    model.src_images: src_images[start:end], 
-							    model.src_labels: src_labels[start:end], 
+		for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
+						np.array_split(src_labels, 40),
+						):
+		    feed_dict = {model.keep_prob : 1.0, model.src_images: src_im,  #dummy
+							    model.src_labels: src_lab, #dummy
 							    model.trg_images: trg_images[0:2], 
-							    model.trg_labels: trg_labels[0:2]}
-		    src_acc_ = sess.run(fetches=[model.src_accuracy], feed_dict=feed_dict)
-		    src_acc += src_acc_[0]
-		    num_batches += 1
-		print ('src acc [%.4f]' %(src_acc/num_batches))
-		#
+							    model.trg_labels: trg_lab[0:2]}
+		    src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
+		    src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
+		    
+		print ('src acc [%.4f]' %(src_acc/len(src_labels)))
 	
 		time.sleep(5)
 	    

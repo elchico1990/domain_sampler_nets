@@ -105,9 +105,9 @@ class DSN(object):
 			net = slim.fully_connected(inputs,128, activation_fn = lrelu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn':
-			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-			#~ net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc3')
+			net = slim.fully_connected(inputs, 1024, activation_fn = lrelu, scope='sdisc_fc1')
+			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc2')
+			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 
