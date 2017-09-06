@@ -92,21 +92,19 @@ def knn(X_test, X_ref, Y_ref, K = 5):
 		
 	return preds
 	
-def conv_concat(x,y,bz = 16):
-     	    
-    """Concatenate conditioning vector on feature map axis."""
-    x_shapes = x.get_shape()
-    y_shapes = y.get_shape()
-    return tf.concat([x, y*tf.ones([bz, x_shapes[1], x_shapes[2], 19])], axis=3)
-
+def conv_concat(x,y,mode='G'):
+	if mode=='G':
+		bz = tf.shape(x)[0]
+		y = tf.reshape(y, [bz, 1, 1, 10])
+		return tf.concat([x, y*tf.ones([bz, 1, 1, 10])], 3)
+	if mode =='D':
+		bz = tf.shape(x)[0]
+		y = tf.reshape(y, [bz, 1, 1, 10])
+		return tf.concat([x, y*tf.ones([bz, 32, 32, 10])], 3)
 
 def lrelu(input, leak=0.2, scope='lrelu'):
     
     return tf.maximum(input, leak*input)
-
-def scaled_tanh(input, scope='scaled_tanh'):
-    
-    return tf.tanh(input) * 255.
 
 if __name__=='__main__':
 	

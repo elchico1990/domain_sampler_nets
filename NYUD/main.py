@@ -9,7 +9,7 @@ FLAGS = flags.FLAGS
 def main(_):
     
     model = DSN(mode=FLAGS.mode, learning_rate=0.0001)
-    solver = Solver(model, batch_size=16)
+    solver = Solver(model, batch_size=32)
 
     
     if FLAGS.mode == 'pretrain':
