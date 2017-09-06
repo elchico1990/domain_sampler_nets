@@ -152,9 +152,6 @@ class DSN(object):
     def D_g(self, images, labels, reuse=False):
 	
 	labels = tf.reshape(labels, [-1, 1, 1, self.no_classes])
-
-	#~ if images.get_shape()[3] == 3:
-            #~ images = tf.image.rgb_to_grayscale(images)
 	
 	images = conv_concat(images, labels)
 	
