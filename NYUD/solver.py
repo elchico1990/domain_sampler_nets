@@ -446,8 +446,8 @@ class Solver(object):
         with tf.Session(config=self.config) as sess:
             # initialize G and D
             tf.global_variables_initializer().run()
-		
-	    if sys.argv[2] in ['2', '3']:
+	    
+	    if sys.argv[2] == '2':
 		print ('Loading sampler.')
 		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
 		restorer = tf.train.Saver(variables_to_restore)
@@ -467,6 +467,8 @@ class Solver(object):
 		
 	    else:
 		raise NameError('Unrecognized mode.')
+	    
+            
 
 	    n_samples = len(source_labels)# Some trg samples are discarded 
 	    target_images = target_images[:n_samples]
@@ -529,7 +531,12 @@ class Solver(object):
 		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
 	        plt.figure(3)
                 plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
+
+	    elif sys.argv[2] == '4':
+		TSNE_hA = model.fit_transform(h_repr)
+	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.argmax(trg_labels,1), s=3,  cmap = mpl.cm.jet)
 		
+
 	    plt.show()
 	    
     def test(self):
