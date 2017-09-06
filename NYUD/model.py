@@ -116,7 +116,7 @@ class DSN(object):
 
     def G(self, inputs, labels, reuse=False, do_reshape=False):
 	
-	labels = tf.reshape(labels, [-1, 1, 1, 10])
+	labels = tf.reshape(labels, [-1, 1, 1, self.no_classes])
 	
 	if inputs.get_shape()[1] != 1:
 	    inputs = tf.expand_dims(inputs, 1)
@@ -151,7 +151,7 @@ class DSN(object):
 	
     def D_g(self, images, labels, reuse=False):
 	
-	labels = tf.reshape(labels, [-1, 1, 1, 10])
+	labels = tf.reshape(labels, [-1, 1, 1, self.no_classes])
 
 	#~ if images.get_shape()[3] == 3:
             #~ images = tf.image.rgb_to_grayscale(images)
@@ -181,7 +181,7 @@ class DSN(object):
     
     def build_model(self):
               
-        if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'test_ensemble':
+        if self.mode == 'pretrain' or self.mode == 'test':
             
 	    self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'source_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'target_images')
@@ -327,8 +327,6 @@ class DSN(object):
                 self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
                 self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
 		
-	    
-            
             # summary op
             E_loss_summary = tf.summary.scalar('E_loss', self.E_loss)
             DE_loss_summary = tf.summary.scalar('DE_loss', self.DE_loss)
