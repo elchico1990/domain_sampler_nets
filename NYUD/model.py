@@ -57,6 +57,7 @@ class DSN(object):
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
+		    
     def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
 	
 	#~ _mode = self.mode == 'eval_dsn'
@@ -91,6 +92,7 @@ class DSN(object):
 			net = slim.conv2d(net, self.no_classes , [1,1], activation_fn=None, scope='fc8')
 			
 	return net
+	
 			    
     def D_e(self, inputs, y, reuse=False):
 		
@@ -110,7 +112,73 @@ class DSN(object):
 			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
+		    
 
+    def G(self, inputs, labels, reuse=False, do_reshape=False):
+	
+	labels = tf.reshape(labels, [-1, 1, 1, 10])
+	
+	if inputs.get_shape()[1] != 1:
+	    inputs = tf.expand_dims(inputs, 1)
+	    inputs = tf.expand_dims(inputs, 1)
+	
+	inputs = conv_concat(inputs, labels)
+	
+        with tf.variable_scope('generator', reuse=reuse):
+            with slim.arg_scope([slim.conv2d_transpose], padding='SAME', activation_fn=None,           
+                                 stride=2, weights_initializer=tf.contrib.layers.xavier_initializer()):
+                with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_dsn')):
+
+                    net = slim.conv2d_transpose(inputs, 512, [7, 7], padding='VALID', scope='conv_transpose1')   # (batch_size, 7, 7, #)
+                    net = slim.batch_norm(net, scope='bn1')
+		    net = conv_concat(net, labels)
+                    net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 14, 14, #)
+                    net = slim.batch_norm(net, scope='bn2')
+                    net = conv_concat(net, labels)
+		    net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 28, 28, #)
+                    net = slim.batch_norm(net, scope='bn3')
+                    net = conv_concat(net, labels)
+		    net = slim.conv2d_transpose(net, 64, [3, 3], scope='conv_transpose4')  # (batch_size, 56, 56, #)
+                    net = slim.batch_norm(net, scope='bn4')
+                    net = conv_concat(net, labels)
+		    net = slim.conv2d_transpose(net, 32, [3, 3], scope='conv_transpose5')  # (batch_size, 112, 112, #)
+                    net = slim.batch_norm(net, scope='bn5')
+                    net = conv_concat(net, labels)
+		    net = slim.conv2d_transpose(net, 3, [3, 3], activation_fn=tf.tanh, scope='conv_transpose6')   # (batch_size, 224, 224, 3)
+		    return net
+	
+	
+    def D_g(self, images, labels, reuse=False):
+	
+	labels = tf.reshape(labels, [-1, 1, 1, 10])
+
+	#~ if images.get_shape()[3] == 3:
+            #~ images = tf.image.rgb_to_grayscale(images)
+	
+	images = conv_concat(images, labels)
+	
+        # images: (batch, 32, 32, 1)
+        with tf.variable_scope('disc_g', reuse=reuse):
+            with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
+                                 stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
+                with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+                                    activation_fn=lrelu, is_training=(self.mode=='train_dsn')):
+                    
+                    net = slim.conv2d(images, 128, [3, 3], scope='conv1')   # (batch_size, 14, 14 128)
+                    net = slim.batch_norm(net, scope='bn1')
+		    net = conv_concat(net, labels)
+                    net = slim.conv2d(net, 256, [3, 3], scope='conv2')   # (batch_size, 7, 7, 256)
+                    net = slim.batch_norm(net, scope='bn2')
+		    net = conv_concat(net, labels)
+                    net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 7, 7, 256)
+                    net = slim.batch_norm(net, scope='bn3')
+		    net = conv_concat(net, labels)
+                    net = slim.flatten(net)
+		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
+		    return net	    
+    
+    
     def build_model(self):
               
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'test_ensemble':
