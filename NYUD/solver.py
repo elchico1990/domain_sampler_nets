@@ -283,13 +283,12 @@ class Solver(object):
 
     def train_dsn(self):
         
-	source_images, source_labels = self.load_NYUD(split='source')
-        target_images, target_labels = self.load_NYUD(split='target')
-	
-
         # build a graph
         model = self.model
         model.build_model()
+
+	source_images, source_labels = self.load_NYUD(split='source')
+        target_images, target_labels = self.load_NYUD(split='target')
 
         # make directory if not exists
         if tf.gfile.Exists(self.log_dir):
@@ -302,10 +301,15 @@ class Solver(object):
 	    tf.global_variables_initializer().run()
 	    # restore variables of F
 	    
-	    print ('Loading Encoder.')
+	    #~ print ('Loading Pretrained Encoder.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.pretrained_model)
+	    
+	    print ('Loading Test Encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_model)
+	    restorer.restore(sess, self.test_model)
 	    
 	    
 	    print ('Loading sample generator.')
@@ -323,6 +327,9 @@ class Solver(object):
 	    
 	    noise_dim = model.noise_dim		
 	    
+	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]),model.no_classes)
+	    label_gen = np.matlib.repmat(label_gen,5,1)
+	    
 	    for step in range(10000000):
 		
 		trg_count += 1
@@ -336,31 +343,45 @@ class Solver(object):
 		src_noise = utils.sample_Z(self.batch_size,noise_dim,'uniform')
 		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
 		
-		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
+		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
-		sess.run(model.E_train_op, feed_dict) 
-		sess.run(model.DE_train_op, feed_dict) 
+		#~ sess.run(model.E_train_op, feed_dict) 
+		#~ sess.run(model.DE_train_op, feed_dict)
+		
+		
+		
+		#~ sess.run(model.G_train_op, feed_dict)
+		#~ sess.run(model.DG_train_op, feed_dict) 
+		sess.run(model.const_train_op, feed_dict) 
+		
+
 		
 		if (step+1) % 10 == 0:
-		    logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
-		    summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
+		    summary, E, DE, G, DG, cnst, logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.summary_op, 
+															model.E_loss, model.DE_loss, 
+															model.G_loss, model.DG_loss, 
+															model.const_loss, 
+															model.logits_E_real,
+															model.logits_E_fake,
+															model.logits_G_real,
+															model.logits_G_fake], feed_dict)
 		    summary_writer.add_summary(summary, step)
-		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
-			       %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
+		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
+			       %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
 
 
-		if (step+1) % 50 == 0:
-		    trg_acc = 0.
-		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
-						np.array_split(target_labels, 40),
-						):
-			feed_dict = {model.src_images: src_images[0:2],  #dummy
-					model.src_labels: src_labels[0:2], #dummy
-					model.trg_images: trg_im, 
-					model.target_labels: trg_lab}
-			trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
-			trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
-		    print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
+		#~ if (step+1) % 50 == 0:
+		    #~ trg_acc = 0.
+		    #~ for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
+						#~ np.array_split(target_labels, 40),
+						#~ ):
+			#~ feed_dict = {model.src_images: src_images[0:2],  #dummy
+					#~ model.src_labels: src_labels[0:2], #dummy
+					#~ model.trg_images: trg_im, 
+					#~ model.target_labels: trg_lab}
+			#~ trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+			#~ trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		    #~ print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
 		    
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
