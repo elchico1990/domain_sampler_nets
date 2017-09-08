@@ -8,7 +8,7 @@ FLAGS = flags.FLAGS
 
 def main(_):
     
-    model = DSN(mode=FLAGS.mode, learning_rate=0.0001)
+    model = DSN(mode=FLAGS.mode, learning_rate=0.000005)
     solver = Solver(model, batch_size=32)
 
     

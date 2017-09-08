@@ -139,56 +139,55 @@ class Solver(object):
 		    sess.run(model.train_op, feed_dict)
 		    
 		
-		# eval on a random batch
-		#~ src_rand_idxs = np.random.permutation(src_images.shape[0])[:64]
-		#~ trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:64]
-		#~ feed_dict={model.src_images: src_images[src_rand_idxs], 
-			    #~ model.src_labels: src_labels[src_rand_idxs],
-			    #~ model.trg_images: trg_images[trg_rand_idxs], 
-			    #~ model.trg_labels: trg_labels[trg_rand_idxs]}
+		#~ # eval on a random batch
+		src_rand_idxs = np.random.permutation(src_images.shape[0])[:64]
+		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:64]
+		feed_dict={model.src_images: src_images[src_rand_idxs], 
+			    model.src_labels: src_labels[src_rand_idxs],
+			    model.trg_images: trg_images[trg_rand_idxs], 
+			    model.trg_labels: trg_labels[trg_rand_idxs]}
 						
-		#~ src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, 
-							#~ model.trg_accuracy],
-							#~ feed_dict=feed_dict)
+		src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, 
+							model.trg_accuracy],
+							feed_dict=feed_dict)
 									
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
 		summary_writer.add_summary(summary, t)
-		#~ print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f] ' \
-			   #~ %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
+		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f] ' \
+			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
 		
-		# Eval on target
-		trg_acc = 0.
-		for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
-						np.array_split(trg_labels, 40),
-						):
-		    feed_dict = {model.src_images: src_images[0:2],  #dummy
-				    model.src_labels: src_labels[0:2], #dummy
-				    model.trg_images: trg_im, 
-				    model.trg_labels: trg_lab}
-		    trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
-		    trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		#~ # Eval on target
+		#~ trg_acc = 0.
+		#~ for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
+						#~ np.array_split(trg_labels, 40),
+						#~ ):
+		    #~ feed_dict = {model.src_images: src_images[0:2],  #dummy
+				    #~ model.src_labels: src_labels[0:2], #dummy
+				    #~ model.trg_images: trg_im, 
+				    #~ model.trg_labels: trg_lab}
+		    #~ trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+		    #~ trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    
-		print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
+		#~ print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
 		
 			
-		# Eval on source
-		src_acc = 0.
-		for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
-						np.array_split(src_labels, 40),
-						):
-		    feed_dict = {model.src_images: src_im,
-				    model.src_labels: src_lab,
-				    model.trg_images: trg_images[0:2], #dummy
-				    model.trg_labels: trg_lab[0:2]}#dummy
-		    src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
-		    src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
+		#~ # Eval on source
+		#~ src_acc = 0.
+		#~ for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
+						#~ np.array_split(src_labels, 40),
+						#~ ):
+		    #~ feed_dict = {model.src_images: src_im,
+				    #~ model.src_labels: src_lab,
+				    #~ model.trg_images: trg_images[0:2], #dummy
+				    #~ model.trg_labels: trg_lab[0:2]}#dummy
+		    #~ src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
+		    #~ src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
 		    
-		print ('src acc [%.4f]' %(src_acc/len(src_labels)))
+		#~ print ('src acc [%.4f]' %(src_acc/len(src_labels)))
 			   
-		saver.save(sess, os.path.join(self.model_save_path, 'model'))
+		#~ saver.save(sess, os.path.join(self.model_save_path, 'model'))
 		
-		if l<0.01 and src_acc == 1.0 and trg_acc>0.135 and trg_acc<0.145:
-		    break
+		
     
     def train_sampler(self):
 	
@@ -349,7 +348,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
 
-		if (step+1) % 50 == 0:
+		if (step+1) % 20 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
