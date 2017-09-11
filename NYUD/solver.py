@@ -101,7 +101,7 @@ class Solver(object):
 	    
 	    print ('Loading pretrained vgg16...')
 	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
-	    # get rid of fc8
+	    # get rid of fc8 (and possibily fc7, for a more compact representation)
 	    variables_to_restore = [vv for vv in variables_to_restore if 'fc8' not in vv.name]	    
 	    variables_to_restore = [vv for vv in variables_to_restore if 'fc7' not in vv.name]	    
 
@@ -132,41 +132,69 @@ class Solver(object):
 		    t+=1
 		    #~ print(t)
 		    
-		    feed_dict = {model.keep_prob : 0.5, model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
-						model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} 
-						#trg here is just needed by the model but actually useless for training. 
+		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], 
+				    model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} 
+				    #trg here is just needed by the model but actually useless for training. 
 		    
 		    sess.run(model.train_op, feed_dict)
 		    
-		    
+		
+		#~ # eval on a random batch
 		src_rand_idxs = np.random.permutation(src_images.shape[0])[:64]
 		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:64]
-		feed_dict={model.keep_prob : 1.0, model.src_images: src_images[src_rand_idxs], 
-						model.src_labels: src_labels[src_rand_idxs],
-						model.trg_images: trg_images[trg_rand_idxs], 
-						model.trg_labels: trg_labels[trg_rand_idxs]}
+		feed_dict={model.src_images: src_images[src_rand_idxs], 
+			    model.src_labels: src_labels[src_rand_idxs],
+			    model.trg_images: trg_images[trg_rand_idxs], 
+			    model.trg_labels: trg_labels[trg_rand_idxs]}
 						
-		src_acc, trg_acc, trg_pred, trg_labs = sess.run(fetches=[model.src_accuracy, 
-									model.trg_accuracy, 
-									model.trg_pred, 
-									model.trg_labels],
-									feed_dict=feed_dict)
+		src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, 
+							model.trg_accuracy],
+							feed_dict=feed_dict)
 									
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
 		summary_writer.add_summary(summary, t)
 		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f] ' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
+		
+		#~ # Eval on target
+		#~ trg_acc = 0.
+		#~ for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
+						#~ np.array_split(trg_labels, 40),
+						#~ ):
+		    #~ feed_dict = {model.src_images: src_images[0:2],  #dummy
+				    #~ model.src_labels: src_labels[0:2], #dummy
+				    #~ model.trg_images: trg_im, 
+				    #~ model.trg_labels: trg_lab}
+		    #~ trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+		    #~ trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		    
+		#~ print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
+		
+			
+		#~ # Eval on source
+		#~ src_acc = 0.
+		#~ for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
+						#~ np.array_split(src_labels, 40),
+						#~ ):
+		    #~ feed_dict = {model.src_images: src_im,
+				    #~ model.src_labels: src_lab,
+				    #~ model.trg_images: trg_images[0:2], #dummy
+				    #~ model.trg_labels: trg_lab[0:2]}#dummy
+		    #~ src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
+		    #~ src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
+		    
+		#~ print ('src acc [%.4f]' %(src_acc/len(src_labels)))
 			   
-		saver.save(sess, os.path.join(self.model_save_path, 'model'))
+		#~ saver.save(sess, os.path.join(self.model_save_path, 'model'))
+		
+		
     
     def train_sampler(self):
 	
 	print 'Training sampler.'
         
 	source_images, source_labels = self.load_NYUD(split='source')
-	#~ source_images = source_images[:64]
 	source_labels = utils.one_hot(source_labels.astype(int), self.no_classes )
-	#~ source_labels = source_labels[:64]
         
         # build a graph
         model = self.model
@@ -178,7 +206,7 @@ class Solver(object):
         tf.gfile.MakeDirs(self.log_dir)
 	
 	batch_size = self.batch_size
-	noise_dim = 100
+	noise_dim = model.noise_dim
 	epochs = 500000
 	
 	## Computing latent representation for the source split
@@ -203,7 +231,7 @@ class Solver(object):
 		source_fx = np.vstack((source_fx, np.squeeze(s_fx)))
 		#~ print(counter)
 		#~ counter+=1
-		
+	    assert source_fx.shape == (source_images.shape[0], model.hidden_repr_size)
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -225,6 +253,8 @@ class Solver(object):
 	    for i in range(epochs):
 		
 		#~ print 'Epoch',str(i)
+		src_rand = np.random.permutation(source_images.shape[0])
+		source_labels, source_fx = source_labels[src_rand], source_fx[src_rand]
 		
 		for start, end in zip(range(0, len(source_images), batch_size), range(batch_size, len(source_images), batch_size)):
 		    
@@ -243,11 +273,11 @@ class Solver(object):
 		    if (t+1) % 250 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
-				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
-			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
+			print ('Step: [%d/%d] g_loss: [%.6f] d_loss: [%.6f]' \
+				   %(t+1, int(epochs*len(source_images) /batch_size), gl, dl))
+			print '\t avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
-                    if (t+1) % 1000 == 0:  
+                    if (t+1) % 5000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
 
     def train_dsn(self):
@@ -266,72 +296,72 @@ class Solver(object):
         tf.gfile.MakeDirs(self.log_dir)
 
 	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
-	    with tf.device('/gpu:2'):
 			    
-		# initialize G and D
-		tf.global_variables_initializer().run()
-		# restore variables of F
-		
-		print ('Loading pretrained model.')
-		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
-		variables_to_restore = tf.global_variables() 
-		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_model)
+	    # initialize G and D
+	    tf.global_variables_initializer().run()
+	    # restore variables of F
+	    
+	    print ('Loading Encoder.')
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+	    
+	    
+	    print ('Loading sample generator.')
+	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
 
-		#~ print ('Loading pretrained encoder disc.')
-		#~ variables_to_restore = slim.get_model_variables(scope='disc_e')
-		#~ restorer = tf.train.Saver(variables_to_restore)
-		#~ restorer.restore(sess, self.pretrained_sampler)
-		
-		
-		print ('Loading sample generator.')
-		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, self.pretrained_sampler)
-		
+	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+	    saver = tf.train.Saver()
 
-		summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-		saver = tf.train.Saver()
-
-		print ('Start training.')
-		trg_count = 0
-		t = 0
+	    print ('Start training.')
+	    trg_count = 0
+	    t = 0
+	    
+	    
+	    noise_dim = model.noise_dim		
+	    
+	    for step in range(10000000):
 		
-		G_loss = 1.
-		DG_loss = 1.
+		trg_count += 1
+		t+=1
 		
-		noise_dim = 100		
+		i = step % int(source_images.shape[0] / self.batch_size)
+		j = step % int(target_images.shape[0] / self.batch_size)
 		
-		for step in range(10000000):
-		    
-		    trg_count += 1
-		    t+=1
-		    
-		    i = step % int(source_images.shape[0] / self.batch_size)
-		    j = step % int(target_images.shape[0] / self.batch_size)
-		    
-		    src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
-		    src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size].astype(int),31)
-		    src_noise = utils.sample_Z(self.batch_size,100,'uniform')
-		    trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
-		    
-		    feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
-		    
-		    sess.run(model.E_train_op, feed_dict) 
-		    sess.run(model.DE_train_op, feed_dict) 
-		    
-		    if (step+1) % 10 == 0:
-			logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
-			summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
-			summary_writer.add_summary(summary, step)
-			print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
-				   %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
+		src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
+		src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size].astype(int),model.no_classes)
+		src_noise = utils.sample_Z(self.batch_size,noise_dim,'uniform')
+		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
+		
+		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
+		
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict) 
+		
+		if (step+1) % 10 == 0:
+		    logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
+		    summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
+		    summary_writer.add_summary(summary, step)
+		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
+			       %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
-			
 
-		    if (step+1) % 20 == 0:
-			saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
+		if (step+1) % 20 == 0:
+		    trg_acc = 0.
+		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
+						np.array_split(target_labels, 40),
+						):
+			feed_dict = {model.src_images: src_images[0:2],  #dummy
+					model.src_labels: src_labels[0:2], #dummy
+					model.trg_images: trg_im, 
+					model.target_labels: trg_lab}
+			trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+			trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		    print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
+		    
+		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
     def eval_dsn(self):
         # build model
@@ -362,7 +392,7 @@ class Solver(object):
 
 	    # train model for source domain S
 	    src_labels = utils.one_hot(source_labels[:1000],10)
-	    src_noise = utils.sample_Z(1000,100,'uniform')
+	    src_noise = utils.sample_Z(1000,model.noise_dim,'uniform')
 
 	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
@@ -394,11 +424,12 @@ class Solver(object):
         with tf.Session(config=self.config) as sess:
             # initialize G and D
             tf.global_variables_initializer().run()
-	    
-	    print ('Loading sampler.')
-	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_sampler)
+		
+	    if sys.argv[2] in ['2', '3']:
+		print ('Loading sampler.')
+		variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, self.pretrained_sampler)
 	    
 	    if sys.argv[1] == 'test':
 		print ('Loading test model.')
@@ -414,8 +445,6 @@ class Solver(object):
 		
 	    else:
 		raise NameError('Unrecognized mode.')
-	    
-            
 
 	    n_samples = len(source_labels)# Some trg samples are discarded 
 	    target_images = target_images[:n_samples]
@@ -425,7 +454,7 @@ class Solver(object):
 	    src_labels = utils.one_hot(source_labels.astype(int),self.no_classes )
 	    trg_labels = utils.one_hot(target_labels.astype(int),self.no_classes )
 	    
-	    src_noise = utils.sample_Z(n_samples,100,'uniform')
+	    src_noise = utils.sample_Z(n_samples,model.noise_dim,'uniform')
 
 	    fzy = np.empty((0,model.hidden_repr_size))
 	    fx_src = np.empty((0,model.hidden_repr_size))
@@ -478,12 +507,7 @@ class Solver(object):
 		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=3,  cmap = mpl.cm.jet)
 	        plt.figure(3)
                 plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=3,  cmap = mpl.cm.jet)
-
-	    elif sys.argv[2] == '4':
-		TSNE_hA = model.fit_transform(h_repr)
-	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.argmax(trg_labels,1), s=3,  cmap = mpl.cm.jet)
 		
-
 	    plt.show()
 	    
     def test(self):
@@ -510,49 +534,50 @@ class Solver(object):
 		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
-		    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
-		    variables_to_restore = tf.global_variables() 
-		    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['Adam','encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
+		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.test_model)
+		    print ('Done!')
 		
 		elif sys.argv[1] == 'pretrain':
 		    print ('Loading pretrained model.')
-		    variables_to_restore = tf.global_variables()
+		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.pretrained_model)
+		    print ('Done!')
+
 		    
 		else:
 		    raise NameError('Unrecognized mode.')
 	    
-		
 		# Eval on target
 		trg_acc = 0.
-		num_batches = 0
-		for start, end in zip(range(0, len(trg_labels), self.batch_size), range(self.batch_size, len(trg_labels), self.batch_size)):
-		    feed_dict = {model.keep_prob : 1.0,    model.src_images: src_images[0:2], 
-							    model.src_labels: src_labels[0:2], 
-							    model.trg_images: trg_images[start:end], 
-							    model.trg_labels: trg_labels[start:end]}
-		    trg_acc_ = sess.run(fetches=[model.trg_accuracy], feed_dict=feed_dict)
-		    trg_acc += trg_acc_[0]
-		    num_batches += 1
-		print ('trg acc [%.4f]' %(trg_acc/num_batches))
-		#
+		for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
+						np.array_split(trg_labels, 40),
+						):
+		    feed_dict = {model.src_images: src_images[0:2],  #dummy
+				    model.src_labels: src_labels[0:2], #dummy
+				    model.trg_images: trg_im, 
+				    model.trg_labels: trg_lab}
+		    trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+		    trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		    
+		print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
+		
 			
 		# Eval on source
 		src_acc = 0.
-		num_batches = 0
-		for start, end in zip(range(0, len(src_labels), self.batch_size), range(self.batch_size, len(src_labels), self.batch_size)):
-		    feed_dict = {model.keep_prob : 1.0,    model.src_images: src_images[start:end], 
-							    model.src_labels: src_labels[start:end], 
-							    model.trg_images: trg_images[0:2], 
-							    model.trg_labels: trg_labels[0:2]}
-		    src_acc_ = sess.run(fetches=[model.src_accuracy], feed_dict=feed_dict)
-		    src_acc += src_acc_[0]
-		    num_batches += 1
-		print ('src acc [%.4f]' %(src_acc/num_batches))
-		#
+		for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
+						np.array_split(src_labels, 40),
+						):
+		    feed_dict = {model.src_images: src_im,
+				    model.src_labels: src_lab,
+				    model.trg_images: trg_images[0:2], #dummy
+				    model.trg_labels: trg_lab[0:2]}#dummy
+		    src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
+		    src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
+		    
+		print ('src acc [%.4f]' %(src_acc/len(src_labels)))
 	
 		time.sleep(5)
 	    

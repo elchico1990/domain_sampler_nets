@@ -1,2 +1,0 @@
-rm model/*
-rm logs/*
