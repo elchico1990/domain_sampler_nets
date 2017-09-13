@@ -59,9 +59,9 @@ class DSN(object):
 		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
 		    net = tf.contrib.layers.flatten(net)
 		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
-		    net = slim.dropout(net, 0.5, is_training=is_training)
+		    net = slim.dropout(net, 0.5, is_training=(self.mode=='pretrain' or is_training))
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
-		    net = slim.dropout(net, 0.5, is_training=is_training)
+		    net = slim.dropout(net, 0.5, is_training=(self.mode=='pretrain' or is_training))
 		    if (self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
@@ -131,9 +131,9 @@ class DSN(object):
                     net = slim.conv2d(images, 128, [3, 3], scope='conv2')   # (batch_size, 7, 7, 256)
                     net = slim.batch_norm(net, scope='bn2')
 		    net = conv_concat(net, labels)
-                    net = slim.conv2d(net, 256, [3, 3], scope='conv3')   # (batch_size, 7, 7, 256)
-                    net = slim.batch_norm(net, scope='bn3')
-		    net = conv_concat(net, labels)
+                    #~ net = slim.conv2d(net, 256, [3, 3], scope='conv3')   # (batch_size, 7, 7, 256)
+                    #~ net = slim.batch_norm(net, scope='bn3')
+		    #~ net = conv_concat(net, labels)
                     net = slim.flatten(net)
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
 		    return net

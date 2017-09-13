@@ -152,7 +152,7 @@ class Solver(object):
 	print 'Loading generated images.'
 	
 	no_images = 0
-	v_threshold = 8
+	v_threshold = 8.
 	for l in range(10):
 	    counter = 0
 	    img_files = sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))
@@ -317,8 +317,8 @@ class Solver(object):
 
 	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	target_images, target_labels = self.load_usps(self.usps_dir, split='train')
-	target_images = target_images[3200:4800]
-	target_labels = target_labels[3200:4800]
+	target_images = target_images[:1600]
+	target_labels = target_labels[:1600]
 	
         # build a graph
         model = self.model
@@ -450,7 +450,8 @@ class Solver(object):
 		    
     def train_gen_images(self):
         # load svhn dataset
-        src_images, src_labels = self.load_gen_images()
+        #~ src_images, src_labels = self.load_gen_images()
+	src_images, src_labels = self.load_usps(self.usps_dir, split='train')
 	trg_images, trg_labels = self.load_usps(self.usps_dir, split='test')
 	val_trg_images, val_trg_labels = self.load_usps(self.usps_dir, split='validation')
 	
