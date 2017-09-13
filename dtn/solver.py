@@ -105,7 +105,7 @@ class Solver(object):
 	elif split == 'test':
 	    return images[7291:], np.squeeze(labels[7291:]).astype(int)
 
-    def load_gen_images_no(self):
+    def load_gen_images_no(self, images_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'):
 	
 	'''
 	Loading images generated with eval_dsn()
@@ -115,7 +115,7 @@ class Solver(object):
 	
 	print 'Loading generated images.'
 	
-	no_images = 18000 # number of images per digit
+	no_images = 1000 # number of images per digit
 	
 	labels = np.zeros((10 * no_images,)).astype(int)
 	images = np.zeros((10 * no_images,28,28,1))
@@ -123,7 +123,7 @@ class Solver(object):
 	for l in range(10):
 	    print l
 	    counter = 0
-	    for img_dir in sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))[:no_images]:
+	    for img_dir in sorted(glob.glob(images_dir+str(l)+'/*'))[:no_images]:
 		im = misc.imread(img_dir, mode='L')
 		im = np.expand_dims(im, axis=0)
 		im = np.expand_dims(im, axis=3)
@@ -141,7 +141,7 @@ class Solver(object):
 	images = images / 127.5 - 1
 	return images, labels
 	
-    def load_gen_images(self):
+    def load_gen_images(self, images_dir='/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'):
 	
 	'''
 	Loading images generated with eval_dsn()
@@ -155,18 +155,19 @@ class Solver(object):
 	v_threshold = 8.
 	for l in range(10):
 	    counter = 0
-	    img_files = sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))
+	    img_files = sorted(glob.glob(images_dir+str(l)+'/*'))
 	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
 	    no_images += len(values[values>=v_threshold])
 	
+	print no_images
 	labels = np.zeros((no_images,)).astype(int)
-	images = np.zeros((no_images,28,28,1))
+	images = np.zeros((no_images,32,32,1))
 	
 	counter = 0
 	
 	for l in range(10):
 	    
-	    img_files = np.array(sorted(np.array(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))))
+	    img_files = np.array(sorted(np.array(glob.glob(images_dir+str(l)+'/*'))))
 	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
 	    img_files = img_files[values >= v_threshold]
 	    
@@ -693,10 +694,138 @@ class Solver(object):
 			   #~ %(t+1, self.pretrain_iter, gen_acc))
 	
 		time.sleep(10.1)
+
+    def find_closest_samples(self,dataset='MNIST'):
+	
+	# 0
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/0/22_0_10.3987'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/0/70_0_10.2846'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/0/93_0_10.3288'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/0/83_0_11.7384'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/0/107_0_11.6718'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/0/122_0_10.4151'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/0/322_0_10.3692'
+	
+	# 1
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/1/83_1_10.5441'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/1/203_1_10.3941'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/1/340_1_10.6729'
+	
+	# 2
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/2/101_2_10.2507'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/2/172_2_11.3251'
+	
+	# 3
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/22_3_14.1982'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/284_3_10.9449'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/193_3_13.2846'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/292_3_15.0359'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/311_3_11.4433'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/366_3_13.6956'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/779_3_14.2253'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/844_3_12.6912'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/1294_3_13.9789'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/1423_3_14.7053'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/3/1602_3_13.9868'
+	
+	# 4
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/4/32_4_11.5346'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/4/188_4_10.5293'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/4/211_4_12.0768'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/4/261_4_11.849'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/4/392_4_12.0682'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/4/572_4_11.1724'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/4/1001_4_12.8955' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/4/1103_4_12.0236' #nice
+	
+	# 5
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/4_5_11.837'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/553_5_12.5355'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/730_5_11.5124'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/794_5_10.2816'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/1640_5_11.283'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/1933_5_10.2202' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/2400_5_10.458'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/4077_5_12.1508'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/5/4451_5_10.3354'
+	
+	# 6
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/6/357_6_14.8954'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/6/373_6_12.615' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/6/340_6_11.0551' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/6/633_6_14.9426'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/6/771_6_14.8695'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/6/939_6_12.1435'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/6/1100_6_13.7433'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/6/1265_6_13.1202'
+	
+	# 7
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/55_7_12.3649'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/330_7_10.1434'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/415_7_11.6358'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/385_7_12.822'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/927_7_11.3426'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/991_7_13.489'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/2594_7_11.6667'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/3199_7_10.4819'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/3271_7_12.9551' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/3503_7_10.5854'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/3642_7_11.7087' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/3981_7_11.6662'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/7664_7_10.603'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/10082_7_12.4001'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/7/17551_7_12.8428'
+	
+	# 8
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/8/73_8_13.8413'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/8/0_8_12.1716'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/8/362_8_13.1533'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/8/740_8_14.3074' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/8/742_8_13.8002' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/8/779_8_12.1449' #nice
+	
+	# 9
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/50_9_12.1495'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/52_9_10.6145'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/62_9_11.5245' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/201_9_10.1126' #nice
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/206_9_10.7436'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/217_9_10.7002'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/1257_9_10.9516'
+	#~ img_dir = './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/3028_9_10.884'
+	
+	
+	
+	gen_image = misc.imread(img_dir, mode='L')
+	gen_image = np.expand_dims(gen_image, axis=0)
+	gen_image = np.expand_dims(gen_image, axis=3)
+	gen_image = gen_image/ 127.5 - 1
+	
+	real_images, real_labels = self.load_mnist(self.mnist_dir, split='train')
+	
+	diff_square = np.sum(np.square(np.squeeze(real_images-gen_image).reshape((len(real_images), 32 * 32))),1)
+	closest_image = real_images[np.argmin(diff_square)]
+	
+	gen_image = np.squeeze(gen_image)
+	closest_image = np.squeeze(closest_image)
+	
+	plt.figure(0)
+	plt.imshow(gen_image * -1)
+	plt.figure(1)
+	plt.imshow(closest_image * -1)
+	plt.show()
+	
+	print 'break'
+	
 		    
 if __name__=='__main__':
+    
+    
+    
 
     from model import DSN
     model = DSN(mode='eval_dsn', learning_rate=0.0003)
     solver = Solver(model)
-    solver.check_TSNE()
+    solver.find_closest_samples()
+    
+    #~ solver.check_TSNE()
