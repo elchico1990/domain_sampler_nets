@@ -165,7 +165,7 @@ class Solver(object):
 	print 'Loading generated images.'
 	
 	no_images = 0
-	v_threshold = 11.
+	v_threshold = 8.
 	for l in range(10):
 	    counter = 0
 	    img_files = sorted(glob.glob(images_dir+str(l)+'/*'))
@@ -515,16 +515,16 @@ class Solver(object):
 		
 		sess.run(model.G_train_op, feed_dict)
 		sess.run(model.DG_train_op, feed_dict) 
-		sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.const_train_op, feed_dict)
 		
-		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
+		logits_G_real,logits_G_fake = sess.run([model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
 		if (step+1) % 100 == 0:
 		    
-		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
+		    summary, G, DG = sess.run([model.summary_op, model.G_loss, model.DG_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
-		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
-			       %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
+		    print ('Step: [%d/%d] G: [%.6f] DG: [%.6f] G_real: [%.2f] G_fake: [%.2f]' \
+			       %(step+1, self.train_iter, G, DG, logits_G_real.mean(),logits_G_fake.mean()))
 
 		    
 
@@ -550,10 +550,10 @@ class Solver(object):
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.test_model)
 	    
-	    print ('Loading sample generator.')
-	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_sampler)
+	    #~ print ('Loading sample generator.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.pretrained_sampler)
 	    
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='test')
 
@@ -902,7 +902,7 @@ class Solver(object):
 		    './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/1257_9_10.9516',
 		    './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/3028_9_10.884']
 	
-	
+	img_dirs=['./sample/2/2_2_8.08354']
 	real_images, real_labels = self.load_mnist(self.mnist_dir, split='train')
 	
 	counter=0

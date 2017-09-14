@@ -217,8 +217,8 @@ class DSN(object):
 	    self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'images_trg')
             
             # source domain (svhn to mnist)
-            self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-            self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
+            #~ self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+            self.sampled_images = self.G(self.src_noise, self.src_labels, do_reshape=True)
 	    self.sampled_images_logits = self.E(self.sampled_images, make_preds=True) 
 
 	    self.fx_src = self.E(self.src_images, reuse=True) # instead of extracting the hidden representation from a src image, 
@@ -247,32 +247,21 @@ class DSN(object):
 		self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
 	    except:
 		self.fzy = self.sampler_generator(self.src_noise,self.src_labels, reuse=True)
-		
+	    
+	    self.fzy=self.src_noise
+	    
 	    self.fx = self.E(self.images, reuse=True)
 	    
 	    #~ self.GE_trg = self.G(self.E(self.trg_images, reuse=True) + tf.random_normal(shape=tf.shape(self.E(self.trg_images, reuse=True)), mean=0.0, stddev=0.6, dtype=tf.float32), self.trg_labels)  
-	    self.GE_trg = self.G(self.E(self.trg_images, reuse=True) , self.trg_labels)  
+	    #~ self.GE_trg = self.G(self.E(self.trg_images, reuse=True) , self.trg_labels)  
     
 	    
 	    #~ self.EG_fzy = self.E(self.G(self.fzy, reuse=True), reuse=True)
 	    
 	    
-	    self.gen_trg_images = self.G(self.fzy, self.src_labels, reuse=True)
-	    self.gen_trg_images_show = self.G(self.sampler_generator(self.src_noise[:64,:],self.labels_gen, reuse=True), self.labels_gen, reuse=True, do_reshape=True)
-	    
-	    # E losses
-	    
-	    self.logits_E_real = self.D_e(self.fzy, self.src_labels)
-	    self.logits_E_fake = self.D_e(self.fx, self.labels, reuse=True)
-	    
-	    #~ self.DE_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_E_real, tf.ones_like(self.logits_E_real))
-	    #~ self.DE_loss_fake = slim.losses.sigmoid_cross_entropy(self.logits_E_fake, tf.zeros_like(self.logits_E_fake))
-	    self.DE_loss_real = tf.reduce_mean(tf.square(self.logits_E_real - tf.ones_like(self.logits_E_real)))
-	    self.DE_loss_fake = tf.reduce_mean(tf.square(self.logits_E_fake - tf.zeros_like(self.logits_E_fake)))
-	    
-	    self.DE_loss = self.DE_loss_real + self.DE_loss_fake 
-	    
-	    self.E_loss = tf.reduce_mean(tf.square(self.logits_E_fake - tf.ones_like(self.logits_E_fake)))
+	    self.gen_trg_images = self.G(self.fzy, self.src_labels, reuse=False)
+	    #~ self.gen_trg_images_show = self.G(self.sampler_generator(self.src_noise[:64,:],self.labels_gen, reuse=True), self.labels_gen, reuse=True, do_reshape=True)
+	    self.gen_trg_images_show = self.gen_trg_images[:16]
 	    
 	    # G losses
 	    
@@ -291,45 +280,36 @@ class DSN(object):
 	    
 	    # Trg const loss
 	    
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 100.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
+	    #~ self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 100.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    #~ self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 10.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    
 	    
 	    # Optimizers
 	    
-            self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
-            self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
-            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+            #~ self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             
             
             t_vars = tf.trainable_variables()
-            E_vars = [var for var in t_vars if 'encoder' in var.name]
-            DE_vars = [var for var in t_vars if 'disc_e' in var.name]
             G_vars = [var for var in t_vars if 'generator' in var.name]
             DG_vars = [var for var in t_vars if 'disc_g' in var.name]
             
             # train op
             with tf.variable_scope('training_op',reuse=False):
-                self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
-                self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
                 self.G_train_op = slim.learning.create_train_op(self.G_loss, self.G_optimizer, variables_to_train=G_vars)
                 self.DG_train_op = slim.learning.create_train_op(self.DG_loss, self.DG_optimizer, variables_to_train=DG_vars)
-                self.const_train_op = slim.learning.create_train_op(self.const_loss, self.const_optimizer, variables_to_train=G_vars)
+                #~ self.const_train_op = slim.learning.create_train_op(self.const_loss, self.const_optimizer, variables_to_train=G_vars)
 		
 	    
             
             # summary op
-            E_loss_summary = tf.summary.scalar('E_loss', self.E_loss)
-            DE_loss_summary = tf.summary.scalar('DE_loss', self.DE_loss)
             G_loss_summary = tf.summary.scalar('G_loss', self.G_loss)
             DG_loss_summary = tf.summary.scalar('DG_loss', self.DG_loss)
             gen_trg_images_summary = tf.summary.image('gen_trg_images', self.gen_trg_images_show, max_outputs=30)
-            rec_trg_images_summary = tf.summary.image('rec_trg_images', self.GE_trg, max_outputs=10)
-            self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary, 
-                                                    G_loss_summary, DG_loss_summary,
-						    gen_trg_images_summary, rec_trg_images_summary])
+            #~ rec_trg_images_summary = tf.summary.image('rec_trg_images', self.GE_trg, max_outputs=10)
+            self.summary_op = tf.summary.merge([G_loss_summary, DG_loss_summary,
+						    gen_trg_images_summary])
             
 
             for var in tf.trainable_variables():
