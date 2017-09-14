@@ -153,7 +153,8 @@ class Solver(object):
 	images = images / 127.5 - 1
 	return images, labels
 	
-    def load_gen_images(self, images_dir='/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/'):
+    #~ def load_gen_images(self, images_dir='/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/'):
+    def load_gen_images(self, images_dir='/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'):
 	
 	'''
 	Loading images generated with eval_dsn()
@@ -164,7 +165,7 @@ class Solver(object):
 	print 'Loading generated images.'
 	
 	no_images = 0
-	v_threshold = 8.
+	v_threshold = 11.
 	for l in range(10):
 	    counter = 0
 	    img_files = sorted(glob.glob(images_dir+str(l)+'/*'))
@@ -471,25 +472,10 @@ class Solver(object):
 	    tf.global_variables_initializer().run()
 	    # restore variables of F
 	    
-	    print ('Loading pretrained encoder.')
+	    print ('Loading test encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_model)
-	    
-	    #~ print ('Loading pretrained encoder disc.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.pretrained_sampler)
-	    
-	    #~ print ('Loading pretrained G.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.test_model)
-	    
-	    #~ print ('Loading pretrained D_g.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='disc_g')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.test_model)
 	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -528,10 +514,7 @@ class Solver(object):
 		#~ sess.run(model.DE_train_op, feed_dict) 
 		
 		sess.run(model.G_train_op, feed_dict)
-		if step%15==0:
-		    sess.run(model.DG_train_op, feed_dict) 
-		sess.run(model.const_train_op, feed_dict)
-		sess.run(model.const_train_op, feed_dict)
+		sess.run(model.DG_train_op, feed_dict) 
 		sess.run(model.const_train_op, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
@@ -578,7 +561,7 @@ class Solver(object):
 		
 		print n
 	    
-		no_gen = 200
+		no_gen = 10000
 
 		source_labels = n * np.ones((no_gen,),dtype=int)
 
@@ -605,7 +588,7 @@ class Solver(object):
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='test')
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
 	
         # build a graph
         model = self.model
@@ -759,11 +742,11 @@ class Solver(object):
 	    
     def test(self):
 	
-	src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
+	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
+	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
 	
-	trg_images, trg_labels = self.load_usps(self.usps_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_usps(self.usps_dir, split='validation')
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='train')
     
 	
 	#~ gen_images, gen_labels = self.load_gen_images()
@@ -814,8 +797,8 @@ class Solver(object):
 						  model.src_labels: src_test_labels[src_rand_idxs],
 						  model.trg_images: trg_test_images[trg_rand_idxs], 
 						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
-								  model.src_labels: src_labels[:20000],
+		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:1000], 
+								  model.src_labels: src_labels[:1000],
 						                  model.trg_images: trg_test_images[trg_rand_idxs], 
 								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
 						  

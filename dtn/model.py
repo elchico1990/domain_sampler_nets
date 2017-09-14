@@ -291,7 +291,7 @@ class DSN(object):
 	    
 	    # Trg const loss
 	    
-	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 15.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
+	    self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - self.trg_images)) * 100.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    #~ self.const_loss = tf.reduce_mean(tf.square(self.GE_trg - tf.reshape(self.trg_images, [-1,1024]))) * 10.0 #+ tf.reduce_mean(tf.square(self.EG_fzy - self.fzy)) * 15
 	    
 	    
@@ -299,8 +299,8 @@ class DSN(object):
 	    
             self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
             self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
-            self.DG_optimizer = tf.train.AdamOptimizer(0.000001)
-            self.G_optimizer = tf.train.AdamOptimizer(0.000001)
+            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             self.const_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             
             

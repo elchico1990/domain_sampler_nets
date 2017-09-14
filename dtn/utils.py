@@ -97,8 +97,8 @@ def conv_concat(x,y,mode='eval_dsn'):
     """Concatenate conditioning vector on feature map axis."""
     x_shapes = x.get_shape()
     y_shapes = y.get_shape()
-    if mode == 'eval_dsn':
-	return tf.concat([x, y*tf.ones([200, x_shapes[1], x_shapes[2], 10])], axis=3)
+    if mode == 'eval_11dsn':
+	return tf.concat([x, y*tf.ones([10000, x_shapes[1], x_shapes[2], 10])], axis=3)
     else:
 	return tf.concat([x, y*tf.ones([64, x_shapes[1], x_shapes[2], 10])], axis=3)
     
