@@ -63,6 +63,7 @@ class Solver(object):
         labels[np.where(labels==10)] = 0
         return images, labels
 
+
     def load_mnist(self, image_dir, split='train'):
         print ('Loading MNIST dataset.')
 	
@@ -176,7 +177,7 @@ class Solver(object):
 	print 'Loading generated images.'
 	
 	no_images = 0
-	v_threshold = 0.
+	v_threshold = 8.
 	for l in range(10):
 	    counter = 0
 	    img_files = sorted(glob.glob(images_dir+str(l)+'/*'))
@@ -442,12 +443,12 @@ class Solver(object):
         
 	print 'Training DSN.'
 	
-	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	target_images, target_labels = self.load_usps(self.usps_dir)
-	source_images = source_images[:2000]
-	source_labels = source_labels[:2000]
-	target_images = target_images[:1800]
-	target_labels = target_labels[:1800]
+	source_images, source_labels = self.load_usps(self.usps_dir)
+	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	source_images = source_images[:1800]
+	source_labels = source_labels[:1800]
+	target_images = target_images[:2000]
+	target_labels = target_labels[:2000]
 
 	
         # build a graph
@@ -551,7 +552,7 @@ class Solver(object):
 	    
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='test')
 	    
-	    npr.seed(5123)
+	    npr.seed(50123)
 
 	    for n in range(0,10):
 		
@@ -584,9 +585,9 @@ class Solver(object):
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
-	trg_images, trg_labels = self.load_usps(self.usps_dir)
-	trg_images = trg_images[:1800]
-	trg_labels = trg_labels[:1800]
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir,split='train')
+	trg_images = trg_images[:2000]
+	trg_labels = trg_labels[:2000]
 
 	
         # build a graph

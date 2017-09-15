@@ -124,8 +124,14 @@ class DSN(object):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                     activation_fn=lrelu, is_training=(self.mode=='train_dsn')):
                     
-                    net = slim.conv2d(images, 256, [3, 3], scope='conv1')   # (batch_size, 14, 14 128)
+                    net = slim.conv2d(images, 512, [3, 3], scope='conv0')   # (batch_size, 14, 14, 256)
+                    net = slim.batch_norm(net, scope='bn0')
+		    net = conv_concat(net, labels)
+                    net = slim.conv2d(images, 256, [3, 3], scope='conv1')   # (batch_size, 14, 14, 256)
                     net = slim.batch_norm(net, scope='bn1')
+		    net = conv_concat(net, labels)
+                    net = slim.conv2d(images, 128, [3, 3], scope='conv2')   # (batch_size, 7, 7, 128)
+                    net = slim.batch_norm(net, scope='bn2')
 		    net = conv_concat(net, labels)
                     net = slim.flatten(net)
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
@@ -267,8 +273,8 @@ class DSN(object):
 	    
 	    # Optimizers
 	    
-            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
+            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
             
             
             t_vars = tf.trainable_variables()
