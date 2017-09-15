@@ -49,7 +49,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, mnist_usps_2, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'svhn_mnist' # possibilities: svhn_mnist, mnist_usps, mnist_usps_2, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -66,10 +66,7 @@ class Solver(object):
     def load_mnist(self, image_dir, split='train'):
         print ('Loading MNIST dataset.')
 	
-	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
-	    image_file = 'train.pkl'
-        else:
-	    image_file = 'train.pkl' if split=='train' else 'test.pkl'
+	image_file = 'train.pkl' if split=='train' else 'test.pkl'
         image_dir = os.path.join(image_dir, image_file)
         with open(image_dir, 'rb') as f:
             mnist = pickle.load(f)
@@ -93,7 +90,7 @@ class Solver(object):
 	
         return images, np.squeeze(labels).astype(int)
 
-    def load_usps(self, image_dir):
+    def load_usps(self, image_dir, split='train'):
         
 	print ('Loading USPS dataset.')
         image_file = 'train.pkl'
@@ -105,28 +102,20 @@ class Solver(object):
 	labels -= 1
 	labels[labels==255] = 9
 	
-	npr.seed(856)
+	npr.seed(8346)
 	
 	random_idx = np.arange(len(labels))
 	npr.shuffle(random_idx)
 	
 	images = images[random_idx]
 	labels = labels[random_idx]
-	imgs = np.empty((0,28,28,1))
-	lbls = np.empty((0,1))
 	
-	for i in range(10):
-	    digits = images[np.where(labels==i)[0][:180]]
-	    imgs = np.vstack((imgs,digits))
-	    lbls = np.vstack((lbls,i*np.ones((180,1))))
-	    
-	random_idx = np.arange(len(lbls))
-	
-	npr.shuffle(random_idx)
-	imgs = imgs[random_idx]
-	lbls = lbls[random_idx]
-        return imgs, np.squeeze(lbls).astype(int)
-
+	if split == 'train':
+	    return images[:6562], np.squeeze(labels[:6562]).astype(int)
+	elif split == 'validation':
+	    return images[6562:7291], np.squeeze(labels[6562:7291]).astype(int)
+	elif split == 'test':
+	    return images[7291:], np.squeeze(labels[7291:]).astype(int)
 
     def load_gen_images_no(self, images_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/'):
 	
@@ -176,7 +165,7 @@ class Solver(object):
 	print 'Loading generated images.'
 	
 	no_images = 0
-	v_threshold = 0.
+	v_threshold = 8.
 	for l in range(10):
 	    counter = 0
 	    img_files = sorted(glob.glob(images_dir+str(l)+'/*'))
@@ -185,7 +174,7 @@ class Solver(object):
 	
 	print no_images
 	labels = np.zeros((no_images,)).astype(int)
-	images = np.zeros((no_images,28,28,1))
+	images = np.zeros((no_images,32,32,1))
 	
 	counter = 0
 	
@@ -442,13 +431,30 @@ class Solver(object):
         
 	print 'Training DSN.'
 	
-	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	target_images, target_labels = self.load_usps(self.usps_dir)
-	source_images = source_images[:2000]
-	source_labels = source_labels[:2000]
-	target_images = target_images[:1800]
-	target_labels = target_labels[:1800]
+	if self.protocol=='svhn_mnist':
+	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
 
+	if self.protocol == 'mnist_mnist_m':
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    target_images, target_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
+	
+	elif self.protocol=='syn_svhn':
+	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
+	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
+
+	elif self.protocol=='mnist_usps':
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    target_images, target_labels = self.load_usps(self.usps_dir)
+	    source_images = source_images[:2000]
+	    source_labels = source_labels[:2000]
+	    target_images = target_images[:1800]
+	    target_labels = target_labels[:1800]
+	
+	elif self.protocol == 'amazon_reviews':
+	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
+	    
+	
 	
         # build a graph
         model = self.model
@@ -513,7 +519,7 @@ class Solver(object):
 		
 		logits_G_real,logits_G_fake = sess.run([model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
-		if (step+1) % 10 == 0:
+		if (step+1) % 100 == 0:
 		    
 		    summary, G, DG = sess.run([model.summary_op, model.G_loss, model.DG_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -522,7 +528,7 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 200 == 0:
+		if (step+1) % 500 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 
     def eval_dsn(self):
@@ -550,8 +556,6 @@ class Solver(object):
 	    #~ restorer.restore(sess, self.pretrained_sampler)
 	    
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    npr.seed(5123)
 
 	    for n in range(0,10):
 		
@@ -569,8 +573,8 @@ class Solver(object):
 
 		samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
 		samples_logits = samples_logits[:,n]
-		#~ samples = samples[samples_logits>8.]
-		#~ samples_logits = samples_logits[samples_logits>8.]
+		samples = samples[samples_logits>8.]
+		samples_logits = samples_logits[samples_logits>8.]
 		
 		for i in range(len(samples_logits)):
 		    
@@ -584,10 +588,7 @@ class Solver(object):
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
-	trg_images, trg_labels = self.load_usps(self.usps_dir)
-	trg_images = trg_images[:1800]
-	trg_labels = trg_labels[:1800]
-
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
 	
         # build a graph
         model = self.model
@@ -901,33 +902,8 @@ class Solver(object):
 		    './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/1257_9_10.9516',
 		    './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/3028_9_10.884']
 	
-	img_dirs=['./sample/0/0_0_11.805',
-		    './sample/0/25_0_12.7898',
-		    './sample/1/1_1_10.8626',
-		    './sample/1/48_1_11.2837',
-		    './sample/2/22_2_13.4107',
-		    './sample/2/45_2_13.4452',
-		    './sample/3/1_3_13.4568',
-		    './sample/3/93_3_13.2633',
-		    './sample/4/0_4_13.5914',
-		    './sample/4/125_4_11.7627',
-		    './sample/5/10_5_13.6584',
-		    './sample/5/101_5_13.8083',
-		    './sample/6/47_6_14.2574',
-		    './sample/6/78_6_14.331',
-		    './sample/7/27_7_13.715',
-		    './sample/7/43_7_13.3106',
-		    './sample/8/26_8_13.3845',
-		    './sample/8/279_8_13.5968',
-		    './sample/9/30_9_13.578',
-		    './sample/9/208_9_8.68816']
-		    
-	
-	#~ real_images, real_labels = self.load_mnist(self.mnist_dir, split='train')
-	real_images, real_labels = self.load_usps(self.usps_dir)
-	real_images = real_images[:1800]
-	real_labels = real_labels[:1800]
-
+	img_dirs=['./sample/2/2_2_8.08354']
+	real_images, real_labels = self.load_mnist(self.mnist_dir, split='train')
 	
 	counter=0
 	for img_dir in img_dirs:
@@ -938,7 +914,7 @@ class Solver(object):
 	    gen_image = np.expand_dims(gen_image, axis=3)
 	    gen_image = gen_image/ 127.5 - 1
 
-	    diff_square = np.sum(np.square(np.squeeze(real_images-gen_image).reshape((len(real_images), 28 * 28))),1)
+	    diff_square = np.sum(np.square(np.squeeze(real_images-gen_image).reshape((len(real_images), 32 * 32))),1)
 	    closest_image = real_images[np.argmin(diff_square)]
 
 	    gen_image = np.squeeze(gen_image)

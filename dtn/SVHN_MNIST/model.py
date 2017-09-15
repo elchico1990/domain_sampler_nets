@@ -58,13 +58,11 @@ class DSN(object):
 		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
 		    net = tf.contrib.layers.flatten(net)
 		    net = slim.fully_connected(net, 1024, activation_fn=tf.nn.relu, scope='fc3')
-		    net = slim.dropout(net, 0.5, is_training=is_training)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
-		    net = slim.dropout(net, 0.5, is_training=is_training)
 		    if (self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images' or make_preds):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
-		        		
+		        
     def D_e(self, inputs, y, reuse=False):
 		
 	inputs = tf.concat(axis=1, values=[inputs, tf.cast(y,tf.float32)])
@@ -74,12 +72,9 @@ class DSN(object):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
-		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-		    elif self.mode == 'train_dsn':
-			net = slim.fully_connected(inputs, 1024, scope='sdisc_fc1')
-			net = slim.fully_connected(net, 2048, scope='sdisc_fc2')
-			net = slim.fully_connected(net, 2048, scope='sdisc_fc3')
+		    #~ net = slim.flatten(inputs)
+		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		    net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 	    
@@ -99,18 +94,21 @@ class DSN(object):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                      activation_fn=tf.nn.relu, is_training=(self.mode=='train_dsn')):
 
-                    net = slim.conv2d_transpose(inputs, 256, [7, 7], padding='VALID', scope='conv_transpose1')   # (batch_size, 7, 7, 512)
+                    net = slim.conv2d_transpose(inputs, 512, [4, 4], padding='VALID', scope='conv_transpose1')   # (batch_size, 4, 4, 512)
                     net = slim.batch_norm(net, scope='bn1')
 		    net = conv_concat(net, labels)
-                    net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose2')  # (batch_size, 14, 14, 256)
+                    net = slim.conv2d_transpose(net, 256, [3, 3], scope='conv_transpose2')  # (batch_size, 8, 8, 256)
                     net = slim.batch_norm(net, scope='bn2')
                     net = conv_concat(net, labels)
-		    net = slim.conv2d_transpose(net, 1, [3, 3], activation_fn=tf.tanh, scope='conv_transpose4')   # (batch_size, 28, 28, 1)
+		    net = slim.conv2d_transpose(net, 128, [3, 3], scope='conv_transpose3')  # (batch_size, 16, 16, 128)
+                    net = slim.batch_norm(net, scope='bn3')
+                    net = conv_concat(net, labels)
+		    net = slim.conv2d_transpose(net, 1, [3, 3], activation_fn=tf.tanh, scope='conv_transpose4')   # (batch_size, 32, 32, 1)
 		    return net
 	    
     def D_g(self, images, labels, reuse=False):
 	
-	labels = tf.reshape(labels, [-1, 1, 1, 10])
+	labels = tf.reshape(labels, [64, 1, 1, 10])
 
 	if images.get_shape()[3] == 3:
             images = tf.image.rgb_to_grayscale(images)
@@ -122,23 +120,29 @@ class DSN(object):
             with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
                                  stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
                 with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    activation_fn=lrelu, is_training=(self.mode=='train_dsn')):
+                                    activation_fn=tf.nn.relu, is_training=(self.mode=='train_dsn')):
                     
-                    net = slim.conv2d(images, 256, [3, 3], scope='conv1')   # (batch_size, 14, 14 128)
+                    net = slim.conv2d(images, 128, [3, 3], activation_fn=tf.nn.relu, scope='conv1')   # (batch_size, 16, 16, 128)
                     net = slim.batch_norm(net, scope='bn1')
 		    net = conv_concat(net, labels)
+                    net = slim.conv2d(net, 256, [3, 3], scope='conv2')   # (batch_size, 8, 8, 256)
+                    net = slim.batch_norm(net, scope='bn2')
+		    net = conv_concat(net, labels)
+                    net = slim.conv2d(net, 512, [3, 3], scope='conv3')   # (batch_size, 4, 4, 512)
+                    net = slim.batch_norm(net, scope='bn3')
+		    net = conv_concat(net, labels)
                     net = slim.flatten(net)
-		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
+		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 3)
 		    return net
 
     def build_model(self):
         
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images':
             if self.mode == 'test':
-		self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
+		self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
 	    else:
-		self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'mnist_images')
+		self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
             
@@ -209,8 +213,8 @@ class DSN(object):
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
-	    self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'images')
-	    self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'images_trg')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images')
+	    self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'images_trg')
             
             # source domain (svhn to mnist)
             #~ self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
@@ -225,8 +229,8 @@ class DSN(object):
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
             self.labels_gen = tf.placeholder(tf.float32, [None, 10], 'labels_gen')
-	    self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'mnist_images')
+	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
@@ -267,8 +271,8 @@ class DSN(object):
 	    
 	    # Optimizers
 	    
-            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            self.DG_optimizer = tf.train.AdamOptimizer(self.learning_rate)
+            self.G_optimizer = tf.train.AdamOptimizer(self.learning_rate)
             
             
             t_vars = tf.trainable_variables()
