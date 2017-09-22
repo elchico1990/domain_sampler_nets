@@ -11,6 +11,8 @@ import sys
 import glob
 import time
 
+from scipy.misc import imsave
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
@@ -26,7 +28,7 @@ class Solver(object):
     def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
                  svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
 		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', gen_model='model/model_gen', pretrained_sampler='model/sampler', 
-		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
+		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv', start_img = 0, end_img = 0):
         
         self.model = model
         self.batch_size = batch_size
@@ -49,7 +51,10 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, mnist_usps_2, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'syn_svhn' # possibilities: svhn_mnist, mnist_usps, mnist_usps_2, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews, stl_cifar, cifar_stl
+	
+	self.start_img = start_img
+	self.end_img = end_img
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -63,70 +68,48 @@ class Solver(object):
         labels[np.where(labels==10)] = 0
         return images, labels
 
-
-    def load_mnist(self, image_dir, split='train'):
-        print ('Loading MNIST dataset.')
-	
-	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
-	    image_file = 'train.pkl'
-        else:
-	    image_file = 'train.pkl' if split=='train' else 'test.pkl'
-        image_dir = os.path.join(image_dir, image_file)
-        with open(image_dir, 'rb') as f:
-            mnist = pickle.load(f)
-        images = mnist['X'] / 127.5 - 1
-        labels = mnist['y']
-	
-	if self.protocol == 'mnist_usps' or self.protocol == 'usps_mnist':
-	    imgs = np.empty((0,28,28,1))
-	    lbls = np.empty((0,1))
-	    for i in range(10):
-		digits = images[np.where(labels==i)[0][:200]]
-		imgs = np.vstack((imgs,digits))
-		lbls = np.vstack((lbls,i*np.ones((200,1))))
-
-	    random_idx = np.arange(len(lbls))
-	    npr.seed(90)
-	    npr.shuffle(random_idx)
-	    images = imgs[random_idx]
-	    labels = lbls[random_idx]
-	
-	
-        return images, np.squeeze(labels).astype(int)
-
-    def load_usps(self, image_dir):
+    def load_syn(self, image_dir, split='train'):
+        print ('Loading SYN dataset.')
         
-	print ('Loading USPS dataset.')
-        image_file = 'train.pkl'
+        image_file = 'synth_train_32x32.mat' if split=='train' else 'synth_test_32x32.mat'
+            
         image_dir = os.path.join(image_dir, image_file)
-        with open(image_dir, 'rb') as f:
-            usps = pickle.load(f)
-        images = usps['X'] / 127.5 - 1
-        labels = usps['y']
-	labels -= 1
-	labels[labels==255] = 9
+        syn = scipy.io.loadmat(image_dir)
+        images = np.transpose(syn['X'], [3, 0, 1, 2]) / 127.5 - 1
+        labels = syn['y'].reshape(-1)
+        labels[np.where(labels==10)] = 0
+        return images, labels
 	
-	npr.seed(856)
+    def cifar10(self,split = 'train'):
 	
-	random_idx = np.arange(len(labels))
-	npr.shuffle(random_idx)
+	print 'color cifar10'
+	trX = np.zeros((50000,3072))
+	trY = np.zeros((50000,10))
 	
-	images = images[random_idx]
-	labels = labels[random_idx]
-	imgs = np.empty((0,28,28,1))
-	lbls = np.empty((0,1))
-	
-	for i in range(10):
-	    digits = images[np.where(labels==i)[0][:180]]
-	    imgs = np.vstack((imgs,digits))
-	    lbls = np.vstack((lbls,i*np.ones((180,1))))
+	for i in range(1,6):
+	    f = unpickle(datasets_dir+'/cifar10/data_batch_'+str(i))
 	    
-	random_idx = np.arange(len(lbls))
+	    if grayscale:
+		trX[(i-1)*10000:i*10000,:] = f['data'][:,0:1024]*0.299 + f['data'][:,1024:1024*2]*0.587 + f['data'][:,1024*2:1024*3]*0.114
+	    
+	    else:
+		trX[(i-1)*10000:i*10000,:] = f['data']
+		    
+	    trY[(i-1)*10000:i*10000,:] = one_hot(f['labels'],10)
+
+	f = unpickle(datasets_dir+'cifar10/test_batch')
 	
-	npr.shuffle(random_idx)
-	imgs = imgs[random_idx]
-	lbls = lbls[random_idx]
-        return imgs, np.squeeze(lbls).astype(int)
+	if grayscale:
+	    teX = f['data'][:,0:1024]*0.299 + f['data'][:,1024:1024*2]*0.587 + f['data'][:,1024*2:1024*3]*0.114
+	else:
+	    teX = f['data']
+	teY = one_hot(f['labels'],10)
+	
+	if split=='train':
+	    return trX,trY
+	else: 
+	    return teX,teY	
+	
 
 
     def load_gen_images_no(self, images_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/'):
@@ -166,7 +149,7 @@ class Solver(object):
 	return images, labels
 	
     #~ def load_gen_images(self, images_dir='/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/'):
-    def load_gen_images(self, images_dir='/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'):
+    def load_gen_images(self):
 	
 	'''
 	Loading images generated with eval_dsn()
@@ -177,29 +160,31 @@ class Solver(object):
 	print 'Loading generated images.'
 	
 	no_images = 0
-	v_threshold = 8.
+	v_threshold = 8.0
+	experiment = '0.01_0.01_5.0'
+	
 	for l in range(10):
 	    counter = 0
-	    img_files = sorted(glob.glob(images_dir+str(l)+'/*'))
+	    img_files = sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))
+	    print img_files[-1]
 	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
 	    no_images += len(values[values>=v_threshold])
 	
-	print no_images
 	labels = np.zeros((no_images,)).astype(int)
-	images = np.zeros((no_images,28,28,1))
+	images = np.zeros((no_images,32,32,3))
 	
 	counter = 0
 	
 	for l in range(10):
 	    
-	    img_files = np.array(sorted(np.array(glob.glob(images_dir+str(l)+'/*'))))
+	    img_files = np.array(sorted(np.array(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))))
 	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
 	    img_files = img_files[values >= v_threshold]
 	    
 	    for img_dir in img_files:
-		im = misc.imread(img_dir, mode='L')
+		#~ print img_dir
+		im = misc.imread(img_dir)
 		im = np.expand_dims(im, axis=0)
-		im = np.expand_dims(im, axis=3)
 		images[counter] = im
 		labels[counter] = l
 		counter+=1
@@ -215,7 +200,41 @@ class Solver(object):
 	print 'break'
 	images = images / 127.5 - 1
 	return images, labels
-    
+
+    def load_usps(self, image_dir):
+        
+	print ('Loading USPS dataset.')
+        image_file = 'train.pkl'
+        image_dir = os.path.join(image_dir, image_file)
+        with open(image_dir, 'rb') as f:
+            usps = pickle.load(f)
+        images = usps['X'] / 127.5 - 1
+        labels = usps['y']
+	labels -= 1
+	labels[labels==255] = 9
+	
+	npr.seed(856)
+	
+	random_idx = np.arange(len(labels))
+	npr.shuffle(random_idx)
+	
+	images = images[random_idx]
+	labels = labels[random_idx]
+	imgs = np.empty((0,28,28,1))
+	lbls = np.empty((0,1))
+	
+	for i in range(10):
+	    digits = images[np.where(labels==i)[0][:180]]
+	    imgs = np.vstack((imgs,digits))
+	    lbls = np.vstack((lbls,i*np.ones((180,1))))
+	    
+	random_idx = np.arange(len(lbls))
+	
+	npr.shuffle(random_idx)
+	imgs = imgs[random_idx]
+	lbls = lbls[random_idx]
+        return imgs, np.squeeze(lbls).astype(int)
+
     def pretrain(self):
 	
 	print 'Pretraining.'
@@ -293,10 +312,10 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if (t+1) % 250 == 0:
+		    if (t+1) % 1000 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:3000]
+			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
 			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
 					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 							  model.src_labels: src_test_labels[src_rand_idxs],
@@ -306,52 +325,10 @@ class Solver(object):
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.4f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
 			
-		    if (t+1) % 250 == 0:
+		    if (t+1) % 1000 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
-
-    def train_convdeconv(self):
-
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-
-        # build a graph
-        model = self.model
-        model.build_model()
-	
-        with tf.Session(config=self.config) as sess:
-            tf.global_variables_initializer().run()
-            saver = tf.train.Saver()
-	    
-            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-
-	    epochs = 100
-	    
-	    t = 0
-
-	    for i in range(epochs):
-		
-		print 'Epoch',str(i)
-		
-		for start, end in zip(range(0, len(trg_images), self.batch_size), range(self.batch_size, len(trg_images), self.batch_size)):
-		    
-		    t+=1
-		       
-		    feed_dict = {model.images: trg_images[start:end]}
-		    
-		    sess.run(model.train_op, feed_dict) 
-
-		    if (t+1) % 250 == 0:
-			rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
-			summary, l = sess.run([model.summary_op, model.loss], feed_dict = {model.images: trg_test_images[rand_idxs]})
-			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] loss: [%.6f]' \
-				   %(t+1, self.pretrain_iter, l))
-			
-		    if (t+1) % 250 == 0:
-			#~ print 'Saved.'
-			saver.save(sess, os.path.join(self.model_save_path, 'conv_deconv'))
-	    
+    
     def train_sampler(self):
 	
 	print 'Training sampler.'
@@ -443,13 +420,11 @@ class Solver(object):
         
 	print 'Training DSN.'
 	
-	source_images, source_labels = self.load_usps(self.usps_dir)
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
-	source_images = source_images[:1800]
-	source_labels = source_labels[:1800]
-	target_images = target_images[:2000]
-	target_labels = target_labels[:2000]
-
+	source_images, source_labels = self.load_syn(self.syn_dir, split='train')
+	target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
+	#~ target_images = target_images[self.start_img:self.end_img] 
+	#~ target_labels = target_labels[self.start_img:self.end_img] 
+	
 	
         # build a graph
         model = self.model
@@ -485,11 +460,10 @@ class Solver(object):
 	    trg_count = 0
 	    t = 0
 	    
-	    self.batch_size = 64
 	    
 	    label_gen = utils.one_hot(np.array([0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
 	    
-	    for step in range(10000000):
+	    for step in range(45000):
 		
 		trg_count += 1
 		t+=1
@@ -508,25 +482,37 @@ class Solver(object):
 		#~ sess.run(model.E_train_op, feed_dict) 
 		#~ sess.run(model.DE_train_op, feed_dict) 
 		
-		sess.run(model.G_train_op, feed_dict)
-		sess.run(model.DG_train_op, feed_dict) 
-		#~ sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.G_train_op, feed_dict)
+		#~ sess.run(model.DG_train_op, feed_dict) 
+		sess.run(model.const_train_op, feed_dict)
 		
+		#~ logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
+		
+		#~ if (step+1) % 100 == 0:
+		    
+		    #~ summary, E, DE, const_loss = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.const_loss], feed_dict)
+		    #~ summary_writer.add_summary(summary, step)
+		    #~ print ('Step: [%d/%d] E: [%.3f] DE: [%.3f] const: [%.3f] E_real: [%.2f] E_fake: [%.2f]' \
+			       #~ %(step+1, self.train_iter, E, DE, const_loss, logits_E_real.mean(),logits_E_fake.mean()))
+
 		logits_G_real,logits_G_fake = sess.run([model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
-		if (step+1) % 10 == 0:
+		if (step+1) % 100 == 0:
 		    
-		    summary, G, DG = sess.run([model.summary_op, model.G_loss, model.DG_loss], feed_dict)
+		    summary, G, DG, const_loss = sess.run([model.summary_op, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
-		    print ('Step: [%d/%d] G: [%.6f] DG: [%.6f] G_real: [%.2f] G_fake: [%.2f]' \
-			       %(step+1, self.train_iter, G, DG, logits_G_real.mean(),logits_G_fake.mean()))
+		    print ('Step: [%d/%d] G: [%.3f] DG: [%.3f] const: [%.3f] G_real: [%.2f] G_fake: [%.2f]' \
+			       %(step+1, self.train_iter, G, DG, const_loss, logits_G_real.mean(),logits_G_fake.mean()))
 
+		
+		
+		
 		    
 
 		if (step+1) % 200 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 
-    def eval_dsn(self):
+    def eval_dsn(self, name = 'Exp2'):
         # build model
         model = self.model
         model.build_model()
@@ -545,20 +531,20 @@ class Solver(object):
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.test_model)
 	    
-	    #~ print ('Loading sample generator.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.pretrained_sampler)
+	    print ('Loading sample generator.')
+	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
 	    
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='test')
+	    source_images, source_labels = self.load_svhn(self.svhn_dir)
 	    
-	    npr.seed(50123)
+	    npr.seed(190)
 
-	    for n in range(0,10):
+	    for n in range(10):
 		
 		print n
 	    
-		no_gen = 10000
+		no_gen = 5000
 
 		source_labels = n * np.ones((no_gen,),dtype=int)
 
@@ -574,21 +560,18 @@ class Solver(object):
 		#~ samples_logits = samples_logits[samples_logits>8.]
 		
 		for i in range(len(samples_logits)):
+		    #~ try:
+			#~ imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+name+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i])+'.png',np.squeeze(samples[i]))
+		    #~ except:
+			#~ os.mkdir('./sample/'+str(np.argmax(src_labels[i]))+'/'+name+'/')
+		    imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+name+'_'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i])+'.png',np.squeeze(samples[i]))
 		    
-		    #~ print str(i)+'/'+str(len(samples_logits))-
-		    
-		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
-		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i]),np.squeeze(samples[i]), cmap='gray')
-		
 		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir,split='train')
-	trg_images = trg_images[:2000]
-	trg_labels = trg_labels[:2000]
-
+	trg_images, trg_labels = self.load_svhn(self.svhn_dir,split='train')
 	
         # build a graph
         model = self.model
@@ -621,10 +604,10 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 		    
-		    if (t+1) % 100 == 0:
+		    if (t+1) % 1000 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:10000]
+			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:1000]
 			summary, l, src_acc, test_acc = sess.run([model.summary_op, model.loss, model.src_accuracy, model.trg_accuracy], 
 					       feed_dict={model.src_images: src_images[src_rand_idxs], 
 							  model.src_labels: src_labels[src_rand_idxs],
@@ -742,11 +725,11 @@ class Solver(object):
 	    
     def test(self):
 	
-	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
+	src_images, src_labels = self.load_syn(self.syn_dir, split='train')
+	src_test_images, src_test_labels = self.load_syn(self.syn_dir, split='test')
 	
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='train')
+	trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='train')
+	trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
     
 	
 	#~ gen_images, gen_labels = self.load_gen_images()
@@ -820,7 +803,7 @@ class Solver(object):
 		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
 			   #~ %(t+1, self.pretrain_iter, gen_acc))
 	
-		time.sleep(10.1)
+		time.sleep(60.0)
 
     def find_closest_samples(self,dataset='MNIST'):
 	
@@ -902,26 +885,52 @@ class Solver(object):
 		    './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/1257_9_10.9516',
 		    './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/3028_9_10.884']
 	
-	img_dirs=['./sample/0/0_0_11.805',
-		    './sample/0/25_0_12.7898',
-		    './sample/1/1_1_10.8626',
-		    './sample/1/48_1_11.2837',
-		    './sample/2/22_2_13.4107',
-		    './sample/2/45_2_13.4452',
-		    './sample/3/1_3_13.4568',
-		    './sample/3/93_3_13.2633',
-		    './sample/4/0_4_13.5914',
-		    './sample/4/125_4_11.7627',
-		    './sample/5/10_5_13.6584',
-		    './sample/5/101_5_13.8083',
-		    './sample/6/47_6_14.2574',
-		    './sample/6/78_6_14.331',
-		    './sample/7/27_7_13.715',
-		    './sample/7/43_7_13.3106',
-		    './sample/8/26_8_13.3845',
-		    './sample/8/279_8_13.5968',
-		    './sample/9/30_9_13.578',
-		    './sample/9/208_9_8.68816']
+	img_dirs=['/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/0/34_0_12.5879',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/0/43_0_12.7191',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/0/71_0_13.4629',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/0/107_0_13.852',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/0/156_0_9.50515',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/0/179_0_12.3553',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/1/0_1_11.0697',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/1/39_1_11.906',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/1/47_1_12.02',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/1/260_1_11.8137',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/1/220_1_11.2743',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/2/16_2_14.8628',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/2/36_2_14.227',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/2/153_2_15.0372',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/2/205_2_11.1629',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/2/210_2_14.0031',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/2/211_2_14.932',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/2/232_2_14.8322',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/3/1_3_13.3803',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/3/205_3_13.1647',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/3/252_3_11.8634',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/3/457_3_12.8652',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/3/643_3_12.3128',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/4/289_4_12.7546',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/4/361_4_11.6547',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/4/468_4_13.9029',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/4/1316_4_13.5783',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/5/643_5_13.8028',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/5/816_5_11.4797',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/5/887_5_12.926',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/5/1021_5_13.1642',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/6/2_6_14.4633',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/6/20_6_14.6705',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/6/154_6_14.5059',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/6/733_6_14.5222',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/7/3_7_12.8828',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/7/46_7_14.3591',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/7/80_7_12.8622',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/7/146_7_14.6746',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/8/7_8_12.9503',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/8/112_8_13.1749',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/8/128_8_12.1496',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/8/119_8_13.9465',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/9/24_9_13.2987',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/9/40_9_14.0222',
+		'/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/MNIST_USPS_91.7_commit_830e57b74af6600af0c00d8fc9c92a03668d25dd/9/57_9_13.7739']
 		    
 	
 	#~ real_images, real_labels = self.load_mnist(self.mnist_dir, split='train')

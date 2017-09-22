@@ -33,11 +33,13 @@ class Solver(object):
         self.pretrain_iter = pretrain_iter
         self.train_iter = train_iter
         self.sample_iter = sample_iter
-        
-	self.svhn_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/data/'+svhn_dir
-        self.mnist_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/data/'+mnist_dir
-        
-	self.log_dir = log_dir
+        self.svhn_dir = 'data/'+svhn_dir
+        self.syn_dir = 'data/'+syn_dir
+        self.mnist_dir = 'data/'+mnist_dir
+        self.mnist_m_dir = 'data/'+mnist_m_dir
+        self.usps_dir = 'data/'+usps_dir
+	self.amazon_dir = 'data/'+amazon_dir
+        self.log_dir = log_dir
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
         self.pretrained_model = pretrained_model
@@ -47,7 +49,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'svhn_mnist' # possibilities: svhn_mnist, mnist_usps, mnist_usps_2, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, mnist_usps_2, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
 
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -61,19 +63,55 @@ class Solver(object):
         labels[np.where(labels==10)] = 0
         return images, labels
 
-    def load_mnist(self, image_dir, split='train'):
-        print ('Loading MNIST dataset.')
-	
-	image_file = 'train.pkl' if split=='train' else 'test.pkl'
+    def load_syn(self, image_dir, split='train'):
+        print ('Loading SYN dataset.')
+        
+        image_file = 'synth_train_32x32.mat' if split=='train' else 'synth_test_32x32.mat'
+            
         image_dir = os.path.join(image_dir, image_file)
-        with open(image_dir, 'rb') as f:
-            mnist = pickle.load(f)
-        images = mnist['X'] / 127.5 - 1
-        labels = mnist['y']
+        syn = scipy.io.loadmat(image_dir)
+        images = np.transpose(syn['X'], [3, 0, 1, 2]) / 127.5 - 1
+        labels = syn['y'].reshape(-1)
+        labels[np.where(labels==10)] = 0
+        return images, labels
+
+    def load_gen_images_no(self, images_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/'):
 	
+	'''
+	Loading images generated with eval_dsn()
+	Assuming that ./sample contains folder with
+	subfolders 1,2,...,9.
+	'''
 	
-        return images, np.squeeze(labels).astype(int)
+	print 'Loading generated images.'
 	
+	no_images = 10000 # number of images per digit
+	
+	labels = np.zeros((10 * no_images,)).astype(int)
+	images = np.zeros((10 * no_images,28,28,1))
+	
+	for l in range(10):
+	    print l
+	    counter = 0
+	    for img_dir in sorted(glob.glob(images_dir+str(l)+'/*'))[:no_images]:
+		im = misc.imread(img_dir, mode='L')
+		im = np.expand_dims(im, axis=0)
+		im = np.expand_dims(im, axis=3)
+		images[l * no_images + counter] = im
+		labels[l * no_images + counter] = l
+		counter+=1
+	
+	npr.seed(231)
+	random_idx = np.arange(len(images))
+	npr.shuffle(random_idx)
+	images = images[random_idx]
+	labels = labels[random_idx]
+	
+	print 'break'
+	images = images / 127.5 - 1
+	return images, labels
+	
+    #~ def load_gen_images(self, images_dir='/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/'):
     def load_gen_images(self, images_dir='/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'):
 	
 	'''
@@ -94,7 +132,7 @@ class Solver(object):
 	
 	print no_images
 	labels = np.zeros((no_images,)).astype(int)
-	images = np.zeros((no_images,32,32,1))
+	images = np.zeros((no_images,28,28,1))
 	
 	counter = 0
 	
@@ -217,6 +255,48 @@ class Solver(object):
 		    if (t+1) % 250 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
+
+    def train_convdeconv(self):
+
+        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
+
+        # build a graph
+        model = self.model
+        model.build_model()
+	
+        with tf.Session(config=self.config) as sess:
+            tf.global_variables_initializer().run()
+            saver = tf.train.Saver()
+	    
+            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+
+	    epochs = 100
+	    
+	    t = 0
+
+	    for i in range(epochs):
+		
+		print 'Epoch',str(i)
+		
+		for start, end in zip(range(0, len(trg_images), self.batch_size), range(self.batch_size, len(trg_images), self.batch_size)):
+		    
+		    t+=1
+		       
+		    feed_dict = {model.images: trg_images[start:end]}
+		    
+		    sess.run(model.train_op, feed_dict) 
+
+		    if (t+1) % 250 == 0:
+			rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
+			summary, l = sess.run([model.summary_op, model.loss], feed_dict = {model.images: trg_test_images[rand_idxs]})
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] loss: [%.6f]' \
+				   %(t+1, self.pretrain_iter, l))
+			
+		    if (t+1) % 250 == 0:
+			#~ print 'Saved.'
+			saver.save(sess, os.path.join(self.model_save_path, 'conv_deconv'))
 	    
     def train_sampler(self):
 	
@@ -309,29 +389,8 @@ class Solver(object):
         
 	print 'Training DSN.'
 	
-	if self.protocol=='svhn_mnist':
-	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	    target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
-
-	if self.protocol == 'mnist_mnist_m':
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	    target_images, target_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
-	
-	elif self.protocol=='syn_svhn':
-	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
-	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
-
-	elif self.protocol=='mnist_usps':
-	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
-	    target_images, target_labels = self.load_usps(self.usps_dir)
-	    source_images = source_images[:2000]
-	    source_labels = source_labels[:2000]
-	    target_images = target_images[:1800]
-	    target_labels = target_labels[:1800]
-	
-	elif self.protocol == 'amazon_reviews':
-	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
-	    
+	source_images, source_labels = self.load_syn(self.syn_dir, split='train')
+	target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
 	
 	
         # build a graph
@@ -397,7 +456,7 @@ class Solver(object):
 		
 		logits_G_real,logits_G_fake = sess.run([model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
-		if (step+1) % 100 == 0:
+		if (step+1) % 10 == 0:
 		    
 		    summary, G, DG = sess.run([model.summary_op, model.G_loss, model.DG_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -406,7 +465,7 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 500 == 0:
+		if (step+1) % 200 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 
     def eval_dsn(self):
@@ -418,104 +477,60 @@ class Solver(object):
 	
         with tf.Session(config=self.config) as sess:
 	    
-	    #~ print ('Loading pretrained G.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.test_model)
+	    print ('Loading pretrained G.')
+	    variables_to_restore = slim.get_model_variables(scope='generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.test_model)
 	    
 	    print ('Loading pretrained E.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_model)
+	    restorer.restore(sess, self.test_model)
 	    
-	    print ('Loading sample generator.')
-	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_sampler)
+	    #~ print ('Loading sample generator.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.pretrained_sampler)
 	    
-	    source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
+	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='test')
+	    
+	    npr.seed(153)
 
-	    #~ for n in range(0,10):
+	    for n in range(0,10):
 		
-		#~ print n
+		print n
 	    
-		#~ no_gen = 10000
+		no_gen = 10000
 
-		#~ source_labels = n * np.ones((no_gen,),dtype=int)
+		source_labels = n * np.ones((no_gen,),dtype=int)
 
-		#~ # train model for source domain S
-		#~ src_labels = utils.one_hot(source_labels[:no_gen],10)
-		#~ src_noise = utils.sample_Z(no_gen,100,'uniform')
+		# train model for source domain S
+		src_labels = utils.one_hot(source_labels[:no_gen],10)
+		src_noise = utils.sample_Z(no_gen,100,'uniform')
 
-		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
-		#~ samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
-		#~ samples_logits = samples_logits[:,n]
+		samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
+		samples_logits = samples_logits[:,n]
 		#~ samples = samples[samples_logits>8.]
 		#~ samples_logits = samples_logits[samples_logits>8.]
 		
-		#~ for i in range(len(samples_logits)):
+		for i in range(len(samples_logits)):
 		    
-		    ## print str(i)+'/'+str(len(samples_logits))-
+		    #~ print str(i)+'/'+str(len(samples_logits))-
 		    
-		    #~ plt.imshow(np.squeeze(samples[i]), cmap='gray')
-		    #~ plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i]),np.squeeze(samples[i]), cmap='gray')
+		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
+		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i]),np.squeeze(samples[i]), cmap='gray')
 		
-		#~ print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
+		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
 
-	    no_gen = len(source_images)
-	    
-	    print 'Number of samples:',no_gen
-
-	    # train model for source domain S
-	    src_images = source_images[:no_gen]
-	    src_labels = utils.one_hot(source_labels[:no_gen],10)
-	    src_noise = utils.sample_Z(no_gen,100,'uniform')
-
-	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: src_images}
-
-	    fzy, fx_src, fzy_labels = sess.run([model.fzy, model.fx_src, model.fzy_labels], feed_dict)
-	    
-	    fzy_states = (fzy>0.).astype(int)
-	    fx_src_states = (fx_src>0.).astype(int)
-	    
-	    tmpUnique = np.unique(fzy_states.view(np.dtype((np.void, fzy_states.dtype.itemsize*fzy_states.shape[1]))), return_counts = True)
-	    fzy_states_unique = tmpUnique[0].view(fzy_states.dtype).reshape(-1, fzy_states.shape[1])
-	    print 'fzy:',fzy_states_unique.shape
-	    
-	    tmpUnique = np.unique(fx_src_states.view(np.dtype((np.void, fx_src_states.dtype.itemsize*fx_src_states.shape[1]))), return_counts = True)
-	    fx_src_states_unique = tmpUnique[0].view(fx_src_states.dtype).reshape(-1, fx_src_states.shape[1]) 
-	    print 'fx_src:',fx_src_states_unique.shape
-	    
-	    #~ while(True):
-		
-		#~ src_images = source_images[:2]
-		#~ src_labels = utils.one_hot(source_labels[:no_gen],10)
-		#~ src_noise = utils.sample_Z(no_gen,100,'uniform')
-
-		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: src_images}
-
-		#~ fzy, fx_src = sess.run([model.fzy, model.fx_src], feed_dict)
-		
-		#~ fzy_states = (fzy>0.).astype(int)
-		#~ fx_src_states = (fx_src>0.).astype(int)
-		
-		#~ fzy_states = np.vstack((fzy_states, fzy_states_unique))
-		#~ fx_src_states = np.vstack((fx_src_states, fx_src_states_unique))
-		
-		#~ tmpUnique = np.unique(fzy_states.view(np.dtype((np.void, fzy_states.dtype.itemsize*fzy_states.shape[1]))), return_counts = True)
-		#~ fzy_states_unique = tmpUnique[0].view(fzy_states.dtype).reshape(-1, fzy_states.shape[1])
-		#~ print 'fzy:',fzy_states_unique.shape
-		
-		    
-		
-	    
-	    print 'break'
-	    
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir,split='train')
+	trg_images = trg_images[:2000]
+	trg_labels = trg_labels[:2000]
+
 	
         # build a graph
         model = self.model
@@ -567,8 +582,8 @@ class Solver(object):
 			
     def check_TSNE(self):
 	
-	source_images, source_labels = self.load_svhn(self.svhn_dir, split='train')
-	target_images, target_labels = self.load_mnist(self.mnist_dir, split='train')
+	source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	target_images, target_labels = self.load_usps(self.usps_dir, split='train')
 	
         # build a graph
         model = self.model
@@ -669,16 +684,19 @@ class Solver(object):
 	    
     def test(self):
 	
-	# build a graph
-	model = self.model
-	model.build_model()
-	
 	src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
 	src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
 	
 	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
 	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='train')
     
+	
+	#~ gen_images, gen_labels = self.load_gen_images()
+
+	# build a graph
+	model = self.model
+	model.build_model()
+	
 	self.config = tf.ConfigProto(device_count = {'GPU': 0})
 	
 	with tf.Session(config=self.config) as sess:
@@ -826,8 +844,33 @@ class Solver(object):
 		    './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/1257_9_10.9516',
 		    './sample/SVHN_MNIST_generated_88.1scratch_from60_commit_2c2ea5329bb8c8c3d5552ec14071435117925359/9/3028_9_10.884']
 	
-	img_dirs=['./sample/2/2_2_8.08354']
-	real_images, real_labels = self.load_mnist(self.mnist_dir, split='train')
+	img_dirs=['./sample/0/0_0_11.805',
+		    './sample/0/25_0_12.7898',
+		    './sample/1/1_1_10.8626',
+		    './sample/1/48_1_11.2837',
+		    './sample/2/22_2_13.4107',
+		    './sample/2/45_2_13.4452',
+		    './sample/3/1_3_13.4568',
+		    './sample/3/93_3_13.2633',
+		    './sample/4/0_4_13.5914',
+		    './sample/4/125_4_11.7627',
+		    './sample/5/10_5_13.6584',
+		    './sample/5/101_5_13.8083',
+		    './sample/6/47_6_14.2574',
+		    './sample/6/78_6_14.331',
+		    './sample/7/27_7_13.715',
+		    './sample/7/43_7_13.3106',
+		    './sample/8/26_8_13.3845',
+		    './sample/8/279_8_13.5968',
+		    './sample/9/30_9_13.578',
+		    './sample/9/208_9_8.68816']
+		    
+	
+	#~ real_images, real_labels = self.load_mnist(self.mnist_dir, split='train')
+	real_images, real_labels = self.load_usps(self.usps_dir)
+	real_images = real_images[:1800]
+	real_labels = real_labels[:1800]
+
 	
 	counter=0
 	for img_dir in img_dirs:
@@ -838,7 +881,7 @@ class Solver(object):
 	    gen_image = np.expand_dims(gen_image, axis=3)
 	    gen_image = gen_image/ 127.5 - 1
 
-	    diff_square = np.sum(np.square(np.squeeze(real_images-gen_image).reshape((len(real_images), 32 * 32))),1)
+	    diff_square = np.sum(np.square(np.squeeze(real_images-gen_image).reshape((len(real_images), 28 * 28))),1)
 	    closest_image = real_images[np.argmin(diff_square)]
 
 	    gen_image = np.squeeze(gen_image)
@@ -846,13 +889,17 @@ class Solver(object):
 
 	    plt.imsave('./images_for_paper/'+str(counter)+'_generated.png',gen_image,cmap='gray')
 	    plt.imsave('./images_for_paper/'+str(counter)+'_closest.png',closest_image,cmap='gray')
+
+
 		
 if __name__=='__main__':
+    
+    
+    
 
     from model import DSN
     model = DSN(mode='eval_dsn', learning_rate=0.0003)
     solver = Solver(model)
-    #~ solver.find_closest_samples()
+    solver.find_closest_samples()
     
-    solver.check_TSNE()
-
+    #~ solver.check_TSNE()

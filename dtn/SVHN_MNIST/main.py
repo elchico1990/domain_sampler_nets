@@ -40,9 +40,7 @@ def main(_):
 	start_img = 1600
 	end_img = 3200
 	
-	for start,end,name in zip([8000,9600,11200,12800,14400,16000,17600,19200,20800,22400,24000,25600],
-							  [9600,11200,12800,14400,16000,17600,19200,20800,22400,24000,25600,27200],
-							  ['Exp6','Exp7','Exp8','Exp9','Exp10','Exp11','Exp12','Exp13','Exp14','Exp15','Exp16','Exp17']):
+	for start,end,name in zip([3200,4800,6400,8000,9600],[4800,6400,8000,9600,11200],['Exp3','Exp4','Exp5','Exp6','Exp7']):
 	
 	    model = DSN(mode='train_dsn', learning_rate=0.0001)
 	    solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path, start_img = start_img, end_img = end_img)

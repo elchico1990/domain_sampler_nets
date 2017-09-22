@@ -23,12 +23,6 @@ def one_hot(x,n):
 	o_h[np.arange(len(x)),x] = 1
 	return o_h
 	
-def unpickle(file):
-    fo = open(file, 'rb')
-    dict = cPickle.load(fo)
-    fo.close()
-    return dict
-	
 def computeTSNE(fileName='./for_tsne.pkl'):
 	
 	with open(fileName,'r') as f:

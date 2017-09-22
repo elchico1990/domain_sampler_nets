@@ -35,9 +35,9 @@ class Solver(object):
         self.sample_iter = sample_iter
         self.svhn_dir = 'data/'+svhn_dir
         self.syn_dir = 'data/'+syn_dir
-        self.mnist_dir = 'data/'+mnist_dir
+        self.mnist_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/data/'+mnist_dir
         self.mnist_m_dir = 'data/'+mnist_m_dir
-        self.usps_dir = 'data/'+usps_dir
+        self.usps_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/data/'+usps_dir
 	self.amazon_dir = 'data/'+amazon_dir
         self.log_dir = log_dir
         self.sample_save_path = sample_save_path
@@ -49,7 +49,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'usps_mnist' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
     
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -601,7 +601,7 @@ class Solver(object):
 
 		if (step+1) % 100 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
-	
+
     def eval_dsn(self):
         # build model
         model = self.model
@@ -611,53 +611,110 @@ class Solver(object):
 	
         with tf.Session(config=self.config) as sess:
 	    
-	    print ('Loading pretrained G.')
-	    variables_to_restore = slim.get_model_variables(scope='generator')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    #~ print ('Loading pretrained G.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.test_model)
 	    
 	    print ('Loading pretrained E.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_sampler)
 	    
-	    if self.protocol=='svhn_mnist':
-		source_images, source_labels = self.load_svhn(self.svhn_dir)
-	    elif self.protocol=='mnist_usps':
-		source_images, source_labels = self.load_mnist(self.mnist_dir)
-
-	    for n in range(10):
-		
-		print n
+	    #~ source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
+	    #~ source_images = source_images[:2000]
+	    #~ source_labels = source_labels[:2000]
 	    
-		no_gen = 5000
+	    source_images, source_labels = self.load_usps(self.usps_dir)
+	    source_images = source_images[:1800]
+	    source_labels = source_labels[:1800]
+	    
+	    source_images = np.repeat(source_images,50,0)
+	    source_labels = np.repeat(source_labels,50,0)
 
-		source_labels = n * np.ones((no_gen,),dtype=int)
+	    #~ for n in range(0,10):
+		
+		#~ print n
+	    
+		#~ no_gen = 10000
 
-		# train model for source domain S
+		#~ source_labels = n * np.ones((no_gen,),dtype=int)
+
+		#~ # train model for source domain S
+		#~ src_labels = utils.one_hot(source_labels[:no_gen],10)
+		#~ src_noise = utils.sample_Z(no_gen,100,'uniform')
+
+		#~ feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
+
+		#~ samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
+		#~ samples_logits = samples_logits[:,n]
+		#~ samples = samples[samples_logits>8.]
+		#~ samples_logits = samples_logits[samples_logits>8.]
+		
+		#~ for i in range(len(samples_logits)):
+		    
+		    ## print str(i)+'/'+str(len(samples_logits))-
+		    
+		    #~ plt.imshow(np.squeeze(samples[i]), cmap='gray')
+		    #~ plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i]),np.squeeze(samples[i]), cmap='gray')
+		
+		#~ print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
+
+	    no_gen = len(source_images)
+	    
+	    print 'Number of samples:',no_gen
+
+	    # train model for source domain S
+	    src_images = source_images[:2]
+	    src_labels = utils.one_hot(source_labels[:no_gen],10)
+	    src_noise = utils.sample_Z(no_gen,100,'uniform')
+
+	    feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: src_images}
+
+	    fzy, fx_src, fzy_labels = sess.run([model.fzy, model.fx_src, model.fzy_labels], feed_dict)
+	    
+	    fzy_states = (fzy>0.).astype(int)
+	    fx_src_states = (fx_src>0.).astype(int)
+	    
+	    tmpUnique = np.unique(fzy_states.view(np.dtype((np.void, fzy_states.dtype.itemsize*fzy_states.shape[1]))), return_counts = True)
+	    fzy_states_unique = tmpUnique[0].view(fzy_states.dtype).reshape(-1, fzy_states.shape[1])
+	    print 'fzy:',fzy_states_unique.shape
+	    
+	    tmpUnique = np.unique(fx_src_states.view(np.dtype((np.void, fx_src_states.dtype.itemsize*fx_src_states.shape[1]))), return_counts = True)
+	    fx_src_states_unique = tmpUnique[0].view(fx_src_states.dtype).reshape(-1, fx_src_states.shape[1]) 
+	    print 'fx_src:',fx_src_states_unique.shape
+	    
+	    print (np.argmax(src_labels,1)==fzy_labels).astype(int).mean()
+	    
+	    while(True):
+		
+		src_images = source_images[:2]
 		src_labels = utils.one_hot(source_labels[:no_gen],10)
 		src_noise = utils.sample_Z(no_gen,100,'uniform')
 
-		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
+		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels, model.src_images: src_images}
 
-		samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
-		samples_logits = samples_logits[:,n]
-		samples = samples[samples_logits>8.]
-		samples_logits = samples_logits[samples_logits>8.]
+		fzy, fx_src = sess.run([model.fzy, model.fx_src], feed_dict)
 		
-		for i in range(len(samples_logits)):
-		    
-		    #~ print str(i)+'/'+str(len(samples_logits))-
-		    
-		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
-		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i]),np.squeeze(samples[i]), cmap='gray')
+		fzy_states = (fzy>0.).astype(int)
+		fx_src_states = (fx_src>0.).astype(int)
 		
-		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
+		fzy_states = np.vstack((fzy_states, fzy_states_unique))
+		fx_src_states = np.vstack((fx_src_states, fx_src_states_unique))
+		
+		tmpUnique = np.unique(fzy_states.view(np.dtype((np.void, fzy_states.dtype.itemsize*fzy_states.shape[1]))), return_counts = True)
+		fzy_states_unique = tmpUnique[0].view(fzy_states.dtype).reshape(-1, fzy_states.shape[1])
+		print 'fzy:',fzy_states_unique.shape
+		
+		    
+		
+	    
+	    print 'break'
 		    
     def train_gen_images(self):
         # load svhn dataset

@@ -43,7 +43,13 @@ class DSN(object):
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
-    def E(self, images, reuse=False, make_preds=False, is_training = False):
+    def E(self, images, reuse=False, make_preds=False, is_training = False, only_output=False):
+	
+	if only_output == True:
+	    with tf.variable_scope('encoder', reuse=reuse):
+		with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
+		    with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='VALID'):
+			return slim.fully_connected(images, 10, activation_fn=None, scope='fc5')
 	
 	if images.get_shape()[3] == 3:
 	    # For mnist dataset, replicate the gray scale image 3 times.
@@ -220,14 +226,15 @@ class DSN(object):
             
             # source domain (svhn to mnist)
             self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-            self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
-	    self.sampled_images_logits = self.E(self.sampled_images, make_preds=True) 
 
-	    self.fx_src = self.E(self.src_images, reuse=True) # instead of extracting the hidden representation from a src image, 
-            self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
+	    self.fx_src = self.E(self.src_images)  
+            self.fx_trg = self.E(self.trg_images, reuse=True)
+	    
+	    self.fzy_logits = self.E(self.fzy,only_output=True)
+	    self.fzy_labels = tf.argmax(self.fzy_logits,1)  
 	    	    
 	elif self.mode == 'train_dsn':
-	    
+	    	    
             self.src_noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_labels = tf.placeholder(tf.float32, [None, 10], 'labels')
             self.labels_gen = tf.placeholder(tf.float32, [None, 10], 'labels_gen')
@@ -353,3 +360,12 @@ class DSN(object):
 
             for var in tf.trainable_variables():
 		tf.summary.histogram(var.op.name, var)
+		
+		
+		
+		
+		
+		
+		
+		
+		
