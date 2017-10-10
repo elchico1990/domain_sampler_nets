@@ -46,7 +46,7 @@ def extract_vgg_16_mapping_without_fc8(vgg_16_variables_mapping):
     return updated_mapping
 
 
-#dummy comment
+
 def FCN_32s(image_batch_tensor,
             number_of_classes,
             is_training):
