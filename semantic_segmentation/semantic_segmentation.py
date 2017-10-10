@@ -54,17 +54,22 @@ import sys
 import tensorflow as tf
 import skimage.io as io
 import numpy as np
+from matplotlib import pyplot as plt
+
 os.environ["CUDA_VISIBLE_DEVICES"] = '1'
-sys.path.append("/home/dpakhom1/workspace/my_models/slim/")
-checkpoints_dir = '/home/dpakhom1/checkpoints'
+
 image_filename = 'cat.jpg'
 annotation_filename = 'cat_annotation.png'
+
+#placeholders
 image_filename_placeholder = tf.placeholder(tf.string)
 annotation_filename_placeholder = tf.placeholder(tf.string)
 is_training_placeholder = tf.placeholder(tf.bool)
+
 feed_dict_to_use = {image_filename_placeholder: image_filename,
                     annotation_filename_placeholder: annotation_filename,
                     is_training_placeholder: True}
+
 image_tensor = tf.read_file(image_filename_placeholder)
 annotation_tensor = tf.read_file(annotation_filename_placeholder)
 image_tensor = tf.image.decode_jpeg(image_tensor, channels=3)
@@ -90,11 +95,6 @@ flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, 2))
 
 
 
-import numpy as np
-import tensorflow as tf
-import sys
-import os
-from matplotlib import pyplot as plt
 
 fig_size = [15, 4]
 plt.rcParams["figure.figsize"] = fig_size
