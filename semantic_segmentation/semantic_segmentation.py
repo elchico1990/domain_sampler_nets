@@ -78,7 +78,7 @@ background_labels_tensor = tf.not_equal(annotation_tensor, 1)
 # computations in cross-entropy loss is correct
 bit_mask_class = tf.to_float(class_labels_tensor)
 bit_mask_background = tf.to_float(background_labels_tensor)
-combined_mask = tf.concat(concat_dim=2, values=[bit_mask_class,
+combined_mask = tf.concat(axis=2, values=[bit_mask_class,
                                                 bit_mask_background])
 # Lets reshape our input so that it becomes suitable for
 # tf.softmax_cross_entropy_with_logits with [batch_size, num_classes]
@@ -103,12 +103,12 @@ import urllib2
 
 slim = tf.contrib.slim
 
-from nets import vgg
-from preprocessing import vgg_preprocessing
+import vgg
+import vgg_preprocessing
 
 # Load the mean pixel values and the function
 # that performs the subtraction from each pixel
-from preprocessing.vgg_preprocessing import (_mean_image_subtraction,
+from vgg_preprocessing import (_mean_image_subtraction,
                                              _R_MEAN, _G_MEAN, _B_MEAN)
 
 upsample_factor = 32
@@ -143,7 +143,7 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
 downsampled_logits_shape = tf.shape(logits)
 
 # Calculate the ouput size of the upsampled tensor
-upsampled_logits_shape = tf.pack([
+upsampled_logits_shape = tf.stack([
     downsampled_logits_shape[0],
     downsampled_logits_shape[1] * upsample_factor,
     downsampled_logits_shape[2] * upsample_factor,

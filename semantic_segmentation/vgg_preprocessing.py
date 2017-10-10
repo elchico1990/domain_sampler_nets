@@ -227,10 +227,10 @@ def _mean_image_subtraction(image, means):
   if len(means) != num_channels:
     raise ValueError('len(means) must match the number of channels')
 
-  channels = tf.split(2, num_channels, image)
+  channels = tf.split(image, num_channels, 2)
   for i in range(num_channels):
     channels[i] -= means[i]
-  return tf.concat(2, channels)
+  return tf.concat(channels, 2)
 
 
 def _smallest_size_at_least(height, width, smallest_side):
