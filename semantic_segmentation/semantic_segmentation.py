@@ -56,24 +56,33 @@ import skimage.io as io
 import numpy as np
 from matplotlib import pyplot as plt
 
+import urllib2
+
+slim = tf.contrib.slim
+
+import vgg
+import vgg_preprocessing
+
 os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
 image_filename = 'cat.jpg'
 annotation_filename = 'cat_annotation.png'
 
+images = np.zeros((1, 352,480,3))
+annotations = np.zeros((1, 352,480,1))
+
 #placeholders
-image_filename_placeholder = tf.placeholder(tf.string)
-annotation_filename_placeholder = tf.placeholder(tf.string)
+image_tensor = tf.placeholder(tf.float32, [None, 352, 480, 3], 'images')
+annotation_tensor = tf.placeholder(tf.float32, [None, 352, 480, 1], 'annotations')
 is_training_placeholder = tf.placeholder(tf.bool)
 
-feed_dict_to_use = {image_filename_placeholder: image_filename,
-                    annotation_filename_placeholder: annotation_filename,
+feed_dict_to_use = {image_tensor: images,
+                    annotation_tensor: annotations,
                     is_training_placeholder: True}
 
-image_tensor = tf.read_file(image_filename_placeholder)
-annotation_tensor = tf.read_file(annotation_filename_placeholder)
-image_tensor = tf.image.decode_jpeg(image_tensor, channels=3)
-annotation_tensor = tf.image.decode_png(annotation_tensor, channels=1)
+
+
+
 # Get ones for each class instead of a number -- we need that
 # for cross-entropy loss later on. Sometimes the groundtruth
 # masks have values other than 1 and 0.
@@ -99,12 +108,7 @@ flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, 2))
 fig_size = [15, 4]
 plt.rcParams["figure.figsize"] = fig_size
 
-import urllib2
 
-slim = tf.contrib.slim
-
-import vgg
-import vgg_preprocessing
 
 # Load the mean pixel values and the function
 # that performs the subtraction from each pixel
@@ -122,10 +126,12 @@ vgg_checkpoint_path = './vgg_16.ckpt'
 image_float = tf.to_float(image_tensor, name='ToFloat')
 
 # Subtract the mean pixel value from each pixel
-mean_centered_image = _mean_image_subtraction(image_float,
-                                              [_R_MEAN, _G_MEAN, _B_MEAN])
+#~ mean_centered_image = _mean_image_subtraction(image_float,
+                                              #~ [_R_MEAN, _G_MEAN, _B_MEAN])
 
-processed_images = tf.expand_dims(mean_centered_image, 0)
+#~ processed_images = tf.expand_dims(mean_centered_image, 0)
+
+processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
 
 upsample_filter_np = bilinear_upsample_weights(upsample_factor,
                                                number_of_classes)
@@ -244,24 +250,36 @@ vgg_fc8_weights_initializer = tf.variables_initializer(vgg_fc8_weights)
 # Initializer for adam variables
 optimization_variables_initializer = tf.variables_initializer(adam_optimizer_variables)
 
+
+
+
+
+
+
+
+
+
+
+
 with tf.Session() as sess:
     # Run the initializers.
     read_vgg_weights_except_fc8_func(sess)
     sess.run(vgg_fc8_weights_initializer)
     sess.run(optimization_variables_initializer)
 
-    train_image, train_annotation = sess.run([image_tensor, annotation_tensor],
+    processed_images, train_images, train_annotations = sess.run([processed_images, image_tensor, annotation_tensor],
                                              feed_dict=feed_dict_to_use)
 
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    ax1.imshow(train_image)
-    ax1.set_title('Input image')
-    probability_graph = ax2.imshow(np.dstack((train_annotation,) * 3) * 100)
-    ax2.set_title('Input Ground-Truth Annotation')
-    plt.show()
+    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    #~ ax1.imshow(train_image)
+    #~ ax1.set_title('Input image')
+    #~ probability_graph = ax2.imshow(np.dstack((train_annotation,) * 3) * 100)
+    #~ ax2.set_title('Input Ground-Truth Annotation')
+    #~ plt.show()
 
-    # Let's perform 10 interations
-    for i in range(10):
+    EPOCHS = 10
+
+    for e in range(EPOCHS):
         loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op],
                                         feed_dict=feed_dict_to_use)
 
@@ -270,18 +288,18 @@ with tf.Session() as sess:
         pred_np, probabilities_np = sess.run([pred, probabilities],
                                              feed_dict=feed_dict_to_use)
 
-        summary_string_writer.add_summary(summary_string, i)
+        summary_string_writer.add_summary(summary_string, e)
 
-        cmap = plt.get_cmap('bwr')
+        #~ cmap = plt.get_cmap('bwr')
 
-        f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-        ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
-        ax1.set_title('Argmax. Iteration # ' + str(i))
-        probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
-        ax2.set_title('Probability of the Class. Iteration # ' + str(i))
+        #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+        #~ ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
+        #~ ax1.set_title('Argmax. Iteration # ' + str(i))
+        #~ probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
+        #~ ax2.set_title('Probability of the Class. Iteration # ' + str(i))
 
-        plt.colorbar(probability_graph)
-        plt.show()
+        #~ plt.colorbar(probability_graph)
+        #~ plt.show()
 
         print("Current Loss: " + str(loss))
 
@@ -292,20 +310,20 @@ with tf.Session() as sess:
                                                                    cross_entropy_sum],
                                                                   feed_dict=feed_dict_to_use)
 
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 
-    ax1.imshow(np.uint8(final_predictions.squeeze() != 1),
-               vmax=1.5,
-               vmin=-0.4,
-               cmap=cmap)
+    #~ ax1.imshow(np.uint8(final_predictions.squeeze() != 1),
+               #~ vmax=1.5,
+               #~ vmin=-0.4,
+               #~ cmap=cmap)
 
-    ax1.set_title('Final Argmax')
+    #~ ax1.set_title('Final Argmax')
 
-    probability_graph = ax2.imshow(final_probabilities.squeeze()[:, :, 0])
-    ax2.set_title('Final Probability of the Class')
-    plt.colorbar(probability_graph)
+    #~ probability_graph = ax2.imshow(final_probabilities.squeeze()[:, :, 0])
+    #~ ax2.set_title('Final Probability of the Class')
+    #~ plt.colorbar(probability_graph)
 
-    plt.show()
+    #~ plt.show()
 
     print("Final Loss: " + str(final_loss))
 
