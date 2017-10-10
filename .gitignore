@@ -5,6 +5,7 @@
 *.jpg
 *.pyc
 *.index
+*.ckpt
 /model
 /mnist
 /svhn
@@ -12,4 +13,3 @@
 /logs
 /OLD
 /dtn/SYN_SVHN/model/
-/semantic_segmentation/
