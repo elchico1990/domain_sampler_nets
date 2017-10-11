@@ -68,7 +68,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 image_filename = 'cat.jpg'
 annotation_filename = 'cat_annotation.png'
 
-
+no_classes = 3
 
 #plaeholders
 image_tensor = tf.placeholder(tf.float32, [None, 224, 224, 3], 'images')
@@ -78,20 +78,24 @@ is_training_placeholder = tf.placeholder(tf.bool)
 
 
 
-# Get ones for each class instead of a number -- we need that
-# for cross-entropy loss later on. Sometimes the groundtruth
-# masks have values other than 1 and 0.
-class_labels_tensor = tf.equal(annotation_tensor, 1)
-background_labels_tensor = tf.not_equal(annotation_tensor, 1)
-# Convert the boolean values into floats -- so that
-# computations in cross-entropy loss is correct
-bit_mask_class = tf.to_float(class_labels_tensor)
-bit_mask_background = tf.to_float(background_labels_tensor)
-combined_mask = tf.concat(axis=3, values=[bit_mask_class,
-                                                bit_mask_background])
-# Lets reshape our input so that it becomes suitable for
-# tf.softmax_cross_entropy_with_logits with [batch_size, num_classes]
-flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, 2))
+#~ # Get ones for each class instead of a number -- we need that
+#~ # for cross-entropy loss later on. Sometimes the groundtruth
+#~ # masks have values other than 1 and 0.
+#~ class_labels_tensor = tf.equal(annotation_tensor, 1)
+#~ background_labels_tensor = tf.not_equal(annotation_tensor, 1)
+#~ # Convert the boolean values into floats -- so that
+#~ # computations in cross-entropy loss is correct
+#~ bit_mask_class = tf.to_float(class_labels_tensor)
+#~ bit_mask_background = tf.to_float(background_labels_tensor)
+#~ combined_mask = tf.concat(axis=3, values=[bit_mask_class,
+                                                #~ bit_mask_background])
+#~ # Lets reshape our input so that it becomes suitable for
+#~ # tf.softmax_cross_entropy_with_logits with [batch_size, num_classes]
+#~ flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, 2))
+
+labels_tensors = [tf.to_float(tf.equal(annotation_tensor, i)) for i in range(no_classes)]
+combined_mask = tf.concat(axis=3, values = labels_tensors)
+flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, no_classes))
 
 
 
@@ -111,7 +115,7 @@ from vgg_preprocessing import (_mean_image_subtraction,
                                              _R_MEAN, _G_MEAN, _B_MEAN)
 
 upsample_factor = 32
-number_of_classes = 2
+
 log_folder = './logs'
 
 vgg_checkpoint_path = './vgg_16.ckpt'
@@ -130,20 +134,20 @@ image_float = tf.to_float(image_tensor, name='ToFloat')
 processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
 
 upsample_filter_np = bilinear_upsample_weights(upsample_factor,
-                                               number_of_classes)
+                                               no_classes)
 
 upsample_filter_tensor = tf.constant(upsample_filter_np)
 
 # Define the model that we want to use -- specify to use only two classes at the last layer
 with slim.arg_scope(vgg.vgg_arg_scope()):
     logits, end_points = vgg.vgg_16(processed_images,
-                                    num_classes=2,
+                                    num_classes=no_classes,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
                                     fc_conv_padding='VALID')
 				    
     features_fc7 = vgg.vgg_16(processed_images,
-                                    num_classes=2,
+                                    num_classes=no_classes,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
                                     fc_conv_padding='VALID',
@@ -152,7 +156,7 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
 
 # First upsampling to match shapes
 logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor,
-                                          output_shape=[tf.shape(logits)[0],7,7,2],
+                                          output_shape=[tf.shape(logits)[0],7,7,no_classes],
                                           strides=[1, 7, 7, 1])
 
 downsampled_logits_shape = tf.shape(logits)
@@ -173,7 +177,7 @@ upsampled_logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor,
 
 # Flatten the predictions, so that we can compute cross-entropy for
 # each pixel and get a sum of cross-entropies.
-flat_logits = tf.reshape(tensor=upsampled_logits, shape=(-1, number_of_classes))
+flat_logits = tf.reshape(tensor=upsampled_logits, shape=(-1, no_classes))
 
 cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
                                                           labels=flat_labels)
