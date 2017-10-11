@@ -68,17 +68,12 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 image_filename = 'cat.jpg'
 annotation_filename = 'cat_annotation.png'
 
-images = np.zeros((1, 224,224,3))
-annotations = np.zeros((1, 224,224,1))
+
 
 #plaeholders
 image_tensor = tf.placeholder(tf.float32, [None, 224, 224, 3], 'images')
 annotation_tensor = tf.placeholder(tf.float32, [None, 224, 224, 1], 'annotations')
 is_training_placeholder = tf.placeholder(tf.bool)
-
-feed_dict_to_use = {image_tensor: images,
-                    annotation_tensor: annotations,
-                    is_training_placeholder: True}
 
 
 
@@ -282,8 +277,16 @@ with tf.Session() as sess:
     sess.run(vgg_fc8_weights_initializer)
     sess.run(optimization_variables_initializer)
 
+    images = np.zeros((10, 224,224,3))
+    annotations = np.zeros((1000, 224,224,1))
+
+    feed_dict = {image_tensor: images,
+		    annotation_tensor: annotations,
+		    is_training_placeholder: True}
+
+
     logits, upsampled_logits, flat_logits, features_fc7, processed_images, train_images, train_annotations = sess.run([logits, upsampled_logits, flat_logits, features_fc7, processed_images, image_tensor, annotation_tensor],
-                                             feed_dict=feed_dict_to_use)
+                                             feed_dict=feed_dict)
 					     
     print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
@@ -296,37 +299,43 @@ with tf.Session() as sess:
     #~ plt.show()
 
     EPOCHS = 10
+    BATCH_SIZE = 2
 
     for e in range(EPOCHS):
-        loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op],
-                                        feed_dict=feed_dict_to_use)
+	
+	for start, end in zip(range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
+	    
+		    
+	    feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
 
-        sess.run(train_step, feed_dict=feed_dict_to_use)
+	    
+	    loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op], feed_dict=feed_dict)
 
-        pred_np, probabilities_np = sess.run([pred, probabilities],
-                                             feed_dict=feed_dict_to_use)
+	    sess.run(train_step, feed_dict=feed_dict)
 
-        summary_string_writer.add_summary(summary_string, e)
+	    pred_np, probabilities_np = sess.run([pred, probabilities],	feed_dict=feed_dict)
 
-        #~ cmap = plt.get_cmap('bwr')
+	    summary_string_writer.add_summary(summary_string, e)
 
-        #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-        #~ ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
-        #~ ax1.set_title('Argmax. Iteration # ' + str(i))
-        #~ probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
-        #~ ax2.set_title('Probability of the Class. Iteration # ' + str(i))
+	    #~ cmap = plt.get_cmap('bwr')
 
-        #~ plt.colorbar(probability_graph)
-        #~ plt.show()
+	    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+	    #~ ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
+	    #~ ax1.set_title('Argmax. Iteration # ' + str(i))
+	    #~ probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
+	    #~ ax2.set_title('Probability of the Class. Iteration # ' + str(i))
 
-        print("Current Loss: " + str(loss))
+	    #~ plt.colorbar(probability_graph)
+	    #~ plt.show()
 
-    feed_dict_to_use[is_training_placeholder] = False
+	    print("Current Loss: " + str(loss))
+
+    feed_dict[is_training_placeholder] = False
 
     final_predictions, final_probabilities, final_loss = sess.run([pred,
                                                                    probabilities,
                                                                    cross_entropy_sum],
-                                                                  feed_dict=feed_dict_to_use)
+                                                                  feed_dict=feed_dict)
 
     #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 
