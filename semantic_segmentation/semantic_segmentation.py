@@ -289,7 +289,7 @@ with tf.Session() as sess:
 		    is_training_placeholder: True}
 
 
-    logits, upsampled_logits, flat_logits, features_fc7, processed_images, train_images, train_annotations = sess.run([logits, upsampled_logits, flat_logits, features_fc7, processed_images, image_tensor, annotation_tensor],
+    labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, features_fc7, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, features_fc7, processed_images, image_tensor, annotation_tensor],
                                              feed_dict=feed_dict)
 					     
     print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
