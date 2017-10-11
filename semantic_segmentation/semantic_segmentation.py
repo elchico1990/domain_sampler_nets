@@ -68,12 +68,12 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 image_filename = 'cat.jpg'
 annotation_filename = 'cat_annotation.png'
 
-images = np.zeros((1, 352,480,3))
-annotations = np.zeros((1, 352,480,1))
+images = np.zeros((1, 224,224,3))
+annotations = np.zeros((1, 224,224,1))
 
-#placeholders
-image_tensor = tf.placeholder(tf.float32, [None, 352, 480, 3], 'images')
-annotation_tensor = tf.placeholder(tf.float32, [None, 352, 480, 1], 'annotations')
+#plaeholders
+image_tensor = tf.placeholder(tf.float32, [None, 224, 224, 3], 'images')
+annotation_tensor = tf.placeholder(tf.float32, [None, 224, 224, 1], 'annotations')
 is_training_placeholder = tf.placeholder(tf.bool)
 
 feed_dict_to_use = {image_tensor: images,
@@ -92,7 +92,7 @@ background_labels_tensor = tf.not_equal(annotation_tensor, 1)
 # computations in cross-entropy loss is correct
 bit_mask_class = tf.to_float(class_labels_tensor)
 bit_mask_background = tf.to_float(background_labels_tensor)
-combined_mask = tf.concat(axis=2, values=[bit_mask_class,
+combined_mask = tf.concat(axis=3, values=[bit_mask_class,
                                                 bit_mask_background])
 # Lets reshape our input so that it becomes suitable for
 # tf.softmax_cross_entropy_with_logits with [batch_size, num_classes]
@@ -129,7 +129,8 @@ image_float = tf.to_float(image_tensor, name='ToFloat')
 #~ mean_centered_image = _mean_image_subtraction(image_float,
                                               #~ [_R_MEAN, _G_MEAN, _B_MEAN])
 
-#~ processed_images = tf.expand_dims(mean_centered_image, 0)
+
+#~ image_float = tf.expand_dims(image_float, 0)
 
 processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
 
@@ -144,9 +145,23 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                     num_classes=2,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
-                                    fc_conv_padding='SAME')
+                                    fc_conv_padding='VALID')
+				    
+    features_fc7 = vgg.vgg_16(processed_images,
+                                    num_classes=2,
+                                    is_training=is_training_placeholder,
+                                    spatial_squeeze=False,
+                                    fc_conv_padding='VALID',
+				    reuse=True,
+				    return_fc7=True)
+
+# First upsampling to match shapes
+logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor,
+                                          output_shape=[tf.shape(logits)[0],7,7,2],
+                                          strides=[1, 7, 7, 1])
 
 downsampled_logits_shape = tf.shape(logits)
+
 
 # Calculate the ouput size of the upsampled tensor
 upsampled_logits_shape = tf.stack([
@@ -267,9 +282,12 @@ with tf.Session() as sess:
     sess.run(vgg_fc8_weights_initializer)
     sess.run(optimization_variables_initializer)
 
-    processed_images, train_images, train_annotations = sess.run([processed_images, image_tensor, annotation_tensor],
+    logits, upsampled_logits, flat_logits, features_fc7, processed_images, train_images, train_annotations = sess.run([logits, upsampled_logits, flat_logits, features_fc7, processed_images, image_tensor, annotation_tensor],
                                              feed_dict=feed_dict_to_use)
-
+					     
+    print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
+    print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
+					     
     #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     #~ ax1.imshow(train_image)
     #~ ax1.set_title('Input image')
