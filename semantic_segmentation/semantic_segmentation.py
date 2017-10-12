@@ -63,12 +63,13 @@ slim = tf.contrib.slim
 import vgg
 import vgg_preprocessing
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+from load_synthia import load_synthia
+
 
 image_filename = 'cat.jpg'
 annotation_filename = 'cat_annotation.png'
 
-no_classes = 3
+no_classes = 13
 
 #plaeholders
 image_tensor = tf.placeholder(tf.float32, [None, 224, 224, 3], 'images')
@@ -144,7 +145,7 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                     num_classes=no_classes,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
-                                    fc_conv_padding='VALID')
+                                    fc_conv_padding='SAME')
 				    
     features_fc7 = vgg.vgg_16(processed_images,
                                     num_classes=no_classes,
@@ -155,9 +156,9 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
 				    return_fc7=True)
 
 # First upsampling to match shapes
-logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor,
-                                          output_shape=[tf.shape(logits)[0],7,7,no_classes],
-                                          strides=[1, 7, 7, 1])
+#~ logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor,
+                                          #~ output_shape=[tf.shape(logits)[0],7,7,no_classes],
+                                          #~ strides=[1, 7, 7, 1])
 
 downsampled_logits_shape = tf.shape(logits)
 
@@ -281,58 +282,61 @@ with tf.Session() as sess:
     sess.run(vgg_fc8_weights_initializer)
     sess.run(optimization_variables_initializer)
 
-    images = np.zeros((10, 224,224,3))
-    annotations = np.zeros((1000, 224,224,1))
+    #~ images = np.zeros((10, 224,224,3))
+    #~ annotations = np.zeros((1000, 224,224,1))
+    
+    images, annotations = load_synthia(no_elements=1)
 
     feed_dict = {image_tensor: images,
 		    annotation_tensor: annotations,
 		    is_training_placeholder: True}
 
 
-    labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, features_fc7, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, features_fc7, processed_images, image_tensor, annotation_tensor],
-                                             feed_dict=feed_dict)
+    #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, features_fc7, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, features_fc7, processed_images, image_tensor, annotation_tensor],
+                                             #~ feed_dict=feed_dict)
 					     
-    print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
-    print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
+    #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
+    #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
 					     
-    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    #~ ax1.imshow(train_image)
-    #~ ax1.set_title('Input image')
-    #~ probability_graph = ax2.imshow(np.dstack((train_annotation,) * 3) * 100)
-    #~ ax2.set_title('Input Ground-Truth Annotation')
-    #~ plt.show()
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    ax1.imshow(np.squeeze(images))
+    ax1.set_title('Input image')
+    probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations),) * 3) * 100)
+    ax2.set_title('Input Ground-Truth Annotation')
+    plt.show()
 
-    EPOCHS = 10
-    BATCH_SIZE = 2
+    EPOCHS = 1000
+    BATCH_SIZE = 1
 
     for e in range(EPOCHS):
 	
-	for start, end in zip(range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
+	#~ for start, end in zip(range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
 	    
 		    
-	    feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
+	#~ feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
+	feed_dict = {image_tensor: images, annotation_tensor: annotations, is_training_placeholder: True}
 
-	    
-	    loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op], feed_dict=feed_dict)
+	
+	loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op], feed_dict=feed_dict)
 
-	    sess.run(train_step, feed_dict=feed_dict)
+	sess.run(train_step, feed_dict=feed_dict)
 
-	    pred_np, probabilities_np = sess.run([pred, probabilities],	feed_dict=feed_dict)
+	pred_np, probabilities_np = sess.run([pred, probabilities],	feed_dict=feed_dict)
 
-	    summary_string_writer.add_summary(summary_string, e)
+	summary_string_writer.add_summary(summary_string, e)
 
-	    #~ cmap = plt.get_cmap('bwr')
+	cmap = plt.get_cmap('bwr')
 
-	    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-	    #~ ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
-	    #~ ax1.set_title('Argmax. Iteration # ' + str(i))
-	    #~ probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
-	    #~ ax2.set_title('Probability of the Class. Iteration # ' + str(i))
+	f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+	ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
+	ax1.set_title('Argmax. Iteration # ' + str(i))
+	probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
+	ax2.set_title('Probability of the Class. Iteration # ' + str(i))
 
-	    #~ plt.colorbar(probability_graph)
-	    #~ plt.show()
+	plt.colorbar(probability_graph)
+	plt.show()
 
-	    print("Current Loss: " + str(loss))
+	print("Current Loss: " + str(loss))
 
     feed_dict[is_training_placeholder] = False
 
