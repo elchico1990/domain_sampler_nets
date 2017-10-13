@@ -6,6 +6,7 @@
 *.pyc
 *.index
 *.ckpt
+*.alien
 /model
 /mnist
 /svhn
