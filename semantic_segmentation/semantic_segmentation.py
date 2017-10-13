@@ -160,6 +160,12 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                           #~ output_shape=[tf.shape(logits)[0],7,7,no_classes],
                                           #~ strides=[1, 7, 7, 1])
 
+logits_new1 = tf.contrib.layers.flatten(logits)
+logits_new2 = slim.fully_connected(logits_new1, 1024, activation_fn = tf.nn.tanh,scope='fc_new')
+logits_new3 = tf.reshape(logits_new2,[-1,1,1,1024])
+logits_new4 = slim.conv2d_transpose(logits_new3,13,[22,30],padding='VALID',scope='conv2d_t_new')
+
+
 downsampled_logits_shape = tf.shape(logits)
 
 
@@ -218,7 +224,7 @@ with tf.variable_scope("adam_vars"):
 
         # Let's get histogram of gradients for each layer and
         # visualize them later in tensorboard
-        tf.summary.histogram(gradient_name_to_save, current_gradient)
+        #~ tf.summary.histogram(gradient_name_to_save, current_gradient)
 
     train_step = optimizer.apply_gradients(grads_and_vars=gradients)
 
@@ -227,7 +233,7 @@ with tf.variable_scope("adam_vars"):
 # which is responsible for class predictions. We do this because
 # we will have different number of classes to predict and we can't
 # use the old ones as an initialization.
-vgg_except_fc8_weights = slim.get_variables_to_restore(exclude=['vgg_16/fc8', 'adam_vars'])
+vgg_except_fc8_weights = slim.get_variables_to_restore(exclude=['vgg_16/fc8', 'adam_vars', 'conv2d_t_new', 'fc_new'])
 
 # Here we get variables that belong to the last layer of network.
 # As we saw, the number of classes that VGG was originally trained on
@@ -282,6 +288,7 @@ with tf.Session() as sess:
     print 'Loading weights.'
 
     # Run the initializers.
+    #~ sess.run(tf.global_variables_initializer())
     read_vgg_weights_except_fc8_func(sess)
     sess.run(vgg_fc8_weights_initializer)
     sess.run(optimization_variables_initializer)
@@ -291,23 +298,25 @@ with tf.Session() as sess:
     
     images, annotations = load_synthia(no_elements=100)
 
-    feed_dict = {image_tensor: images,
-		    annotation_tensor: annotations,
-		    is_training_placeholder: False}
+    #~ feed_dict = {image_tensor: images[1:2],
+		    #~ annotation_tensor: annotations[1:2],
+		    #~ is_training_placeholder: False}
 
 
     #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
                                              #~ feed_dict=feed_dict)
+
+    #~ logits, logits_new1, logits_new2, logits_new3, logits_new4 = sess.run([logits, logits_new1, logits_new2, logits_new3, logits_new4], feed_dict=feed_dict)
 					     
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
 					     
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    ax1.imshow(np.squeeze(images[1:2]))
-    ax1.set_title('Input image')
-    probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[1:2]),) * 3) * 100)
-    ax2.set_title('Input Ground-Truth Annotation')
-    plt.show()
+    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    #~ ax1.imshow(np.squeeze(images[1:2]))
+    #~ ax1.set_title('Input image')
+    #~ probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[1:2]),) * 3) * 100)
+    #~ ax2.set_title('Input Ground-Truth Annotation')
+    #~ plt.show()
 
     EPOCHS = 1000
     BATCH_SIZE = 4
