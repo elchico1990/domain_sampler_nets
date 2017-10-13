@@ -72,8 +72,8 @@ annotation_filename = 'cat_annotation.png'
 no_classes = 13
 
 #plaeholders
-image_tensor = tf.placeholder(tf.float32, [None, 224, 224, 3], 'images')
-annotation_tensor = tf.placeholder(tf.float32, [None, 224, 224, 1], 'annotations')
+image_tensor = tf.placeholder(tf.float32, [None, 704,960, 3], 'images')
+annotation_tensor = tf.placeholder(tf.float32, [None, 704,960, 1], 'annotations')
 is_training_placeholder = tf.placeholder(tf.bool)
 
 
@@ -147,13 +147,13 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                     spatial_squeeze=False,
                                     fc_conv_padding='SAME')
 				    
-    features_fc7 = vgg.vgg_16(processed_images,
-                                    num_classes=no_classes,
-                                    is_training=is_training_placeholder,
-                                    spatial_squeeze=False,
-                                    fc_conv_padding='VALID',
-				    reuse=True,
-				    return_fc7=True)
+    #~ features_fc7 = vgg.vgg_16(processed_images,
+                                    #~ num_classes=no_classes,
+                                    #~ is_training=is_training_placeholder,
+                                    #~ spatial_squeeze=False,
+                                    #~ fc_conv_padding='SAME',
+				    #~ reuse=True,
+				    #~ return_fc7=True)
 
 # First upsampling to match shapes
 #~ logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor,
@@ -183,7 +183,7 @@ flat_logits = tf.reshape(tensor=upsampled_logits, shape=(-1, no_classes))
 cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
                                                           labels=flat_labels)
 
-cross_entropy_sum = tf.reduce_sum(cross_entropies)
+cross_entropy_sum = tf.reduce_mean(cross_entropies)
 
 # Tensor to get the final prediction for each pixel -- pay
 # attention that we don't need softmax in this case because
@@ -253,6 +253,7 @@ summary_string_writer = tf.summary.FileWriter(log_folder)
 if not os.path.exists(log_folder):
     os.makedirs(log_folder)
 
+
 # Create an OP that performs the initialization of
 # values of variables to the values from VGG.
 read_vgg_weights_except_fc8_func = slim.assign_from_checkpoint_fn(
@@ -277,6 +278,9 @@ optimization_variables_initializer = tf.variables_initializer(adam_optimizer_var
 
 
 with tf.Session() as sess:
+        
+    print 'Loading weights.'
+
     # Run the initializers.
     read_vgg_weights_except_fc8_func(sess)
     sess.run(vgg_fc8_weights_initializer)
@@ -285,80 +289,94 @@ with tf.Session() as sess:
     #~ images = np.zeros((10, 224,224,3))
     #~ annotations = np.zeros((1000, 224,224,1))
     
-    images, annotations = load_synthia(no_elements=1)
+    images, annotations = load_synthia(no_elements=100)
 
     feed_dict = {image_tensor: images,
 		    annotation_tensor: annotations,
-		    is_training_placeholder: True}
+		    is_training_placeholder: False}
 
 
-    #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, features_fc7, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, features_fc7, processed_images, image_tensor, annotation_tensor],
+    #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
                                              #~ feed_dict=feed_dict)
 					     
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
 					     
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    ax1.imshow(np.squeeze(images))
+    ax1.imshow(np.squeeze(images[1:2]))
     ax1.set_title('Input image')
-    probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations),) * 3) * 100)
+    probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[1:2]),) * 3) * 100)
     ax2.set_title('Input Ground-Truth Annotation')
     plt.show()
 
     EPOCHS = 1000
-    BATCH_SIZE = 1
+    BATCH_SIZE = 4
 
     for e in range(EPOCHS):
 	
-	#~ for start, end in zip(range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
-	    
-		    
-	#~ feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
-	feed_dict = {image_tensor: images, annotation_tensor: annotations, is_training_placeholder: True}
-
+	print e
 	
-	loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op], feed_dict=feed_dict)
+	#~ for start, end in zip(range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
+	for image, annotation in zip(images, annotations):
+		    
+	    #~ feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
+	    feed_dict = {image_tensor: np.expand_dims(image,0), annotation_tensor: np.expand_dims(annotation,0), is_training_placeholder: False}
 
-	sess.run(train_step, feed_dict=feed_dict)
+	    loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op], feed_dict=feed_dict)
 
-	pred_np, probabilities_np = sess.run([pred, probabilities],	feed_dict=feed_dict)
+	    sess.run(train_step, feed_dict=feed_dict)
 
-	summary_string_writer.add_summary(summary_string, e)
 
-	cmap = plt.get_cmap('bwr')
+	    summary_string_writer.add_summary(summary_string, e)
 
-	f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-	ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
-	ax1.set_title('Argmax. Iteration # ' + str(i))
-	probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
-	ax2.set_title('Probability of the Class. Iteration # ' + str(i))
+	    #~ cmap = plt.get_cmap('bwr')
 
-	plt.colorbar(probability_graph)
-	plt.show()
+	    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+	    #~ ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
+	    #~ ax1.set_title('Argmax. Iteration # ' + str(i))
+	    #~ probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
+	    #~ ax2.set_title('Probability of the Class. Iteration # ' + str(i))
 
-	print("Current Loss: " + str(loss))
+	    #~ plt.colorbar(probability_graph)
+	    #~ plt.show()
+
+	    print("Current Loss: " + str(loss))
+	    
+	pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
+	plt.imsave(str(e)+'.png', np.squeeze(pred_np))
+
 
     feed_dict[is_training_placeholder] = False
+    feed_dict = {image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False}
+
+
+    
+    
+    pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
+                                             feed_dict=feed_dict)
+			
 
     final_predictions, final_probabilities, final_loss = sess.run([pred,
                                                                    probabilities,
                                                                    cross_entropy_sum],
                                                                   feed_dict=feed_dict)
 
-    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    
+    cmap = plt.get_cmap('bwr')
 
-    #~ ax1.imshow(np.uint8(final_predictions.squeeze() != 1),
-               #~ vmax=1.5,
-               #~ vmin=-0.4,
-               #~ cmap=cmap)
+    ax1.imshow(np.uint8(final_predictions.squeeze() != 1),
+               vmax=1.5,
+               vmin=-0.4,
+               cmap=cmap)
 
-    #~ ax1.set_title('Final Argmax')
+    ax1.set_title('Final Argmax')
 
-    #~ probability_graph = ax2.imshow(final_probabilities.squeeze()[:, :, 0])
-    #~ ax2.set_title('Final Probability of the Class')
-    #~ plt.colorbar(probability_graph)
+    probability_graph = ax2.imshow(final_probabilities.squeeze()[:, :, 0])
+    ax2.set_title('Final Probability of the Class')
+    plt.colorbar(probability_graph)
 
-    #~ plt.show()
+    plt.show()
 
     print("Final Loss: " + str(final_loss))
 

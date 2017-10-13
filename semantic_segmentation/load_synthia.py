@@ -1,6 +1,7 @@
 import numpy as np 
 import pandas as pd
 from PIL import Image
+from scipy import misc
 
 import os
 import glob
@@ -12,7 +13,6 @@ def load_synthia(no_elements=1000):
     data_dir = './data'
     seq_num = '01'  
     mode = 'DAWN'
-    size = (224,224)
 
     #~ img_dir = os.path.join(data_dir,'SYNTHIA-SEQS-'+seq_num+'-'+mode,'RGB/Stereo_Left/Omni_F')
 
@@ -23,23 +23,25 @@ def load_synthia(no_elements=1000):
     gt_files = sorted(glob.glob(gt_dir+'/*'))[:no_elements]
 
 
-    images = np.zeros((len(img_files),720,960,3))
-    labels = np.zeros((len(gt_files), 720, 960, 1))
+    images = np.zeros((len(img_files),704,960,3))
+    labels = np.zeros((len(gt_files), 704,960, 1))
 
     for n, img, lab in zip(range(len(img_files)), img_files, gt_files):
 	
-	if n%50==0:
-	    print n
+	#~ if n%50==0:
+	    #~ print n
 	
-	img = Image.open(img)
-	#~ img = img.resize(size=size, resample=Image.ANTIALIAS)
+	#~ print lab
 	
-	lab = np.array(pd.read_csv(lab, ' '))
+	img = misc.imread(img)
+	img = np.resize(img,(704,960,3))
+	
+	lab = np.array(pd.read_csv(lab, ' ', header=None))
 	lab[lab==-1] = 12
-	#~ lab = np.resize(lab,size)
-	lab = np.expand_dims(lab,2)
+	lab = np.resize(lab,(704,960,1))
+
 	
-	images[n] = np.asarray(img)
+	images[n] = img
 	labels[n] = lab
 	
     return images, labels
