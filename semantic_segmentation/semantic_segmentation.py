@@ -161,9 +161,11 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                           #~ strides=[1, 7, 7, 1])
 
 logits = tf.contrib.layers.flatten(logits)
-logits = slim.fully_connected(logits, 1024, activation_fn = tf.nn.tanh,scope='fc_new')
-logits = tf.reshape(logits,[-1,1,1,1024])
-logits = slim.conv2d_transpose(logits,13,[22,30],padding='VALID',scope='conv2d_t_new')
+logits = slim.fully_connected(logits, 4096, activation_fn = tf.nn.tanh,scope='fc_new')
+logits = tf.reshape(logits,[-1,1,1,4096])
+logits = slim.conv2d_transpose(logits,13,[7,7],padding='VALID',scope='conv2d_t_new_1')
+logits= slim.conv2d_transpose(logits,13,[16,24],padding='VALID',scope='conv2d_t_new_2')
+#~ logits = slim.conv2d_transpose(logits,13,[22,30],padding='VALID',scope='conv2d_t_new')
 
 
 downsampled_logits_shape = tf.shape(logits)
@@ -301,15 +303,15 @@ with tf.Session() as sess:
     
     images, annotations = load_synthia(no_elements=10)
 
-    #~ feed_dict = {image_tensor: images[1:2],
-		    #~ annotation_tensor: annotations[1:2],
-		    #~ is_training_placeholder: False}
+    feed_dict = {image_tensor: images[1:2],
+		    annotation_tensor: annotations[1:2],
+		    is_training_placeholder: False}
 
 
     #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
                                              #~ feed_dict=feed_dict)
 
-    #~ logits, logits_new1, logits_new2, logits_new3, logits_new4 = sess.run([logits, logits_new1, logits_new2, logits_new3, logits_new4], feed_dict=feed_dict)
+    #~ logits_n = sess.run(logits_n, feed_dict=feed_dict)
 					     
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
