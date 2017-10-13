@@ -160,10 +160,10 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                           #~ output_shape=[tf.shape(logits)[0],7,7,no_classes],
                                           #~ strides=[1, 7, 7, 1])
 
-logits_new1 = tf.contrib.layers.flatten(logits)
-logits_new2 = slim.fully_connected(logits_new1, 1024, activation_fn = tf.nn.tanh,scope='fc_new')
-logits_new3 = tf.reshape(logits_new2,[-1,1,1,1024])
-logits_new4 = slim.conv2d_transpose(logits_new3,13,[22,30],padding='VALID',scope='conv2d_t_new')
+logits = tf.contrib.layers.flatten(logits)
+logits = slim.fully_connected(logits, 1024, activation_fn = tf.nn.tanh,scope='fc_new')
+logits = tf.reshape(logits,[-1,1,1,1024])
+logits = slim.conv2d_transpose(logits,13,[22,30],padding='VALID',scope='conv2d_t_new')
 
 
 downsampled_logits_shape = tf.shape(logits)
@@ -288,15 +288,18 @@ with tf.Session() as sess:
     print 'Loading weights.'
 
     # Run the initializers.
-    #~ sess.run(tf.global_variables_initializer())
+    sess.run(tf.global_variables_initializer())
     read_vgg_weights_except_fc8_func(sess)
     sess.run(vgg_fc8_weights_initializer)
     sess.run(optimization_variables_initializer)
+    
+    saver = tf.train.Saver()
+	    
 
     #~ images = np.zeros((10, 224,224,3))
     #~ annotations = np.zeros((1000, 224,224,1))
     
-    images, annotations = load_synthia(no_elements=100)
+    images, annotations = load_synthia(no_elements=10)
 
     #~ feed_dict = {image_tensor: images[1:2],
 		    #~ annotation_tensor: annotations[1:2],
@@ -353,6 +356,7 @@ with tf.Session() as sess:
 	    
 	pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
 	plt.imsave(str(e)+'.png', np.squeeze(pred_np))
+	saver.save(sess, './model/segm_model')
 
 
     feed_dict[is_training_placeholder] = False
