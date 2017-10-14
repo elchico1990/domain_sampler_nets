@@ -72,8 +72,8 @@ annotation_filename = 'cat_annotation.png'
 no_classes = 13
 
 #plaeholders
-image_tensor = tf.placeholder(tf.float32, [None, 704,960, 3], 'images')
-annotation_tensor = tf.placeholder(tf.float32, [None, 704,960, 1], 'annotations')
+image_tensor = tf.placeholder(tf.float32, [None, 224 * 2,224 * 2, 3], 'images')
+annotation_tensor = tf.placeholder(tf.float32, [None, 224 * 2,224 * 2, 1], 'annotations')
 is_training_placeholder = tf.placeholder(tf.bool)
 
 
@@ -141,52 +141,40 @@ upsample_filter_tensor = tf.constant(upsample_filter_np)
 
 # Define the model that we want to use -- specify to use only two classes at the last layer
 with slim.arg_scope(vgg.vgg_arg_scope()):
-    logits, end_points = vgg.vgg_16(processed_images,
+    fc7, end_points = vgg.vgg_16(processed_images,
                                     num_classes=no_classes,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
                                     fc_conv_padding='SAME')
 				    
-    #~ features_fc7 = vgg.vgg_16(processed_images,
-                                    #~ num_classes=no_classes,
-                                    #~ is_training=is_training_placeholder,
-                                    #~ spatial_squeeze=False,
-                                    #~ fc_conv_padding='SAME',
-				    #~ reuse=True,
-				    #~ return_fc7=True)
+vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 
-# First upsampling to match shapes
-#~ logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor,
-                                          #~ output_shape=[tf.shape(logits)[0],7,7,no_classes],
-                                          #~ strides=[1, 7, 7, 1])
+				    
 
-logits = tf.contrib.layers.flatten(logits)
-logits = slim.fully_connected(logits, 4096, activation_fn = tf.nn.tanh,scope='fc_new')
-logits = tf.reshape(logits,[-1,1,1,4096])
-logits = slim.conv2d_transpose(logits,13,[7,7],padding='VALID',scope='conv2d_t_new_1')
-logits= slim.conv2d_transpose(logits,13,[16,24],padding='VALID',scope='conv2d_t_new_2')
-#~ logits = slim.conv2d_transpose(logits,13,[22,30],padding='VALID',scope='conv2d_t_new')
+net = slim.conv2d_transpose(fc7, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')  # (batch_size, 14, 14, 512)
+net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21')  # (batch_size, 14, 14, 512)
+net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')  # (batch_size, 14, 14, 512)
+net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec23')  # (batch_size, 14, 14, 512)
+net = slim.conv2d_transpose(net, 512, [3, 3],stride=2,  padding='SAME', scope='dec3')  # (batch_size, 28, 28, 512)
+net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec31')  # (batch_size, 28, 28, 512)
+net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec32')  # (batch_size, 28, 28, 512)
+net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec33')  # (batch_size, 28, 28, 256)
+net = slim.conv2d_transpose(net, 256, [3, 3],stride=2,  padding='SAME', scope='dec4')  # (batch_size, 56, 56, 256)
+net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec41')  # (batch_size, 56, 56, 256)
+net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec42')  # (batch_size, 56, 56, 256)
+net = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec43')  # (batch_size, 56, 56, 128)
+net = slim.conv2d_transpose(net, 128, [3, 3],stride=2,  padding='SAME', scope='dec5')  # (batch_size, 112, 112, 128)
+net = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec51')  # (batch_size, 112, 112, 128)
+net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='dec52')  # (batch_size, 112, 112, 64)
+net = slim.conv2d_transpose(net, 64, [3, 3],stride=2, padding='SAME', scope='dec6')   # (batch_size, 224, 224, 64)
+net = slim.conv2d_transpose(net, 64, [3, 3],stride=1, padding='SAME', scope='dec61')   # (batch_size, 224, 224, 64)
+net = slim.conv2d_transpose(net, 64, [3, 3],stride=1, padding='SAME', scope='dec62')   # (batch_size, 224, 224, 64)
+logits =      slim.conv2d(net, 13, [1, 1], scope='output')   # (batch_size, 224, 224, 13)
 
-
-downsampled_logits_shape = tf.shape(logits)
-
-
-# Calculate the ouput size of the upsampled tensor
-upsampled_logits_shape = tf.stack([
-    downsampled_logits_shape[0],
-    downsampled_logits_shape[1] * upsample_factor,
-    downsampled_logits_shape[2] * upsample_factor,
-    downsampled_logits_shape[3]
-])
-
-# Perform the upsampling
-upsampled_logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor,
-                                          output_shape=upsampled_logits_shape,
-                                          strides=[1, upsample_factor, upsample_factor, 1])
 
 # Flatten the predictions, so that we can compute cross-entropy for
 # each pixel and get a sum of cross-entropies.
-flat_logits = tf.reshape(tensor=upsampled_logits, shape=(-1, no_classes))
+flat_logits = tf.reshape(tensor=logits, shape=(-1, no_classes))
 
 cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
                                                           labels=flat_labels)
@@ -197,9 +185,9 @@ cross_entropy_sum = tf.reduce_mean(cross_entropies)
 # attention that we don't need softmax in this case because
 # we only need the final decision. If we also need the respective
 # probabilities we will have to apply softmax.
-pred = tf.argmax(upsampled_logits, dimension=3)
+pred = tf.argmax(logits, dimension=3)
 
-probabilities = tf.nn.softmax(upsampled_logits)
+probabilities = tf.nn.softmax(logits)
 
 # Here we define an optimizer and put all the variables
 # that will be created under a namespace of 'adam_vars'.
@@ -235,7 +223,6 @@ with tf.variable_scope("adam_vars"):
 # which is responsible for class predictions. We do this because
 # we will have different number of classes to predict and we can't
 # use the old ones as an initialization.
-vgg_except_fc8_weights = slim.get_variables_to_restore(exclude=['vgg_16/fc8', 'adam_vars', 'conv2d_t_new', 'fc_new'])
 
 # Here we get variables that belong to the last layer of network.
 # As we saw, the number of classes that VGG was originally trained on
@@ -301,7 +288,7 @@ with tf.Session() as sess:
     #~ images = np.zeros((10, 224,224,3))
     #~ annotations = np.zeros((1000, 224,224,1))
     
-    images, annotations = load_synthia(no_elements=10)
+    images, annotations = load_synthia(no_elements=50)
 
     feed_dict = {image_tensor: images[1:2],
 		    annotation_tensor: annotations[1:2],
@@ -311,22 +298,24 @@ with tf.Session() as sess:
     #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
                                              #~ feed_dict=feed_dict)
 
-    #~ logits_n = sess.run(logits_n, feed_dict=feed_dict)
+    fc7 = sess.run(fc7, feed_dict=feed_dict)
 					     
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
 					     
-    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    #~ ax1.imshow(np.squeeze(images[1:2]))
-    #~ ax1.set_title('Input image')
-    #~ probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[1:2]),) * 3) * 100)
-    #~ ax2.set_title('Input Ground-Truth Annotation')
-    #~ plt.show()
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    ax1.imshow(np.squeeze(images[10:11]))
+    ax1.set_title('Input image')
+    probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[10:11]),) * 3) * 100)
+    ax2.set_title('Input Ground-Truth Annotation')
+    plt.show()
 
     EPOCHS = 1000
     BATCH_SIZE = 4
 
     for e in range(EPOCHS):
+	
+	losses = []
 	
 	print e
 	
@@ -354,11 +343,13 @@ with tf.Session() as sess:
 	    #~ plt.colorbar(probability_graph)
 	    #~ plt.show()
 
-	    print("Current Loss: " + str(loss))
+	losses.append(loss)
+	print("Current Average Loss: " + str(np.array(losses).mean()))
+	
 	    
 	pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
 	plt.imsave(str(e)+'.png', np.squeeze(pred_np))
-	saver.save(sess, './model/segm_model')
+	#~ saver.save(sess, './model/segm_model')
 
 
     feed_dict[is_training_placeholder] = False
