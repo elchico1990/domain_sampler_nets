@@ -7,6 +7,8 @@
 *.index
 *.ckpt
 *.alien
+*.gz
+*.meta
 /model
 /mnist
 /svhn
@@ -14,6 +16,7 @@
 /logs
 /OLD
 /dtn/SYN_SVHN/model/
+/dtn/SVHN_MNIST/model/
 /dtn/weakly_supervised_learning/model/
 /semantic_segmentation/data
 /semantic_segmentation/model

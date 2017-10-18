@@ -5,7 +5,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 import scipy.io
 import glob
 
-def resize_images(image_arrays, size=[28, 28]):
+def resize_images(image_arrays, size=[32, 32]):
     # convert float type to integer 
     image_arrays = (image_arrays * 255).astype('uint8')
     

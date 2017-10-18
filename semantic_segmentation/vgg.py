@@ -163,7 +163,7 @@ def vgg_16(inputs,
       net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
       net = slim.max_pool2d(net, [2, 2], scope='pool5')
       # Use conv2d instead of fully_connected layers.
-      net = slim.conv2d(net, 4096, [7, 7], padding='SAME', scope='fc6')
+      net = slim.conv2d(net, 3, 4096, [7, 7], padding='SAME', scope='fc6')
       net = slim.conv2d(net, 4096, [1, 1], scope='fc7')
       # Convert end_points_collection into a end_point dict.
       end_points = slim.utils.convert_collection_to_dict(end_points_collection)

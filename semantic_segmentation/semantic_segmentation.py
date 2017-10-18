@@ -149,8 +149,7 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
 				    
 vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 
-				    
-
+	
 net = slim.conv2d_transpose(fc7, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')  # (batch_size, 14, 14, 512)
 net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21')  # (batch_size, 14, 14, 512)
 net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')  # (batch_size, 14, 14, 512)
@@ -288,7 +287,7 @@ with tf.Session() as sess:
     #~ images = np.zeros((10, 224,224,3))
     #~ annotations = np.zeros((1000, 224,224,1))
     
-    images, annotations = load_synthia(no_elements=50)
+    images, annotations = load_synthia(no_elements=10)
 
     feed_dict = {image_tensor: images[1:2],
 		    annotation_tensor: annotations[1:2],
@@ -303,12 +302,12 @@ with tf.Session() as sess:
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
 					     
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    ax1.imshow(np.squeeze(images[10:11]))
-    ax1.set_title('Input image')
-    probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[10:11]),) * 3) * 100)
-    ax2.set_title('Input Ground-Truth Annotation')
-    plt.show()
+    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    #~ ax1.imshow(np.squeeze(images[10:11]))
+    #~ ax1.set_title('Input image')
+    #~ probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[10:11]),) * 3) * 100)
+    #~ ax2.set_title('Input Ground-Truth Annotation')
+    #~ plt.show()
 
     EPOCHS = 1000
     BATCH_SIZE = 4
@@ -348,7 +347,7 @@ with tf.Session() as sess:
 	
 	    
 	pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
-	plt.imsave(str(e)+'.png', np.squeeze(pred_np))
+	plt.imsave('./images/'+str(e)+'.png', np.squeeze(pred_np))
 	#~ saver.save(sess, './model/segm_model')
 
 
@@ -365,7 +364,7 @@ with tf.Session() as sess:
     final_predictions, final_probabilities, final_loss = sess.run([pred,
                                                                    probabilities,
                                                                    cross_entropy_sum],
-                                                                  feed_dict=feed_dict)
+                                                                   feed_dict=feed_dict)
 
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     
