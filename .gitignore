@@ -17,6 +17,7 @@
 /OLD
 /dtn/SYN_SVHN/model/
 /dtn/SVHN_MNIST/model/
+/dtn/SVHN_MNIST/sample/
 /dtn/weakly_supervised_learning/model/
 /semantic_segmentation/data
 /semantic_segmentation/model

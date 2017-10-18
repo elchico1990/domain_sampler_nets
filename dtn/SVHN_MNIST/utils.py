@@ -92,7 +92,7 @@ def knn(X_test, X_ref, Y_ref, K = 5):
 		
 	return preds
 	
-def conv_concat(x,y,mode='ev876al_dsn'):
+def conv_concat(x,y,mode='eval_dsn'):
      	    
     """Concatenate conditioning vector on feature map axis."""
     x_shapes = x.get_shape()

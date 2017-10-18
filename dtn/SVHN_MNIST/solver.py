@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
 
+from scipy.misc import imsave
+
 import utils
 from sklearn.manifold import TSNE
 
@@ -68,45 +70,61 @@ class Solver(object):
         labels = mnist['y']
         return images, labels
 
-    def load_usps(self, image_dir):
-        
-	print ('Loading USPS dataset.')
-        image_file = 'train.pkl'
-        image_dir = os.path.join(image_dir, image_file)
-        with open(image_dir, 'rb') as f:
-            usps = pickle.load(f)
-        images = usps['X'] / 127.5 - 1
-        labels = usps['y']
-        return images, labels
+
 
     def load_gen_images(self):
 	
 	'''
 	Loading images generated with eval_dsn()
-	Assuming that image_dir contains folder with
+	Assuming that ./sample contains folder with
 	subfolders 1,2,...,9.
 	'''
 	
 	print 'Loading generated images.'
 	
-	no_images = 10000 # number of images per digit
-	
-	labels = np.zeros((10 * no_images,)).astype(int)
-	images = np.zeros((10 * no_images,32,32,3))
+	no_images = 0
+	v_threshold = 8.0
+	experiment = '0.01_0.01_5.0'
 	
 	for l in range(10):
-	    print l
 	    counter = 0
-	    for img_dir in sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/sample/'+str(l)+'/*'))[:no_images]:
-		im = misc.imread(img_dir)
-		im = np.expand_dims(im[:,:,:3], axis=0)
-		images[l * no_images + counter] = im
-		labels[l * no_images + counter] = l
-		counter+=1
+	    img_files = sorted(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/SVHN_MNIST/sample/'+str(l)+'/*'))
+	    print img_files[-1]
+	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
+	    no_images += len(values[values>=v_threshold])
+	
+	labels = np.zeros((no_images,)).astype(int)
+	images = np.zeros((no_images,32,32,1))
+	
+	counter = 0
+	
+	for l in range(10):
 	    
+	    img_files = np.array(sorted(np.array(glob.glob('/home/rvolpi/Desktop/domain_sampler_nets/dtn/SVHN_MNIST/sample/'+str(l)+'/*'))))
+	    values = np.array([float(v.split('_')[-1].split('.p')[0]) for v in img_files])
+	    img_files = img_files[values >= v_threshold]
+	    
+	    for img_dir in img_files:
+		#~ print img_dir
+		im = misc.imread(img_dir, 'L')
+		im = np.expand_dims(im, axis=0)
+		im = np.expand_dims(im, axis=3)
+		images[counter] = im
+		labels[counter] = l
+		counter+=1
+		
+	    print l, counter 
+	
+	npr.seed(231)
+	random_idx = np.arange(len(images))
+	npr.shuffle(random_idx)
+	images = images[random_idx]
+	labels = labels[random_idx]
+	
 	print 'break'
 	images = images / 127.5 - 1
 	return images, labels
+
 	
     def pretrain(self):
         # load svhn dataset
@@ -291,6 +309,8 @@ class Solver(object):
 
 	with tf.Session(config=self.config) as sess:
 	    	    
+	    	    
+	    	    
 	    # initialize G and D
 	    tf.global_variables_initializer().run()
 	    # restore variables of F
@@ -298,7 +318,7 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.pretrained_model)
+	    restorer.restore(sess, self.test_model)
 	    
 	    #~ print ('Loading pretrained encoder disc.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
@@ -348,12 +368,15 @@ class Solver(object):
 		
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
-		sess.run(model.E_train_op, feed_dict) 
-		sess.run(model.DE_train_op, feed_dict) 
+		#~ sess.run(model.E_train_op, feed_dict) 
+		#~ sess.run(model.DE_train_op, feed_dict) 
 		
-		#~ sess.run(model.G_train_op, feed_dict) 
-		#~ sess.run(model.DG_train_op, feed_dict) 
-		#~ sess.run(model.const_train_op, feed_dict)
+		sess.run(model.G_train_op, feed_dict)
+		if step%15==0:
+		    sess.run(model.DG_train_op, feed_dict) 
+		sess.run(model.const_train_op, feed_dict)
+		sess.run(model.const_train_op, feed_dict)
+		sess.run(model.const_train_op, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
@@ -364,12 +387,12 @@ class Solver(object):
 		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
 			       %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
 
-		    
 
-		if (step+1) % 100 == 0:
+
+		if (step+1) % 500 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 	
-    def eval_dsn(self):
+    def eval_dsn(self, name = 'Exp2'):
         # build model
         model = self.model
         model.build_model()
@@ -383,56 +406,65 @@ class Solver(object):
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.test_model)
 	    
+	    print ('Loading pretrained E.')
+	    variables_to_restore = slim.get_model_variables(scope='encoder')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.test_model)
 	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_sampler)
 	    
-	    for n in range(10):
+	    source_images, source_labels = self.load_svhn(self.svhn_dir)
 	    
-		# load svhn dataset
-		source_images, source_labels = self.load_svhn(self.svhn_dir)
-		source_labels[:] = str(n)
+	    npr.seed(190)
 
+	    for n in range(10):
+		
+		print n
+	    
+		no_gen = 5000
+
+		source_labels = n * np.ones((no_gen,),dtype=int)
 
 		# train model for source domain S
-		src_labels = utils.one_hot(source_labels[:10000],10)
-		src_noise = utils.sample_Z(10000,100,'uniform')
+		src_labels = utils.one_hot(source_labels[:no_gen],10)
+		src_noise = utils.sample_Z(no_gen,100,'uniform')
 
 		feed_dict = {model.src_noise: src_noise, model.src_labels: src_labels}
 
-		samples = sess.run(model.sampled_images, feed_dict)
-
-		for i in range(10000):
+		samples, samples_logits = sess.run([model.sampled_images, model.sampled_images_logits], feed_dict)
+		samples_logits = samples_logits[:,n]
+		samples = samples[samples_logits>8.]
+		samples_logits = samples_logits[samples_logits>8.]
+		
+		for i in range(len(samples_logits)):
+		    #~ try:
+			#~ imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+name+'/'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i])+'.png',np.squeeze(samples[i]))
+		    #~ except:
+			#~ os.mkdir('./sample/'+str(np.argmax(src_labels[i]))+'/'+name+'/')
+		    imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+name+'_'+str(i)+'_'+str(np.argmax(src_labels[i]))+'_'+str(samples_logits[i])+'.png',np.squeeze(samples[i]))
 		    
-		    print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
-		    plt.imshow(np.squeeze(samples[i]), cmap='gray')
-		    plt.imsave('./sample/'+str(np.argmax(src_labels[i]))+'/'+str(i)+'_'+str(np.argmax(src_labels[i])),np.squeeze(samples[i]), cmap='gray')
-
+		print str(i)+'/'+str(len(samples)), np.argmax(src_labels[i])
+		
     def train_gen_images(self):
         # load svhn dataset
         src_images, src_labels = self.load_gen_images()
-	
-	random_idx = np.arange(len(src_images))
-	npr.shuffle(random_idx)
-	src_images = src_images[random_idx]
-	src_labels = src_labels[random_idx]
-	
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='test')
+	trg_images, trg_labels = self.load_mnist(self.mnist_dir,split='test')
 	
         # build a graph
         model = self.model
         model.build_model()
-	
+		
         with tf.Session(config=self.config) as sess:
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
 	    
-            #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.test_model)
+	    #~ print ('Loading pretrained encoder.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='encoder')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.test_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 	    
@@ -447,16 +479,16 @@ class Solver(object):
 		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
 		    
 		    t+=1
-		       
+		    
 		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but otherwise useless. 
 		    
 		    sess.run(model.train_op, feed_dict) 
-
-		    if (t+1) % 250 == 0:
+		    
+		    if (t+1) % 1000 == 0:
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_images.shape[0])[:1000]
 			trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:1000]
-			test_acc = sess.run(model.trg_accuracy, 
+			summary, l, src_acc, test_acc = sess.run([model.summary_op, model.loss, model.src_accuracy, model.trg_accuracy], 
 					       feed_dict={model.src_images: src_images[src_rand_idxs], 
 							  model.src_labels: src_labels[src_rand_idxs],
 							  model.trg_images: trg_images[trg_rand_idxs], 
@@ -465,7 +497,7 @@ class Solver(object):
 			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.3f] test acc [%.3f]' \
 				   %(t+1, self.pretrain_iter, l, src_acc, test_acc))
 			
-		    if (t+1) % 250 == 0:
+		    if (t+1) % 1000 == 0:
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model_gen'))
 
