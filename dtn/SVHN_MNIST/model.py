@@ -65,32 +65,7 @@ class DSN(object):
 		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds or self.mode=='train_gen_images'):
 			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
 		    return net
-		    
-    #~ def E(self, images, reuse=False, make_preds=False, is_training = False):
-        #~ # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
-	
-	#~ if images.get_shape()[3] == 3:
-	    #~ # For mnist dataset, replicate the gray scale image 3 times.
-	    #~ images = tf.image.rgb_to_grayscale(images)
-        
-        #~ with tf.variable_scope('encoder', reuse=reuse):
-            #~ with slim.arg_scope([slim.conv2d], padding='SAME', activation_fn=None,
-                                 #~ stride=2,  weights_initializer=tf.contrib.layers.xavier_initializer()):
-                #~ with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
-                                    #~ activation_fn=tf.nn.relu, is_training=((self.mode=='pretrain' or self.mode=='train_gen_images') and is_training == True)):
-                    
-                    #~ net = slim.conv2d(images, 64, [3, 3], scope='conv1')   # (batch_size, 16, 16, 64)
-                    #~ net = slim.batch_norm(net, scope='bn1')
-                    #~ net = slim.conv2d(net, 128, [3, 3], scope='conv2')     # (batch_size, 8, 8, 128)
-                    #~ net = slim.batch_norm(net, scope='bn2')
-                    #~ net = slim.conv2d(net, 256, [3, 3], scope='conv3')     # (batch_size, 4, 4, 256)
-                    #~ net = slim.batch_norm(net, scope='bn3')
-                    #~ net = slim.conv2d(net, self.hidden_repr_size, [4, 4], padding='VALID', scope='conv4')   # (batch_size, 1, 1, 128)
-                    #~ net = slim.batch_norm(net, activation_fn=tf.nn.tanh, scope='bn4')
-                    #~ net = slim.flatten(net)
-		    #~ if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-			#~ net = slim.fully_connected(net, 10, activation_fn=tf.sigmoid, scope='out')
-		    #~ return net
+
     
     def D_e(self, inputs, y, reuse=False):
 		
@@ -195,23 +170,9 @@ class DSN(object):
 
     def build_model(self):
         
-        if self.mode == 'train_convdeconv':
-            self.images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
-	    self.rec_images = self.ConvDeconv(self.images, is_training = True)
-		
-	    self.loss = tf.reduce_mean(tf.square(self.rec_images - self.images))
-	    
-            self.optimizer = tf.train.AdamOptimizer(self.learning_rate) 
-            self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
-	    
-            # summary op
-            loss_summary = tf.summary.scalar('reconstruction_loss', self.loss)
-	    images_summary = tf.summary.image('images', self.images)
-	    rec_images_summary = tf.summary.image('reconstructed_images', self.rec_images)
-            self.summary_op = tf.summary.merge([loss_summary, images_summary, rec_images_summary])
-	        
+
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images':
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'svhn_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 1], 'mnist_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')

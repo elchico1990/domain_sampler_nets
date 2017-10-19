@@ -11,7 +11,7 @@ FLAGS = flags.FLAGS
 def main(_):
     
     model = DSN(mode=FLAGS.mode, learning_rate=0.0003)
-    solver = Solver(model, svhn_dir='svhn', mnist_dir='mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
+    solver = Solver(model, svhn_dir='/data/svhn', mnist_dir='/data/mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
     
     # create directories if not exist
     if not tf.gfile.Exists(FLAGS.model_save_path):
