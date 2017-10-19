@@ -22,6 +22,8 @@ def main(_):
 	    solver.eval_dsn()
     elif FLAGS.mode == 'test':
 	    solver.test()
+    elif FLAGS.mode == 'features':
+	    solver.features()
     elif FLAGS.mode == 'test_ensemble':
 	    solver.test_ensemble()
     else:

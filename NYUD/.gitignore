@@ -1,3 +1,5 @@
+*.npy
+*.pkl
 NYUD_domain_adaptation/
 model*/
 logs/
