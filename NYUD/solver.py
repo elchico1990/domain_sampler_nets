@@ -580,6 +580,49 @@ class Solver(object):
 		print ('src acc [%.4f]' %(src_acc/len(src_labels)))
 	
 		time.sleep(5)
+    
+    def features(self):
+	
+	# load whatevere dataset 
+	split='source'
+	images, _ = self.load_NYUD(split=split)
+
+	
+	# build a graph
+	model = self.model
+	model.build_model()
+	
+	with tf.Session(config=self.config) as sess:
+	    tf.global_variables_initializer().run()
+
+	    # Load pretrained or final model
+	    print ('Loading pretrained model.')
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+	    print ('Done!')
+	    #~ print ('Loading test model.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.test_model)
+	    #~ print ('Done!')
+    
+	    features = np.zeros((len(images), model.hidden_repr_size), dtype=np.float)
+	    i=0
+	    # Eval on source
+	    for im  in np.array_split(images, 40):
+		_feat_ = sess.run(fetches=model.fx, feed_dict={model.images: im})
+		print _feat_
+		features[i:i+len(im)]= np.squeeze(_feat_)
+		i+=len(im)
+		print(i)
+	    assert i==len(images)
+	    assert i==self.no_images[split]
+	    features.tofile('features.npy')
+	    
+		
+
+
 	    
     def test_ensemble(self):
 	
