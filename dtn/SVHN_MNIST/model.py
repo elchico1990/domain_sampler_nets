@@ -252,17 +252,17 @@ class DSN(object):
             
             # source domain (svhn to mnist)
             self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-            #~ self.fx_src = self.E(self.src_images) # instead of extracting the hidden representation from a src image, 
-            #~ self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
+            self.fx_src = self.E(self.src_images) # instead of extracting the hidden representation from a src image, 
+            self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
 	    
 	    
 	    #~ self.h_repr = self.ConvDeconv(self.trg_images)
 	    
 	    #~ self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
 		
-	    self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
+	    #~ self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
 	    
-	    self.sampled_images_logits = self.E(self.sampled_images, make_preds=True) 
+	    #~ self.sampled_images_logits = self.E(self.sampled_images, make_preds=True) 
 
 	elif self.mode == 'train_dsn':
 	    

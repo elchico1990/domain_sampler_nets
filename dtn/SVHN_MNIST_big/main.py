@@ -10,7 +10,7 @@ FLAGS = flags.FLAGS
 
 def main(_):
     
-    model = DSN(mode=FLAGS.mode, learning_rate=0.0003)
+    model = DSN(mode=FLAGS.mode, learning_rate=0.0001)
     solver = Solver(model, svhn_dir='../data/svhn', mnist_dir='../data/mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
     
     # create directories if not exist

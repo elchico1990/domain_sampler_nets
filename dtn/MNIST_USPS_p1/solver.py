@@ -49,7 +49,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'usps_mnist' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
     
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -843,7 +843,7 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 2000
+	    n_samples = 1800
             src_labels = utils.one_hot(source_labels[:n_samples],10)
 	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
@@ -881,20 +881,28 @@ class Solver(object):
 		plt.figure(3)
 		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
 		
+
 	    elif sys.argv[2] == '2':
 		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src)))
-	        plt.figure(2)
-		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
-		plt.figure(3)
-                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
+		
+		f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
+		ax1.set_facecolor('white')
+		ax2.set_facecolor('white')
+		
+		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
+		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
+
 
 	    elif sys.argv[2] == '3':
 		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
-	        plt.figure(2)
-		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet)
-		plt.figure(3)
-                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet)
+		
+		f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
+		ax1.set_facecolor('white')
+		ax2.set_facecolor('white')
 
+		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet)
+		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet)
+		
 	    elif sys.argv[2] == '4':
 		TSNE_hA = model.fit_transform(h_repr)
 	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.argmax(trg_labels,1), s=3,  cmap = mpl.cm.jet)

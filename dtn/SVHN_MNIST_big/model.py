@@ -48,27 +48,32 @@ class DSN(object):
 		    
     def E(self, images, reuse=False, make_preds=False, is_training = False):
 	
-	if images.get_shape()[3] == 3:
+	if images.get_shape()[3] == 1:
 	    # For mnist dataset, replicate the gray scale image 3 times.
-	    images = tf.image.rgb_to_grayscale(images)
+	    images = tf.image.grayscale_to_rgb(images)
 	
 	with tf.variable_scope('encoder', reuse=reuse):
 	    with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
 		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='SAME'):
-		    net = slim.conv2d(images, 32, 3, scope='conv11')
-		    net = slim.conv2d(images, 32, 3, scope='conv12')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool1')
-		    net = slim.conv2d(net, 64, 3, scope='conv21')
-		    net = slim.conv2d(net, 64, 3, scope='conv22')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool2')
-		    net = slim.conv2d(net, 128, 3, scope='conv31')
-		    net = slim.conv2d(net, 128, 3, scope='conv32')
-		    net = slim.max_pool2d(net, 2, stride=2, scope='pool3')
-		    net = tf.contrib.layers.flatten(net)
-		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
-		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds or self.mode=='train_gen_images'):
-			net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
-		    return net
+		    with slim.arg_scope([slim.max_pool2d], stride=2):
+			net = slim.conv2d(images, 32, 3, scope='conv11')
+			net = slim.conv2d(net, 32, 3, scope='conv12')
+			net = slim.max_pool2d(net, 2, scope='pool1')
+			
+			net = slim.conv2d(net, 64, 3, scope='conv21')
+			net = slim.conv2d(net, 64, 3, scope='conv22')
+			net = slim.max_pool2d(net, 2, scope='pool2')
+			
+			net = slim.conv2d(net, 128, 3, scope='conv31')
+			net = slim.conv2d(net, 128, 3, scope='conv32')
+			net = slim.max_pool2d(net, 2, scope='pool3')
+			
+			net = tf.contrib.layers.flatten(net)
+			net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.nn.relu, scope='fc4')
+			
+			if (self.mode == 'pretrain' or self.mode == 'test' or make_preds or self.mode=='train_gen_images'):
+			    net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
+			return net
 		    
     #~ def E(self, images, reuse=False, make_preds=False, is_training = False):
         #~ # images: (batch, 32, 32, 3) or (batch, 32, 32, 1)
@@ -295,13 +300,13 @@ class DSN(object):
             
             # source domain (svhn to mnist)
             self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-            #~ self.fx_src = self.E(self.src_images) # instead of extracting the hidden representation from a src image, 
-            #~ self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
+            self.fx_src = self.E(self.src_images) # instead of extracting the hidden representation from a src image, 
+            self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
 	    
 	    
 	    #~ self.h_repr = self.ConvDeconv(self.trg_images)
 	    
-	    #~ self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
+	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
 		
 	    self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
 	    
