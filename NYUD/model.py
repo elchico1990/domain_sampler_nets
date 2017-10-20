@@ -68,6 +68,12 @@ class DSN(object):
 			  activation_fn=tf.nn.relu,
 			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
 			  weights_regularizer=slim.l2_regularizer(0.0005)):
+			      
+		if self.mode=='features':
+		    images = tf.reshape(images,[-1,1,1,self.hidden_repr_size])
+		    return slim.conv2d(images, self.no_classes , [1,1], activation_fn=None, scope='fc8')
+		
+			      
 		with tf.device('/gpu:0' if not self.mode=='features'  else '/cpu:0'):
 		#~ with tf.device('/gpu:0'):
 		    net = slim.repeat(images, 2, slim.conv2d, 64, [3, 3], scope='conv1')
@@ -336,8 +342,16 @@ class DSN(object):
 	
 	elif self.mode == 'features':
 	    
-            self.images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'source_images')
-	    self.fx = self.E(self.images)
+            #~ self.images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'source_images')
+	    #~ self.fx = self.E(self.images)
+	    
+
+	    self.noise = tf.placeholder(tf.float32, [None, self.noise_dim], 'noise')
+	    self.labels = tf.placeholder(tf.int64, [None, self.no_classes ], 'labels_real')
+	    
+		
+	    self.fzy = self.sampler_generator(self.noise, self.labels) 		
+	    self.inferred_labels = tf.argmax(tf.squeeze(self.E(self.fzy)),1)
 	   
 
 		

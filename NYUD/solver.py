@@ -585,7 +585,7 @@ class Solver(object):
 	
 	# load whatevere dataset 
 	split='source'
-	images, _ = self.load_NYUD(split=split)
+	#~ images, _ = self.load_NYUD(split=split)
 
 	
 	# build a graph
@@ -595,30 +595,68 @@ class Solver(object):
 	with tf.Session(config=self.config) as sess:
 	    tf.global_variables_initializer().run()
 
-	    # Load pretrained or final model
+	    #~ # Load pretrained or final model
 	    print ('Loading pretrained model.')
 	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
-	    print ('Done!')
+	    # Load pretrained or final model
+	    print ('Loading pretrained sampler.')
+	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
 	    #~ print ('Loading test model.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='vgg_16')
 	    #~ restorer = tf.train.Saver(variables_to_restore)
 	    #~ restorer.restore(sess, self.test_model)
-	    #~ print ('Done!')
+	    
     
-	    features = np.zeros((len(images), model.hidden_repr_size), dtype=np.float)
+	    no_items=1000000
+	    
+	    features = np.zeros((no_items, model.hidden_repr_size), dtype=np.float)
+	    inf_labels = np.zeros((no_items,))
+	    
+	    noise = utils.sample_Z(no_items, 100, 'uniform')
+	    labels = utils.one_hot(npr.randint(19,size=no_items), 19)
+
 	    i=0
-	    # Eval on source
-	    for im  in np.array_split(images, 40):
-		_feat_ = sess.run(fetches=model.fx, feed_dict={model.images: im})
-		print _feat_
-		features[i:i+len(im)]= np.squeeze(_feat_)
-		i+=len(im)
-		print(i)
-	    assert i==len(images)
-	    assert i==self.no_images[split]
-	    features.tofile('features.npy')
+	    #~ # Eval on source
+	    #~ for im  in np.array_split(images, 40):
+		#~ _feat_ = sess.run(fetches=model.fx, feed_dict={model.images: im})
+		#~ print _feat_
+		#~ features[i:i+len(im)]= np.squeeze(_feat_)
+		#~ i+=len(im)
+		#~ print(i)
+	    
+	    #~ with open('features.pkl','w') as f:
+		#~ cPickle.dump(features, f, cPickle.HIGHEST_PROTOCOL)
+	    
+	    
+	    #~ # Eval on source
+	    for n, l  in zip(np.array_split(noise, 100), np.array_split(labels, 100)):
+		_feat_, inferred_labels = sess.run(fetches=[model.fzy, model.inferred_labels], feed_dict={model.noise: n, model.labels: l})
+		features[i:i+len(n)]= np.squeeze(_feat_)
+		inf_labels[i:i+len(n)] = inferred_labels
+		i+=len(n)
+		#~ #print(i)
+		
+	    #with open('features_noise.pkl','w') as f:
+		#cPickle.dump(features, f, cPickle.HIGHEST_PROTOCOL)
+	
+	with open('features.pkl','r') as f:
+	    features = cPickle.load(f)
+	    
+	features[features > 0] = 1
+	features[features < 0] = -1
+	tmpUnique = np.unique(features.view(np.dtype((np.void, features.dtype.itemsize*features.shape[1]))), return_counts = True)
+	uniques=tmpUnique[0].view(features.dtype).reshape(-1, features.shape[1])
+	print uniques.shape
+	 
+	print len(np.where(inf_labels==np.argmax(labels,1))[0])
+	
+	
+
+	print 'break'
 	    
 		
 
