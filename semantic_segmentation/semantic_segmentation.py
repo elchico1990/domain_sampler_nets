@@ -151,7 +151,7 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                     num_classes=no_classes,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
-                                    fc_conv_padding='SAME',
+                                    fc_conv_padding='VALID',
 				    reuse=False,
 				    return_fc7=True)
 				    
@@ -161,11 +161,14 @@ vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 
 # fc7 is (batch_size, 14, 14, 4096)
 
-net_d1 = slim.conv2d(fc7, 1024, [3, 3], scope='conv_plus_1', padding='VALID')
-net_d2 = slim.conv2d(fc7, 1024, [3, 3], scope='conv_plus_2', padding='SAME')
-				    
+net_tmp = slim.conv2d(fc7, 1024, [8, 8], scope='conv_plus_1', stride=1, padding='VALID', activation_fn=tf.nn.tanh) #from (batch_size, 8, 8, 4096) to (batch_size, 1, 1, 1024) 
 
-net = slim.conv2d_transpose(fc7, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')   	 # (batch_size, 28, 28, 512)
+fc_bottleneck = tf.squeeze(net_tmp) # (batch_size, 1024)
+
+net = slim.conv2d_transpose(net_tmp, 1024, [7, 7], padding='VALID', scope='dec0')                # (batch_size, 7, 7, 512)
+net = slim.conv2d_transpose(net, 1024, [3, 3], stride=2, padding='SAME', scope='dec1')           # (batch_size, 14, 14, 512)
+		
+net = slim.conv2d_transpose(net_d1, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')   	 # (batch_size, 28, 28, 512)
 net1 = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21') 	 # (batch_size, 28, 28, 512)
 net2 = slim.conv2d_transpose(net1, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')	 # (batch_size, 28, 28, 512)
 net3 = slim.conv2d_transpose(net2, 512, [3, 3],stride=1,  padding='SAME', scope='dec23')	 # (batch_size, 28, 28, 512)
@@ -313,7 +316,7 @@ with tf.Session(config=config) as sess:
     #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
                                              #~ feed_dict=feed_dict)
 
-    net_d1, net_d2, fc7,net,net4,net8,net12,net15,net16,net17,logits = sess.run([net_d1, net_d2, fc7,net,net4,net8,net12,net15,net16,net17,logits], feed_dict=feed_dict)
+    net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits = sess.run([net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits], feed_dict=feed_dict)
 					     
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
