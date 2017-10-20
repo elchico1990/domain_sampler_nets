@@ -168,7 +168,7 @@ fc_bottleneck = tf.squeeze(net_tmp) # (batch_size, 1024)
 net = slim.conv2d_transpose(net_tmp, 1024, [7, 7], padding='VALID', scope='dec0')                # (batch_size, 7, 7, 512)
 net = slim.conv2d_transpose(net, 1024, [3, 3], stride=2, padding='SAME', scope='dec1')           # (batch_size, 14, 14, 512)
 		
-net = slim.conv2d_transpose(net_d1, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')   	 # (batch_size, 28, 28, 512)
+net = slim.conv2d_transpose(net, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')   	 # (batch_size, 28, 28, 512)
 net1 = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21') 	 # (batch_size, 28, 28, 512)
 net2 = slim.conv2d_transpose(net1, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')	 # (batch_size, 28, 28, 512)
 net3 = slim.conv2d_transpose(net2, 512, [3, 3],stride=1,  padding='SAME', scope='dec23')	 # (batch_size, 28, 28, 512)
@@ -288,10 +288,18 @@ optimization_variables_initializer = tf.variables_initializer(adam_optimizer_var
 
 
 
-config = tf.ConfigProto(device_count = {'GPU': 0})
+
+
+
+
+
+#~ config = tf.ConfigProto(device_count = {'GPU': 0})
+#~ with tf.Session(config=config) as sess:
+
+
+#~ with tf.device('/gpu:0'):
+with tf.Session() as sess:
 	
-with tf.Session(config=config) as sess:
-        
     print 'Loading weights.'
 
     # Run the initializers.
@@ -306,7 +314,7 @@ with tf.Session(config=config) as sess:
     #~ images = np.zeros((10, 224,224,3))
     #~ annotations = np.zeros((1000, 224,224,1))
     
-    images, annotations = load_synthia(no_elements=50)
+    images, annotations = load_synthia(no_elements=100)
 
     feed_dict = {image_tensor: images[1:2],
 		    annotation_tensor: annotations[1:2],
@@ -314,9 +322,9 @@ with tf.Session(config=config) as sess:
 
 
     #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
-                                             #~ feed_dict=feed_dict)
+					     #~ feed_dict=feed_dict)
 
-    net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits = sess.run([net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits], feed_dict=feed_dict)
+    #~ net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits = sess.run([net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits], feed_dict=feed_dict)
 					     
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
@@ -338,7 +346,7 @@ with tf.Session(config=config) as sess:
 	print e
 	
 	#~ for start, end in zip(range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
-	for image, annotation in zip(images, annotations):
+	for n, image, annotation in zip(range(len(images)), images, annotations):
 		    
 	    #~ feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
 	    feed_dict = {image_tensor: np.expand_dims(image,0), annotation_tensor: np.expand_dims(annotation,0), is_training_placeholder: False}
@@ -361,13 +369,13 @@ with tf.Session(config=config) as sess:
 	    #~ plt.colorbar(probability_graph)
 	    #~ plt.show()
 
-	losses.append(loss)
-	print("Current Average Loss: " + str(np.array(losses).mean()))
-	
+	    losses.append(loss)
+	    print("Current Average Loss: " + str(np.array(losses).mean()))
 	    
-	pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
-	plt.imsave(str(e)+'.png', np.squeeze(pred_np))
-	#~ saver.save(sess, './model/segm_model')
+	    if n%10==0:
+		pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
+		plt.imsave('./images/'+str(e)+'_'+str(n)+'.png', np.squeeze(pred_np))
+		saver.save(sess, './model/segm_model')
 
 
     feed_dict[is_training_placeholder] = False
@@ -377,22 +385,22 @@ with tf.Session(config=config) as sess:
     
     
     pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
-                                             feed_dict=feed_dict)
+					     feed_dict=feed_dict)
 			
 
     final_predictions, final_probabilities, final_loss = sess.run([pred,
-                                                                   probabilities,
-                                                                   cross_entropy_sum],
-                                                                  feed_dict=feed_dict)
+								   probabilities,
+								   cross_entropy_sum],
+								  feed_dict=feed_dict)
 
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     
     cmap = plt.get_cmap('bwr')
 
     ax1.imshow(np.uint8(final_predictions.squeeze() != 1),
-               vmax=1.5,
-               vmin=-0.4,
-               cmap=cmap)
+	       vmax=1.5,
+	       vmin=-0.4,
+	       cmap=cmap)
 
     ax1.set_title('Final Argmax')
 

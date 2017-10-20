@@ -18,9 +18,11 @@ def load_synthia(no_elements=1000):
 
     #~ img_dir = os.path.join(data_dir,'SYNTHIA-SEQS-'+seq_num+'-'+mode,'RGB/Stereo_Left/Omni_F')
 
-    img_dir = '/data/SYNTHIA/Omni_F_RGB'
-    gt_labels_dir = '/data/SYNTHIA/Omni_F_GT_LABELS'
-
+    #~ img_dir = './data/SYNTHIA/Omni_F_RGB'
+    #~ gt_labels_dir = './data/SYNTHIA/Omni_F_GT_LABELS'
+    
+    img_dir = '/cvgl/group/Synthia/SYNTHIA-SEQS-01-NIGHT/RGB/Stereo_Left/Omni_F'
+    gt_labels_dir = '/cvgl/group/Synthia/SYNTHIA-SEQS-01-NIGHT/GT/LABELS/Stereo_Left/Omni_F' 
 
     img_files = sorted(glob.glob(img_dir+'/*'))[:no_elements]
     gt_labels_files = sorted(glob.glob(gt_labels_dir+'/*'))[:no_elements]
@@ -30,6 +32,8 @@ def load_synthia(no_elements=1000):
     gt_labels = np.zeros((len(gt_labels_files), 224 * 2,224 * 2))
 
     for n, img, gt_lab in zip(range(len(img_files)), img_files, gt_labels_files):
+	
+	#~ print n
 	
 	img = misc.imread(img)
 	img = misc.imresize(img,(224 * 2,224 * 2,3))
