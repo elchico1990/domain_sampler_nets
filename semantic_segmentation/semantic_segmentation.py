@@ -141,43 +141,49 @@ upsample_filter_tensor = tf.constant(upsample_filter_np)
 
 # Define the model that we want to use -- specify to use only two classes at the last layer
 with slim.arg_scope(vgg.vgg_arg_scope()):
-    fc7, end_points = vgg.vgg_16(processed_images,
-                                    num_classes=no_classes,
-                                    is_training=is_training_placeholder,
-                                    spatial_squeeze=False,
-                                    fc_conv_padding='SAME')
+    #~ fc7, end_points = vgg.vgg_16(processed_images,
+                                    #~ num_classes=no_classes,
+                                    #~ is_training=is_training_placeholder,
+                                    #~ spatial_squeeze=False,
+                                    #~ fc_conv_padding='SAME')
 				    
-    fc7_feat = vgg.vgg_16(processed_images,
+    fc7 = vgg.vgg_16(processed_images,
                                     num_classes=no_classes,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
-                                    fc_conv_padding='VALID',
-				    reuse=True,
+                                    fc_conv_padding='SAME',
+				    reuse=False,
 				    return_fc7=True)
 				    
 vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 
+
+
+# fc7 is (batch_size, 14, 14, 4096)
+
+net_d1 = slim.conv2d(fc7, 1024, [3, 3], scope='conv_plus_1', padding='VALID')
+net_d2 = slim.conv2d(fc7, 1024, [3, 3], scope='conv_plus_2', padding='SAME')
 				    
 
-net = slim.conv2d_transpose(fc7, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')  # (batch_size, 14, 14, 512)
-net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21')  # (batch_size, 14, 14, 512)
-net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')  # (batch_size, 14, 14, 512)
-net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec23')  # (batch_size, 14, 14, 512)
-net = slim.conv2d_transpose(net, 512, [3, 3],stride=2,  padding='SAME', scope='dec3')  # (batch_size, 28, 28, 512)
-net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec31')  # (batch_size, 28, 28, 512)
-net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec32')  # (batch_size, 28, 28, 512)
-net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec33')  # (batch_size, 28, 28, 256)
-net = slim.conv2d_transpose(net, 256, [3, 3],stride=2,  padding='SAME', scope='dec4')  # (batch_size, 56, 56, 256)
-net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec41')  # (batch_size, 56, 56, 256)
-net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec42')  # (batch_size, 56, 56, 256)
-net = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec43')  # (batch_size, 56, 56, 128)
-net = slim.conv2d_transpose(net, 128, [3, 3],stride=2,  padding='SAME', scope='dec5')  # (batch_size, 112, 112, 128)
-net = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec51')  # (batch_size, 112, 112, 128)
-net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='dec52')  # (batch_size, 112, 112, 64)
-net = slim.conv2d_transpose(net, 64, [3, 3],stride=2, padding='SAME', scope='dec6')   # (batch_size, 224, 224, 64)
-net = slim.conv2d_transpose(net, 64, [3, 3],stride=1, padding='SAME', scope='dec61')   # (batch_size, 224, 224, 64)
-net = slim.conv2d_transpose(net, 64, [3, 3],stride=1, padding='SAME', scope='dec62')   # (batch_size, 224, 224, 64)
-logits =      slim.conv2d(net, 13, [1, 1], scope='output')   # (batch_size, 224, 224, 13)
+net = slim.conv2d_transpose(fc7, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')   	 # (batch_size, 28, 28, 512)
+net1 = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21') 	 # (batch_size, 28, 28, 512)
+net2 = slim.conv2d_transpose(net1, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')	 # (batch_size, 28, 28, 512)
+net3 = slim.conv2d_transpose(net2, 512, [3, 3],stride=1,  padding='SAME', scope='dec23')	 # (batch_size, 28, 28, 512)
+net4 = slim.conv2d_transpose(net3, 512, [3, 3],stride=2,  padding='SAME', scope='dec3') 	 # (batch_size, 56, 56, 512)
+net5 = slim.conv2d_transpose(net4, 512, [3, 3],stride=1,  padding='SAME', scope='dec31')	 # (batch_size, 56, 56, 512)
+net6 = slim.conv2d_transpose(net5, 512, [3, 3],stride=1,  padding='SAME', scope='dec32')	 # (batch_size, 56, 56, 512)
+net7 = slim.conv2d_transpose(net6, 256, [3, 3],stride=1,  padding='SAME', scope='dec33')	 # (batch_size, 56, 56, 256)
+net8 = slim.conv2d_transpose(net7, 256, [3, 3],stride=2,  padding='SAME', scope='dec4') 	 # (batch_size, 112, 112, 256)
+net9 = slim.conv2d_transpose(net8, 256, [3, 3],stride=1,  padding='SAME', scope='dec41')	 # (batch_size, 112, 112, 256)
+net10 = slim.conv2d_transpose(net9, 256, [3, 3],stride=1,  padding='SAME', scope='dec42')	 # (batch_size, 112, 112, 256)
+net11 = slim.conv2d_transpose(net10, 128, [3, 3],stride=1,  padding='SAME', scope='dec43')       # (batch_size, 112, 112, 128)
+net12 = slim.conv2d_transpose(net11, 128, [3, 3],stride=2,  padding='SAME', scope='dec5')        # (batch_size, 224, 224, 128)
+net13 = slim.conv2d_transpose(net12, 128, [3, 3],stride=1,  padding='SAME', scope='dec51')       # (batch_size, 224, 224, 128)
+net14 = slim.conv2d_transpose(net13, 64, [3, 3],stride=1,  padding='SAME', scope='dec52')        # (batch_size, 224, 224, 64)
+net15 = slim.conv2d_transpose(net14, 64, [3, 3],stride=2, padding='SAME', scope='dec6')          # (batch_size, 448, 448, 64)
+net16 = slim.conv2d_transpose(net15, 64, [3, 3],stride=1, padding='SAME', scope='dec61')         # (batch_size, 448, 448, 64)
+net17 = slim.conv2d_transpose(net16, 64, [3, 3],stride=1, padding='SAME', scope='dec62')         # (batch_size, 448,448, 64)
+logits =      slim.conv2d(net17, 13, [1, 1], scope='output')                                     # (batch_size, 448, 448, 13)
 
 
 # Flatten the predictions, so that we can compute cross-entropy for
@@ -307,7 +313,7 @@ with tf.Session(config=config) as sess:
     #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
                                              #~ feed_dict=feed_dict)
 
-    fc7 = sess.run(fc7_feat, feed_dict=feed_dict)
+    net_d1, net_d2, fc7,net,net4,net8,net12,net15,net16,net17,logits = sess.run([net_d1, net_d2, fc7,net,net4,net8,net12,net15,net16,net17,logits], feed_dict=feed_dict)
 					     
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
