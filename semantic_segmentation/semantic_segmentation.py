@@ -145,7 +145,7 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                     num_classes=no_classes,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
-                                    fc_conv_padding='VALID')
+                                    fc_conv_padding='SAME')
 				    
     fc7_feat = vgg.vgg_16(processed_images,
                                     num_classes=no_classes,
@@ -157,7 +157,8 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
 				    
 vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 
-	
+				    
+
 net = slim.conv2d_transpose(fc7, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')  # (batch_size, 14, 14, 512)
 net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21')  # (batch_size, 14, 14, 512)
 net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')  # (batch_size, 14, 14, 512)
@@ -176,7 +177,7 @@ net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='de
 net = slim.conv2d_transpose(net, 64, [3, 3],stride=2, padding='SAME', scope='dec6')   # (batch_size, 224, 224, 64)
 net = slim.conv2d_transpose(net, 64, [3, 3],stride=1, padding='SAME', scope='dec61')   # (batch_size, 224, 224, 64)
 net = slim.conv2d_transpose(net, 64, [3, 3],stride=1, padding='SAME', scope='dec62')   # (batch_size, 224, 224, 64)
-logits =      slim.conv2d(net, 14, [1, 1], scope='output')   # (batch_size, 224, 224, 14)
+logits =      slim.conv2d(net, 13, [1, 1], scope='output')   # (batch_size, 224, 224, 13)
 
 
 # Flatten the predictions, so that we can compute cross-entropy for
@@ -276,12 +277,16 @@ optimization_variables_initializer = tf.variables_initializer(adam_optimizer_var
 
 
 
+
+
 config = tf.ConfigProto(device_count = {'GPU': 0})
 	
 with tf.Session(config=config) as sess:
-    print 'Loading VGG-16 weights.'
+        
+    print 'Loading weights.'
 
     # Run the initializers.
+    sess.run(tf.global_variables_initializer())
     read_vgg_weights_except_fc8_func(sess)
     sess.run(vgg_fc8_weights_initializer)
     sess.run(optimization_variables_initializer)
@@ -352,7 +357,7 @@ with tf.Session(config=config) as sess:
 	
 	    
 	pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
-	plt.imsave('./images/'+str(e)+'.png', np.squeeze(pred_np))
+	plt.imsave(str(e)+'.png', np.squeeze(pred_np))
 	#~ saver.save(sess, './model/segm_model')
 
 
@@ -369,7 +374,7 @@ with tf.Session(config=config) as sess:
     final_predictions, final_probabilities, final_loss = sess.run([pred,
                                                                    probabilities,
                                                                    cross_entropy_sum],
-                                                                   feed_dict=feed_dict)
+                                                                  feed_dict=feed_dict)
 
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     
@@ -391,6 +396,3 @@ with tf.Session(config=config) as sess:
     print("Final Loss: " + str(final_loss))
 
 summary_string_writer.close()
-
-
-
