@@ -57,19 +57,25 @@ class DSN(object):
 		with slim.arg_scope([slim.conv2d], activation_fn=tf.nn.relu, padding='SAME'):
 		    with slim.arg_scope([slim.max_pool2d], stride=2):
 			net = slim.conv2d(images, 32, 3, scope='conv11')
+			#~ net = slim.batch_norm(net, scope='bn1', is_training=is_training)
 			net = slim.conv2d(net, 32, 3, scope='conv12')
+			#~ net = slim.batch_norm(net, scope='bn2', is_training=is_training)
 			net = slim.max_pool2d(net, 2, scope='pool1')
 			
 			net = slim.conv2d(net, 64, 3, scope='conv21')
+			#~ net = slim.batch_norm(net, scope='bn3', is_training=is_training)
 			net = slim.conv2d(net, 64, 3, scope='conv22')
+			#~ net = slim.batch_norm(net, scope='bn4', is_training=is_training)
 			net = slim.max_pool2d(net, 2, scope='pool2')
 			
 			net = slim.conv2d(net, 128, 3, scope='conv31')
+			#~ net = slim.batch_norm(net, scope='bn5', is_training=is_training)
 			net = slim.conv2d(net, 128, 3, scope='conv32')
+			#~ net = slim.batch_norm(net, scope='bn6', is_training=is_training)
 			net = slim.max_pool2d(net, 2, scope='pool3')
 			
 			net = tf.contrib.layers.flatten(net)
-			net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.nn.relu, scope='fc4')
+			net = slim.fully_connected(net, self.hidden_repr_size, activation_fn=tf.tanh, scope='fc4')
 			
 			if (self.mode == 'pretrain' or self.mode == 'test' or make_preds or self.mode=='train_gen_images'):
 			    net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')

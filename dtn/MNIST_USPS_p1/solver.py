@@ -49,7 +49,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'usps_mnist' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
     
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -797,10 +797,10 @@ class Solver(object):
 	elif self.protocol == 'mnist_usps':
 	    source_images, source_labels = self.load_mnist(self.mnist_dir, split='train')
 	    target_images, target_labels = self.load_usps(self.usps_dir)
-	    source_images = source_images[:2000]
-	    source_labels = source_labels[:2000]
-	    target_images = target_images[:1800]
-	    target_labels = target_labels[:1800]
+	    
+	elif self.protocol == 'usps_mnist':
+	    source_images, source_labels = self.load_usps(self.usps_dir)
+	    target_images, target_labels = self.load_mnist(self.mnist_dir)
 	
 	elif self.protocol == 'amazon_reviews':
 	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
@@ -843,7 +843,7 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 1800
+	    n_samples = 1000
             src_labels = utils.one_hot(source_labels[:n_samples],10)
 	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
@@ -882,6 +882,7 @@ class Solver(object):
 		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
 		
 
+	
 	    elif sys.argv[2] == '2':
 		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src)))
 		
@@ -889,8 +890,8 @@ class Solver(object):
 		ax1.set_facecolor('white')
 		ax2.set_facecolor('white')
 		
-		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
-		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
+		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet, alpha=0.5)
+		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet, alpha=0.5)
 
 
 	    elif sys.argv[2] == '3':
@@ -900,9 +901,9 @@ class Solver(object):
 		ax1.set_facecolor('white')
 		ax2.set_facecolor('white')
 
-		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet)
-		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet)
-		
+		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet, alpha=0.5)
+		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet, alpha=0.5)
+			
 	    elif sys.argv[2] == '4':
 		TSNE_hA = model.fit_transform(h_repr)
 	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.argmax(trg_labels,1), s=3,  cmap = mpl.cm.jet)

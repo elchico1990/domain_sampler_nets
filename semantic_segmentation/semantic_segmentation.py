@@ -145,7 +145,7 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                     num_classes=no_classes,
                                     is_training=is_training_placeholder,
                                     spatial_squeeze=False,
-                                    fc_conv_padding='SAME')
+                                    fc_conv_padding='VALID')
 				    
 vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 
@@ -276,10 +276,9 @@ with tf.Session() as sess:
     print 'Loading RANDOM weights.'
 
     # Run the initializers.
-    sess.run(tf.global_variables_initializer())
-    #~ read_vgg_weights_except_fc8_func(sess)
-    #~ sess.run(vgg_fc8_weights_initializer)
-    #~ sess.run(optimization_variables_initializer)
+    read_vgg_weights_except_fc8_func(sess)
+    sess.run(vgg_fc8_weights_initializer)
+    sess.run(optimization_variables_initializer)
     
     saver = tf.train.Saver()
 	    

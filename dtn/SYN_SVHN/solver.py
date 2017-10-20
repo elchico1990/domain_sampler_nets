@@ -25,7 +25,7 @@ from scipy import misc
 class Solver(object):
 
     def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=51000, sample_iter=2000, 
-                 svhn_dir='svhn', syn_dir='syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
+                 svhn_dir='../data/svhn', syn_dir='../data/syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
 		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', gen_model='model/model_gen', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv', start_img=0, end_img=1600):
         
@@ -34,8 +34,8 @@ class Solver(object):
         self.pretrain_iter = pretrain_iter
         self.train_iter = train_iter
         self.sample_iter = sample_iter
-        self.svhn_dir = 'data/'+svhn_dir
-        self.syn_dir = 'data/'+syn_dir
+        self.svhn_dir = svhn_dir
+        self.syn_dir = syn_dir
         self.mnist_dir = 'data/'+mnist_dir
         self.mnist_m_dir = 'data/'+mnist_m_dir
         self.usps_dir = 'data/'+usps_dir
@@ -639,7 +639,7 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 2000
+	    n_samples = 1000
             src_labels = utils.one_hot(source_labels[:n_samples],10)
 	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
@@ -676,21 +676,28 @@ class Solver(object):
 		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples)))), s=3, cmap = mpl.cm.jet)
 		plt.figure(3)
 		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels)), s=3,  cmap = mpl.cm.jet)
-		
+	
 	    elif sys.argv[2] == '2':
 		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src)))
-	        plt.figure(2)
-		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
-		plt.figure(3)
-                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
+		
+		f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
+		ax1.set_facecolor('white')
+		ax2.set_facecolor('white')
+		
+		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet, alpha=0.5)
+		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet, alpha=0.5)
+
 
 	    elif sys.argv[2] == '3':
 		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
-	        plt.figure(2)
-		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet)
-		plt.figure(3)
-                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet)
+		
+		f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
+		ax1.set_facecolor('white')
+		ax2.set_facecolor('white')
 
+		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet, alpha=0.5)
+		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet, alpha=0.5)
+		
 	    elif sys.argv[2] == '4':
 		TSNE_hA = model.fit_transform(h_repr)
 	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.argmax(trg_labels,1), s=3,  cmap = mpl.cm.jet)

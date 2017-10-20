@@ -227,15 +227,20 @@ class DSN(object):
 	    self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images')
 	    self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'images_trg')
             
-            try:
-		self.fzy = self.sampler_generator(self.src_noise,self.src_labels)             
-		self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
-		self.sampled_images_logits = self.E(self.sampled_images, make_preds=True) 
+            
+            # source domain (svhn to mnist)
+            self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+            self.fx_src = self.E(self.src_images) # instead of extracting the hidden representation from a src image, 
+            self.fx_trg = self.E(self.trg_images, reuse=True) # instead of extracting the hidden representation from a src image, 
 	    
-            except:
-		self.fzy = self.sampler_generator(self.src_noise,self.src_labels, reuse=True)             
-		self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True, reuse=True)
-		self.sampled_images_logits = self.E(self.sampled_images, make_preds=True, reuse=True) 
+	    
+	    #~ self.h_repr = self.ConvDeconv(self.trg_images)
+	    
+	    #~ self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
+		
+	    #~ self.sampled_images = self.G(self.fzy, self.src_labels, do_reshape=True)
+	    
+	    #~ self.sampled_images_logits = self.E(self.sampled_images, make_preds=True) 
 	    
 		
 	elif self.mode == 'train_dsn':
