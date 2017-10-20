@@ -268,11 +268,9 @@ optimization_variables_initializer = tf.variables_initializer(adam_optimizer_var
 
 
 
-
-
-
-with tf.Session() as sess:
-        
+config = tf.ConfigProto(device_count = {'GPU': 0})
+	
+with tf.Session(config=config) as sess:
     print 'Loading RANDOM weights.'
 
     # Run the initializers.
