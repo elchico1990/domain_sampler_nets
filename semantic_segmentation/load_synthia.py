@@ -3,6 +3,8 @@ import pandas as pd
 from PIL import Image
 from scipy import misc
 
+import imageio
+
 import os
 import glob
 
@@ -16,38 +18,35 @@ def load_synthia(no_elements=1000):
 
     #~ img_dir = os.path.join(data_dir,'SYNTHIA-SEQS-'+seq_num+'-'+mode,'RGB/Stereo_Left/Omni_F')
 
-    img_dir = './data/SYNTHIA_RAND_CVPR16/RGB'
-    gt_dir = './data/SYNTHIA_RAND_CVPR16/GTTXT'
+    img_dir = '/data/SYNTHIA/Omni_F_RGB'
+    gt_labels_dir = '/data/SYNTHIA/Omni_F_GT_LABELS'
+
 
     img_files = sorted(glob.glob(img_dir+'/*'))[:no_elements]
-    gt_files = sorted(glob.glob(gt_dir+'/*'))[:no_elements]
+    gt_labels_files = sorted(glob.glob(gt_labels_dir+'/*'))[:no_elements]
 
 
-    images = np.zeros((len(img_files), 224 * 2, 224 * 2, 3))
-    labels = np.zeros((len(gt_files), 224 * 2, 224 * 2, 1))
+    images = np.zeros((len(img_files), 224 * 2,224 * 2, 3))
+    gt_labels = np.zeros((len(gt_labels_files), 224 * 2,224 * 2))
 
-    for n, img, lab in zip(range(len(img_files)), img_files, gt_files):
-	
+    for n, img, gt_lab in zip(range(len(img_files)), img_files, gt_labels_files):
 	
 	img = misc.imread(img)
-	img = img[-224 * 2:,-224 * 2:,:]
-	img = np.resize(img,(224 * 2,224 * 2,3))
+	img = misc.imresize(img,(224 * 2,224 * 2,3))
 	
-	lab = np.array(pd.read_csv(lab, ' ', header=None))
-	lab[lab==-1] = 12
-	lab = lab[-224 * 2:,-224 * 2:]
-	lab = np.resize(lab,(224 * 2,224 * 2,1))
-
+	gt_lab = np.asarray(imageio.imread(gt_lab, format='PNG-FI'))[:,:,0]  # uint16
+	gt_lab = misc.imresize(gt_lab,(224 * 2,224 * 2),interp='nearest') / 17
+	
+	
 	images[n] = img
-	labels[n] = lab
-	
-    return images, labels
-
+	gt_labels[n] = gt_lab
+    
+    gt_labels[gt_labels==15.] = 13.
+    return images, np.expand_dims(gt_labels,3).astype(int)
 
 if __name__=='__main__':
     
-    images, labels = load_synthia(no_elements=50)
-    
+    images, gt_labels = load_synthia(no_elements=100)
     print 'break'
 
 

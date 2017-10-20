@@ -26,7 +26,7 @@ from scipy import misc
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
-                 svhn_dir='../data/svhn', mnist_dir='../data/mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
+                 svhn_dir='svhn', mnist_dir='mnist', usps_dir='usps', log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv'):
         
@@ -54,7 +54,7 @@ class Solver(object):
         image_file = 'train_32x32.mat' if split=='train' else 'test_32x32.mat'
             
         image_dir = os.path.join(image_dir, image_file)
-	svhn = scipy.io.loadmat(image_dir)
+        svhn = scipy.io.loadmat(image_dir)
         images = np.transpose(svhn['X'], [3, 0, 1, 2]) / 127.5 - 1
         labels = svhn['y'].reshape(-1)
         labels[np.where(labels==10)] = 0
@@ -545,7 +545,7 @@ class Solver(object):
 		raise NameError('Unrecognized mode.')
 	    
             
-	    n_samples = 1000
+	    n_samples = 2000
             src_labels = utils.one_hot(source_labels[:n_samples],10)
 	    trg_labels = utils.one_hot(target_labels[:n_samples],10)
 	    src_noise = utils.sample_Z(n_samples,100,'uniform')
@@ -585,31 +585,24 @@ class Solver(object):
 		
 	    elif sys.argv[2] == '2':
 		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src)))
-		
-		f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
-		ax1.set_facecolor('white')
-		ax2.set_facecolor('white')
-		
-		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
-		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
-
+	        plt.figure(2)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
+		plt.figure(3)
+                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
 
 	    elif sys.argv[2] == '3':
 		TSNE_hA = model.fit_transform(np.vstack((fzy,fx_src,fx_trg)))
-		
-		f, (ax1,ax2) = plt.subplots(1, 2, sharey=True)
-		ax1.set_facecolor('white')
-		ax2.set_facecolor('white')
+	        plt.figure(2)
+		plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet)
+		plt.figure(3)
+                plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet)
 
-		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet)
-		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet)
-		
 	    elif sys.argv[2] == '4':
 		TSNE_hA = model.fit_transform(h_repr)
 	        plt.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.argmax(trg_labels,1), s=3,  cmap = mpl.cm.jet)
 		
 
-	    #~ plt.legend()
+	    plt.legend()
 	    plt.show()
 	    
     def test(self):

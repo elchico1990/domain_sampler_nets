@@ -168,7 +168,7 @@ net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='de
 net = slim.conv2d_transpose(net, 64, [3, 3],stride=2, padding='SAME', scope='dec6')   # (batch_size, 224, 224, 64)
 net = slim.conv2d_transpose(net, 64, [3, 3],stride=1, padding='SAME', scope='dec61')   # (batch_size, 224, 224, 64)
 net = slim.conv2d_transpose(net, 64, [3, 3],stride=1, padding='SAME', scope='dec62')   # (batch_size, 224, 224, 64)
-logits =      slim.conv2d(net, 13, [1, 1], scope='output')   # (batch_size, 224, 224, 13)
+logits =      slim.conv2d(net, 14, [1, 1], scope='output')   # (batch_size, 224, 224, 14)
 
 
 # Flatten the predictions, so that we can compute cross-entropy for
@@ -273,13 +273,13 @@ optimization_variables_initializer = tf.variables_initializer(adam_optimizer_var
 
 with tf.Session() as sess:
         
-    print 'Loading weights.'
+    print 'Loading RANDOM weights.'
 
     # Run the initializers.
     sess.run(tf.global_variables_initializer())
-    read_vgg_weights_except_fc8_func(sess)
-    sess.run(vgg_fc8_weights_initializer)
-    sess.run(optimization_variables_initializer)
+    #~ read_vgg_weights_except_fc8_func(sess)
+    #~ sess.run(vgg_fc8_weights_initializer)
+    #~ sess.run(optimization_variables_initializer)
     
     saver = tf.train.Saver()
 	    
@@ -287,7 +287,7 @@ with tf.Session() as sess:
     #~ images = np.zeros((10, 224,224,3))
     #~ annotations = np.zeros((1000, 224,224,1))
     
-    images, annotations = load_synthia(no_elements=10)
+    images, annotations = load_synthia(no_elements=50)
 
     feed_dict = {image_tensor: images[1:2],
 		    annotation_tensor: annotations[1:2],
