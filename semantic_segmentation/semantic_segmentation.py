@@ -147,6 +147,14 @@ with slim.arg_scope(vgg.vgg_arg_scope()):
                                     spatial_squeeze=False,
                                     fc_conv_padding='VALID')
 				    
+    fc7_feat = vgg.vgg_16(processed_images,
+                                    num_classes=no_classes,
+                                    is_training=is_training_placeholder,
+                                    spatial_squeeze=False,
+                                    fc_conv_padding='VALID',
+				    reuse=True,
+				    return_fc7=True)
+				    
 vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 
 	
@@ -271,7 +279,7 @@ optimization_variables_initializer = tf.variables_initializer(adam_optimizer_var
 config = tf.ConfigProto(device_count = {'GPU': 0})
 	
 with tf.Session(config=config) as sess:
-    print 'Loading RANDOM weights.'
+    print 'Loading VGG-16 weights.'
 
     # Run the initializers.
     read_vgg_weights_except_fc8_func(sess)
@@ -294,7 +302,7 @@ with tf.Session(config=config) as sess:
     #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
                                              #~ feed_dict=feed_dict)
 
-    fc7 = sess.run(fc7, feed_dict=feed_dict)
+    fc7 = sess.run(fc7_feat, feed_dict=feed_dict)
 					     
     #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
     #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 

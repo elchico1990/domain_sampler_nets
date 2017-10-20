@@ -169,7 +169,7 @@ def vgg_16(inputs,
       net = slim.conv2d(net, 4096, [7, 7], padding=fc_conv_padding, scope='fc6', reuse=reuse)
       net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                          scope='dropout6')
-      net = slim.conv2d(net, 4096, [1, 1], padding=fc_conv_padding, scope='fc7', reuse=reuse)
+      net = slim.conv2d(net, 4096, [1, 1], activation_fn = tf.tanh, padding=fc_conv_padding, scope='fc7', reuse=reuse)
       
       if return_fc7 == True:
 		  return net
