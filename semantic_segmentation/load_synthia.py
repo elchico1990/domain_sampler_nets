@@ -1,4 +1,5 @@
 import numpy as np 
+import numpy.random as npr
 import pandas as pd
 from PIL import Image
 from scipy import misc
@@ -46,6 +47,15 @@ def load_synthia(no_elements=1000):
 	gt_labels[n] = gt_lab
     
     gt_labels[gt_labels==15.] = 13.
+    
+    npr.seed(231)
+    
+    rnd_indices = np.arange(0,len(images))
+    npr.shuffle(rnd_indices)
+    
+    imags = images[rnd_indices]
+    gt_labels = gt_labels[rnd_indices]
+    
     return images, np.expand_dims(gt_labels,3).astype(int)
 
 if __name__=='__main__':

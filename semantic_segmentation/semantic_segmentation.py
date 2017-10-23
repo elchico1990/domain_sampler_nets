@@ -293,123 +293,130 @@ optimization_variables_initializer = tf.variables_initializer(adam_optimizer_var
 
 
 
-#~ config = tf.ConfigProto(device_count = {'GPU': 0})
-#~ with tf.Session(config=config) as sess:
+config = tf.ConfigProto(device_count = {'GPU': 0})
+
+with tf.Session(config=config) as sess:
 
 
 #~ with tf.device('/gpu:0'):
-with tf.Session() as sess:
-	
-    print 'Loading weights.'
-
-    # Run the initializers.
-    sess.run(tf.global_variables_initializer())
-    read_vgg_weights_except_fc8_func(sess)
-    sess.run(vgg_fc8_weights_initializer)
-    sess.run(optimization_variables_initializer)
-    
-    saver = tf.train.Saver()
+    #~ with tf.Session() as sess:
 	    
+	print 'Loading weights.'
 
-    #~ images = np.zeros((10, 224,224,3))
-    #~ annotations = np.zeros((1000, 224,224,1))
-    
-    images, annotations = load_synthia(no_elements=100)
+	# Run the initializers.
+	#~ sess.run(tf.global_variables_initializer())
+	#~ read_vgg_weights_except_fc8_func(sess)
+	#~ sess.run(vgg_fc8_weights_initializer)
+	#~ sess.run(optimization_variables_initializer)
 
-    feed_dict = {image_tensor: images[1:2],
-		    annotation_tensor: annotations[1:2],
-		    is_training_placeholder: False}
-
-
-    #~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
-					     #~ feed_dict=feed_dict)
-
-    #~ net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits = sess.run([net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits], feed_dict=feed_dict)
-					     
-    #~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
-    #~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
-					     
-    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    #~ ax1.imshow(np.squeeze(images[10:11]))
-    #~ ax1.set_title('Input image')
-    #~ probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[10:11]),) * 3) * 100)
-    #~ ax2.set_title('Input Ground-Truth Annotation')
-    #~ plt.show()
-
-    EPOCHS = 1000
-    BATCH_SIZE = 4
-
-    for e in range(EPOCHS):
+	# Load model. 
+	variables_to_restore = slim.get_model_variables()
+	restorer = tf.train.Saver(variables_to_restore)
+	restorer.restore(sess, '/tensorflow_models/SYNTHIA/segm_model')
 	
-	losses = []
+	saver = tf.train.Saver()
+		
+
+	#~ images = np.zeros((10, 224,224,3))
+	#~ annotations = np.zeros((1000, 224,224,1))
 	
-	print e
-	
-	#~ for start, end in zip(range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
-	for n, image, annotation in zip(range(len(images)), images, annotations):
-		    
-	    #~ feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
-	    feed_dict = {image_tensor: np.expand_dims(image,0), annotation_tensor: np.expand_dims(annotation,0), is_training_placeholder: False}
+	images, annotations = load_synthia(no_elements=100)
 
-	    loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op], feed_dict=feed_dict)
-
-	    sess.run(train_step, feed_dict=feed_dict)
+	feed_dict = {image_tensor: images[1:2],
+			annotation_tensor: annotations[1:2],
+			is_training_placeholder: False}
 
 
-	    summary_string_writer.add_summary(summary_string, e)
+	#~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
+						 #~ feed_dict=feed_dict)
 
-	    #~ cmap = plt.get_cmap('bwr')
+	#~ net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits = sess.run([net_d1, fc7,net,net4,net8,net12,net15,net16,net17,logits], feed_dict=feed_dict)
+						 
+	#~ print upsampled_logits.shape, upsampled_logits.max(), upsampled_logits.min(), upsampled_logits.mean() 
+	#~ print flat_logits.shape, flat_logits.max(), flat_logits.min(), flat_logits.mean() 
+						 
+	#~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+	#~ ax1.imshow(np.squeeze(images[10:11]))
+	#~ ax1.set_title('Input image')
+	#~ probability_graph = ax2.imshow(np.dstack((np.squeeze(annotations[10:11]),) * 3) * 100)
+	#~ ax2.set_title('Input Ground-Truth Annotation')
+	#~ plt.show()
 
-	    #~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-	    #~ ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
-	    #~ ax1.set_title('Argmax. Iteration # ' + str(i))
-	    #~ probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
-	    #~ ax2.set_title('Probability of the Class. Iteration # ' + str(i))
+	EPOCHS = 1000
+	BATCH_SIZE = 4
 
-	    #~ plt.colorbar(probability_graph)
-	    #~ plt.show()
-
-	    losses.append(loss)
-	    print("Current Average Loss: " + str(np.array(losses).mean()))
+	for e in range(EPOCHS):
 	    
-	    if n%10==0:
-		pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
-		plt.imsave('./images/'+str(e)+'_'+str(n)+'.png', np.squeeze(pred_np))
-		saver.save(sess, './model/segm_model')
-
-
-    feed_dict[is_training_placeholder] = False
-    feed_dict = {image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False}
-
-
-    
-    
-    pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
-					     feed_dict=feed_dict)
+	    losses = []
+	    
+	    print e
+	    
+	    #~ for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
+	    for n, image, annotation in zip(range(len(images)), images, annotations):
 			
+		#~ feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
+		feed_dict = {image_tensor: np.expand_dims(image,0), annotation_tensor: np.expand_dims(annotation,0), is_training_placeholder: False}
 
-    final_predictions, final_probabilities, final_loss = sess.run([pred,
-								   probabilities,
-								   cross_entropy_sum],
-								  feed_dict=feed_dict)
+		loss, summary_string = sess.run([cross_entropy_sum, merged_summary_op], feed_dict=feed_dict)
 
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    
-    cmap = plt.get_cmap('bwr')
+		sess.run(train_step, feed_dict=feed_dict)
 
-    ax1.imshow(np.uint8(final_predictions.squeeze() != 1),
-	       vmax=1.5,
-	       vmin=-0.4,
-	       cmap=cmap)
 
-    ax1.set_title('Final Argmax')
+		summary_string_writer.add_summary(summary_string, e)
 
-    probability_graph = ax2.imshow(final_probabilities.squeeze()[:, :, 0])
-    ax2.set_title('Final Probability of the Class')
-    plt.colorbar(probability_graph)
+		#~ cmap = plt.get_cmap('bwr')
 
-    plt.show()
+		#~ f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+		#~ ax1.imshow(np.uint8(pred_np.squeeze() != 1), vmax=1.5, vmin=-0.4, cmap=cmap)
+		#~ ax1.set_title('Argmax. Iteration # ' + str(i))
+		#~ probability_graph = ax2.imshow(probabilities_np.squeeze()[:, :, 0])
+		#~ ax2.set_title('Probability of the Class. Iteration # ' + str(i))
 
-    print("Final Loss: " + str(final_loss))
+		#~ plt.colorbar(probability_graph)
+		#~ plt.show()
 
-summary_string_writer.close()
+		losses.append(loss)
+		print("Current Average Loss: " + str(np.array(losses).mean()))
+		
+		if n%10==0:
+		    pred_np, probabilities_np = sess.run([pred, probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
+		    plt.imsave('./images/'+str(e)+'_'+str(n)+'.png', np.squeeze(pred_np))
+		
+		saver.save(sess, '/tensorflow_models/SYNTHIA/segm_model')
+
+
+	feed_dict[is_training_placeholder] = False
+	feed_dict = {image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False}
+
+
+	
+	
+	pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
+						 feed_dict=feed_dict)
+			    
+
+	final_predictions, final_probabilities, final_loss = sess.run([pred,
+								       probabilities,
+								       cross_entropy_sum],
+								      feed_dict=feed_dict)
+
+	f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+	
+	cmap = plt.get_cmap('bwr')
+
+	ax1.imshow(np.uint8(final_predictions.squeeze() != 1),
+		   vmax=1.5,
+		   vmin=-0.4,
+		   cmap=cmap)
+
+	ax1.set_title('Final Argmax')
+
+	probability_graph = ax2.imshow(final_probabilities.squeeze()[:, :, 0])
+	ax2.set_title('Final Probability of the Class')
+	plt.colorbar(probability_graph)
+
+	plt.show()
+
+	print("Final Loss: " + str(final_loss))
+
+	summary_string_writer.close()
