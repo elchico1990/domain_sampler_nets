@@ -16,9 +16,9 @@ from vgg_preprocessing import (_mean_image_subtraction, _R_MEAN, _G_MEAN, _B_MEA
 from load_synthia import load_synthia
 from utils import *
 
-class DSN(self):
+class DSN(object):
     
-    def self.init(self, no_classes=13)
+    def __init__(self, no_classes=13):
 
 	self.no_classes = no_classes
 	self.log_folder = './logs'
@@ -28,72 +28,79 @@ class DSN(self):
 		
 	with slim.arg_scope(vgg.vgg_arg_scope()):
 
-	    return vgg.vgg_16(processed_images,
+	    fc7 = vgg.vgg_16(processed_images,
 				num_classes=self.no_classes,
 				is_training=is_training_placeholder,
 				spatial_squeeze=False,
 				fc_conv_padding='VALID',
 				reuse=False,
 				return_fc7=True)
+				
+	    return fc7
     
     def semantic_extractor(self, vgg_output):
 	
-	with slim.arg_scope('semantic'):
+	with tf.variable_scope('semantic_extractor'):
 	
-	# fc7 is (batch_size, 14, 14, 4096)
+	    # fc7 is (batch_size, 14, 14, 4096)
 
-	net_tmp = slim.conv2d(vgg_output, 1024, [8, 8], scope='conv_plus_1', stride=1, padding='VALID', activation_fn=tf.nn.tanh) #from (batch_size, 8, 8, 4096) to (batch_size, 1, 1, 1024) 
+	    net_tmp = slim.conv2d(vgg_output, 1024, [8, 8], scope='conv_plus_1', stride=1, padding='VALID', activation_fn=tf.nn.tanh) #from (batch_size, 8, 8, 4096) to (batch_size, 1, 1, 1024) 
 
-	fc_bottleneck = tf.squeeze(net_tmp) # (batch_size, 1024)
+	    fc_bottleneck = tf.squeeze(net_tmp) # (batch_size, 1024)
 
-	net = slim.conv2d_transpose(net_tmp, 1024, [7, 7], padding='VALID', scope='dec0')                # (batch_size, 7, 7, 512)
-	net = slim.conv2d_transpose(net, 1024, [3, 3], stride=2, padding='SAME', scope='dec1')           # (batch_size, 14, 14, 512)
-			
-	net = slim.conv2d_transpose(net, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')   	 # (batch_size, 28, 28, 512)
-	net1 = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21') 	 # (batch_size, 28, 28, 512)
-	net2 = slim.conv2d_transpose(net1, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')	 # (batch_size, 28, 28, 512)
-	net3 = slim.conv2d_transpose(net2, 512, [3, 3],stride=1,  padding='SAME', scope='dec23')	 # (batch_size, 28, 28, 512)
-	net4 = slim.conv2d_transpose(net3, 512, [3, 3],stride=2,  padding='SAME', scope='dec3') 	 # (batch_size, 56, 56, 512)
-	net5 = slim.conv2d_transpose(net4, 512, [3, 3],stride=1,  padding='SAME', scope='dec31')	 # (batch_size, 56, 56, 512)
-	net6 = slim.conv2d_transpose(net5, 512, [3, 3],stride=1,  padding='SAME', scope='dec32')	 # (batch_size, 56, 56, 512)
-	net7 = slim.conv2d_transpose(net6, 256, [3, 3],stride=1,  padding='SAME', scope='dec33')	 # (batch_size, 56, 56, 256)
-	net8 = slim.conv2d_transpose(net7, 256, [3, 3],stride=2,  padding='SAME', scope='dec4') 	 # (batch_size, 112, 112, 256)
-	net9 = slim.conv2d_transpose(net8, 256, [3, 3],stride=1,  padding='SAME', scope='dec41')	 # (batch_size, 112, 112, 256)
-	net10 = slim.conv2d_transpose(net9, 256, [3, 3],stride=1,  padding='SAME', scope='dec42')	 # (batch_size, 112, 112, 256)
-	net11 = slim.conv2d_transpose(net10, 128, [3, 3],stride=1,  padding='SAME', scope='dec43')       # (batch_size, 112, 112, 128)
-	net12 = slim.conv2d_transpose(net11, 128, [3, 3],stride=2,  padding='SAME', scope='dec5')        # (batch_size, 224, 224, 128)
-	net13 = slim.conv2d_transpose(net12, 128, [3, 3],stride=1,  padding='SAME', scope='dec51')       # (batch_size, 224, 224, 128)
-	net14 = slim.conv2d_transpose(net13, 64, [3, 3],stride=1,  padding='SAME', scope='dec52')        # (batch_size, 224, 224, 64)
-	net15 = slim.conv2d_transpose(net14, 64, [3, 3],stride=2, padding='SAME', scope='dec6')          # (batch_size, 448, 448, 64)
-	net16 = slim.conv2d_transpose(net15, 64, [3, 3],stride=1, padding='SAME', scope='dec61')         # (batch_size, 448, 448, 64)
-	net17 = slim.conv2d_transpose(net16, 64, [3, 3],stride=1, padding='SAME', scope='dec62')         # (batch_size, 448,448, 64)
-	logits = slim.conv2d(net17, 13, [1, 1], scope='output')  				         # (batch_size, 448, 448, 13)
-	
+	    net = slim.conv2d_transpose(net_tmp, 1024, [7, 7], padding='VALID', scope='dec0')                # (batch_size, 7, 7, 512)
+	    net = slim.conv2d_transpose(net, 1024, [3, 3], stride=2, padding='SAME', scope='dec1')           # (batch_size, 14, 14, 512)
+			    
+	    net = slim.conv2d_transpose(net, 512, [3, 3],stride=2,  padding='SAME', scope='dec2')   	 # (batch_size, 28, 28, 512)
+	    net1 = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec21') 	 # (batch_size, 28, 28, 512)
+	    net2 = slim.conv2d_transpose(net1, 512, [3, 3],stride=1,  padding='SAME', scope='dec22')	 # (batch_size, 28, 28, 512)
+	    net3 = slim.conv2d_transpose(net2, 512, [3, 3],stride=1,  padding='SAME', scope='dec23')	 # (batch_size, 28, 28, 512)
+	    net4 = slim.conv2d_transpose(net3, 512, [3, 3],stride=2,  padding='SAME', scope='dec3') 	 # (batch_size, 56, 56, 512)
+	    net5 = slim.conv2d_transpose(net4, 512, [3, 3],stride=1,  padding='SAME', scope='dec31')	 # (batch_size, 56, 56, 512)
+	    net6 = slim.conv2d_transpose(net5, 512, [3, 3],stride=1,  padding='SAME', scope='dec32')	 # (batch_size, 56, 56, 512)
+	    net7 = slim.conv2d_transpose(net6, 256, [3, 3],stride=1,  padding='SAME', scope='dec33')	 # (batch_size, 56, 56, 256)
+	    net8 = slim.conv2d_transpose(net7, 256, [3, 3],stride=2,  padding='SAME', scope='dec4') 	 # (batch_size, 112, 112, 256)
+	    net9 = slim.conv2d_transpose(net8, 256, [3, 3],stride=1,  padding='SAME', scope='dec41')	 # (batch_size, 112, 112, 256)
+	    net10 = slim.conv2d_transpose(net9, 256, [3, 3],stride=1,  padding='SAME', scope='dec42')	 # (batch_size, 112, 112, 256)
+	    net11 = slim.conv2d_transpose(net10, 128, [3, 3],stride=1,  padding='SAME', scope='dec43')       # (batch_size, 112, 112, 128)
+	    net12 = slim.conv2d_transpose(net11, 128, [3, 3],stride=2,  padding='SAME', scope='dec5')        # (batch_size, 224, 224, 128)
+	    net13 = slim.conv2d_transpose(net12, 128, [3, 3],stride=1,  padding='SAME', scope='dec51')       # (batch_size, 224, 224, 128)
+	    net14 = slim.conv2d_transpose(net13, 64, [3, 3],stride=1,  padding='SAME', scope='dec52')        # (batch_size, 224, 224, 64)
+	    net15 = slim.conv2d_transpose(net14, 64, [3, 3],stride=2, padding='SAME', scope='dec6')          # (batch_size, 448, 448, 64)
+	    net16 = slim.conv2d_transpose(net15, 64, [3, 3],stride=1, padding='SAME', scope='dec61')         # (batch_size, 448, 448, 64)
+	    net17 = slim.conv2d_transpose(net16, 64, [3, 3],stride=1, padding='SAME', scope='dec62')         # (batch_size, 448,448, 64)
+	    logits = slim.conv2d(net17, 13, [1, 1], scope='output')  				         # (batch_size, 448, 448, 13)
+	    
+	    return logits
+	    
     def build_model(self):
 
-	image_tensor = tf.placeholder(tf.float32, [None, 224 * 2,224 * 2, 3], 'images')
-	annotation_tensor = tf.placeholder(tf.float32, [None, 224 * 2,224 * 2, 1], 'annotations')
-	is_training_placeholder = tf.placeholder(tf.bool)
+	self.image_tensor = tf.placeholder(tf.float32, [None, 224 * 2,224 * 2, 3], 'images')
+	self.annotation_tensor = tf.placeholder(tf.float32, [None, 224 * 2,224 * 2, 1], 'annotations')
+	self.is_training_placeholder = tf.placeholder(tf.bool)
 
-	labels_tensors = [tf.to_float(tf.equal(annotation_tensor, i)) for i in range(no_classes)]
+	labels_tensors = [tf.to_float(tf.equal(self.annotation_tensor, i)) for i in range(self.no_classes)]
 
 	try:
 	    combined_mask = tf.concat(axis=3, values = labels_tensors)
 	except:
 	    combined_mask = tf.concat(3,labels_tensors)
 	    
-	flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, no_classes))
+	flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
 
 
 
-	image_float = tf.to_float(image_tensor, name='ToFloat')
+	image_float = tf.to_float(self.image_tensor, name='ToFloat')
 
 
 	processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
 	
 	# extracting VGG-16 representation, up to the (N-1) layer
 	
-	vgg_output = self.vgg_encoding(processed_images, is_training_placeholder)
+	vgg_output = self.vgg_encoding(processed_images, self.is_training_placeholder)
+	
+	vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
+	vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 	
 	# extracting semantic representation
 	
@@ -101,7 +108,7 @@ class DSN(self):
 
 	
 
-	flat_logits = tf.reshape(tensor=logits, shape=(-1, no_classes))
+	flat_logits = tf.reshape(tensor=logits, shape=(-1, self.no_classes))
 
 	cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
 								  labels=flat_labels)
@@ -133,14 +140,8 @@ class DSN(self):
 
 	self.merged_summary_op = tf.summary.merge_all()
 
-	summary_string_writer = tf.summary.FileWriter(self.log_folder)
-
 
 	# necessary to load VGG-16 weights
-
-	vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
-				    
-	vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc8'])
 
 	self.read_vgg_weights_except_fc8_func = slim.assign_from_checkpoint_fn(
 	    self.vgg_checkpoint_path,
@@ -178,6 +179,9 @@ if __name__ == "__main__":
     model = DSN()
     model.build_model()
 
+    summary_string_writer = tf.summary.FileWriter(model.log_folder)
+
+
 
     config = tf.ConfigProto(device_count = {'GPU': 0})
 
@@ -210,9 +214,9 @@ if __name__ == "__main__":
 		
 		images, annotations = load_synthia(no_elements=10)
 
-		feed_dict = {image_tensor: images[1:2],
-				annotation_tensor: annotations[1:2],
-				is_training_placeholder: False}
+		feed_dict = {model.image_tensor: images[1:2],
+			     model.annotation_tensor: annotations[1:2],
+			     model.is_training_placeholder: False}
 
 
 		#~ labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
@@ -236,7 +240,7 @@ if __name__ == "__main__":
 		    
 		    for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
 				
-			feed_dict = {image_tensor: images[start:end], annotation_tensor: annotations[start:end], is_training_placeholder: True}
+			feed_dict = {model.image_tensor: images[start:end], model.annotation_tensor: annotations[start:end], model.is_training_placeholder: True}
 
 			loss, summary_string = sess.run([model.cross_entropy_sum, model.merged_summary_op], feed_dict=feed_dict)
 
@@ -248,14 +252,14 @@ if __name__ == "__main__":
 			print("Current Average Loss: " + str(np.array(losses).mean()))
 			
 			if n%10==0:
-			    pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False})
+			    pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.image_tensor: images[1:2], model.annotation_tensor: annotations[1:2], model.is_training_placeholder: False})
 			    plt.imsave('./images/'+str(e)+'_'+str(n)+'.png', np.squeeze(pred_np))
 			
-		    saver.save(sess, '/tensorflow_models/SYNTHIA/segm_model')
+		    #~ saver.save(sess, '/tensorflow_models/SYNTHIA/segm_model')
 
 
-		feed_dict[is_training_placeholder] = False
-		feed_dict = {image_tensor: images[1:2],annotation_tensor: annotations[1:2],is_training_placeholder: False}
+		feed_dict[model.is_training_placeholder] = False
+		feed_dict = {model.image_tensor: images[1:2],model.annotation_tensor: annotations[1:2],model.is_training_placeholder: False}
 
 
 		
