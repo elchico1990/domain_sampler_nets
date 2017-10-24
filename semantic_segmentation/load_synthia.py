@@ -28,19 +28,20 @@ def load_synthia(no_elements=1000):
     img_files = sorted(glob.glob(img_dir+'/*'))[:no_elements]
     gt_labels_files = sorted(glob.glob(gt_labels_dir+'/*'))[:no_elements]
 
+    scale = 1
 
-    images = np.zeros((len(img_files), 224 * 2,224 * 2, 3))
-    gt_labels = np.zeros((len(gt_labels_files), 224 * 2,224 * 2))
+    images = np.zeros((len(img_files), 224 * scale, 224 * scale, 3))
+    gt_labels = np.zeros((len(gt_labels_files), 224 * scale, 224 * scale))
 
     for n, img, gt_lab in zip(range(len(img_files)), img_files, gt_labels_files):
 	
 	#~ print n
 	
 	img = misc.imread(img)
-	img = misc.imresize(img,(224 * 2,224 * 2,3))
+	img = misc.imresize(img,(224 * scale, 224 * scale,3))
 	
 	gt_lab = np.asarray(imageio.imread(gt_lab, format='PNG-FI'))[:,:,0]  # uint16
-	gt_lab = misc.imresize(gt_lab,(224 * 2,224 * 2),interp='nearest') / 17
+	gt_lab = misc.imresize(gt_lab,(224 * scale, 224 * scale),interp='nearest') / 17
 	
 	
 	images[n] = img

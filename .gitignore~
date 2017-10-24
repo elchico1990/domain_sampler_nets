@@ -25,4 +25,5 @@
 /semantic_segmentation/model
 /semantic_segmentation/images
 /semantic_segmentation/logs
+/semantic_segmentation/tensorflow_models/SYNTHIA
 
