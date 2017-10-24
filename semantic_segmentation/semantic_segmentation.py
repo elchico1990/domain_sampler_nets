@@ -113,7 +113,7 @@ class DSN(object):
 	# extracting VGG-16 representation, up to the (N-1) layer
 	
 	self.vgg_output = self.vgg_encoding(processed_images, self.is_training_placeholder)
-	self.vgg_outoput_flat = tf.squeeze(self.vgg_output)
+	self.vgg_output_flat = tf.squeeze(self.vgg_output)
 	
 	vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
 	vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc7','vgg_16/fc8'])
@@ -263,22 +263,44 @@ class DSN(object):
 	    
 	    saver = tf.train.Saver(model.train_vars)
 
-	    images_source, annotations_source = load_synthia(self.seq_name, no_elements=90)
-	    images_target, annotations_target = load_synthia(seq_2_name, no_elements=90)
+	    source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
+	    target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
 			 
-	    features_source = np.zeros((len(images_source,512)))
-	    features_target = np.zeros((len(images_target,512)))
+	    source_features = np.zeros((len(source_images),128))
+	    target_features = np.zeros((len(target_images),128))
+	    source_losses = np.zeros((len(source_images), 1))
 	    
-	    pred_source = np.zeros((len(images_source,224,224)))
-	    pred_source = np.zeros((len(images_target,224,224)))
+	    source_preds = np.zeros((len(source_images),224,224))
+	    target_preds = np.zeros((len(target_images),224,224))
+	    target_losses = np.zeros((len(target_images), 1))
+	    
+	    print 'Evaluating SOURCE - ' + self.seq_name
 	    
 	    for n, image, annotation in zip(range(len(source_images)), source_images, source_annotations):
 		
-		feed_dict = {model.image_tensor: image, model.annotation_tensor: annotation, model.is_training_placeholder: False}
-		feat, pred = sess.run([model.vgg_output_flat, model.pred], feed_dict=feed_dict)
-		features_source[n] = feat
-		pred_source[n] = pred
+		if n%100==0:
+		    print n 
+		feed_dict = {model.image_tensor: np.expand_dims(image,0), model.annotation_tensor: np.expand_dims(annotation,0), model.is_training_placeholder: False}
+		feat, pred, loss = sess.run([model.vgg_output_flat, model.pred, model.cross_entropy_sum], feed_dict=feed_dict)
+		source_features[n] = feat
+		source_preds[n] = pred
+		source_losses[n] = loss
+	    
+	    print 'Average source loss: ' + str(source_losses.mean())
+	    
+	    print 'Evaluating TARGET - ' + seq_2_name
+	    
+	    for n, image, annotation in zip(range(len(target_images)), target_images, target_annotations):
 		
+		if n%100==0:
+		    print n 
+		feed_dict = {model.image_tensor: np.expand_dims(image,0), model.annotation_tensor: np.expand_dims(annotation,0), model.is_training_placeholder: False}
+		feat, pred, loss = sess.run([model.vgg_output_flat, model.pred, model.cross_entropy_sum], feed_dict=feed_dict)
+		target_features[n] = feat
+		target_preds[n] = pred
+		target_losses[n] = loss
+		
+	    print 'Average target loss: ' + str(target_losses.mean())
 	    print 'break'
 
 
@@ -293,7 +315,7 @@ if __name__ == "__main__":
     
     print 'Evaluating model.'
     
-    model.eval_model(seq_2_name='blablabla')
+    model.eval_model(seq_2_name='SYNTHIA-SEQS-01-SPRING')
 
     
     
