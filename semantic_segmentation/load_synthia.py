@@ -9,7 +9,7 @@ import imageio
 import os
 import glob
 
-def load_synthia(no_elements=1000):
+def load_synthia(seq_name, no_elements=1000):
     
     print 'Loading SYNTHIA dataset,',str(no_elements),'samples.'
 
@@ -22,8 +22,8 @@ def load_synthia(no_elements=1000):
     #~ img_dir = './data/SYNTHIA/Omni_F_RGB'
     #~ gt_labels_dir = './data/SYNTHIA/Omni_F_GT_LABELS'
     
-    img_dir = '/cvgl/group/Synthia/SYNTHIA-SEQS-01-NIGHT/RGB/Stereo_Left/Omni_F'
-    gt_labels_dir = '/cvgl/group/Synthia/SYNTHIA-SEQS-01-NIGHT/GT/LABELS/Stereo_Left/Omni_F' 
+    img_dir = '/cvgl/group/Synthia/'+seq_name+'/RGB/Stereo_Left/Omni_F'
+    gt_labels_dir = '/cvgl/group/Synthia/'+seq_name+'/GT/LABELS/Stereo_Left/Omni_F' 
 
     img_files = sorted(glob.glob(img_dir+'/*'))[:no_elements]
     gt_labels_files = sorted(glob.glob(gt_labels_dir+'/*'))[:no_elements]

@@ -18,8 +18,9 @@ from utils import *
 
 class DSN(object):
     
-    def __init__(self, no_classes=13):
+    def __init__(self, seq_name, no_classes=13):
 
+	self.seq_name = seq_name
 	self.no_classes = no_classes
 	self.log_folder = './logs'
 	self.vgg_checkpoint_path = './vgg_16.ckpt'
@@ -207,9 +208,83 @@ class DSN(object):
 
 
 
+    def train_model(self):
+
+	summary_string_writer = tf.summary.FileWriter(model.log_folder)
+
+	config = tf.ConfigProto(device_count = {'GPU': 0})
+
+	with tf.Session() as sess:
+		
+	    print 'Loading weights.'
+
+	    #~ # Run the initializers.
+	    sess.run(tf.global_variables_initializer())
+	    model.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(model.vgg_fc8_weights_initializer)
+     
+	    #~ # Load model. 
+	    #~ sess.run(tf.global_variables_initializer())
+	    #~ variables_to_restore = slim.get_model_variables()
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, '/tensorflow_models/SYNTHIA/segm_model')
+	    
+	    saver = tf.train.Saver(model.train_vars)
+
+	    images, annotations = load_synthia(self.seq_name, no_elements=900)
+
+	    feed_dict = {model.image_tensor: images,
+			 model.annotation_tensor: annotations,
+			 model.is_training_placeholder: False}
+
+	    EPOCHS = 1000
+	    BATCH_SIZE = 1
+
+	    for e in range(EPOCHS):
+		
+		losses = []
+		
+		print e
+		
+		for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
+			    
+		    feed_dict = {model.image_tensor: images[start:end], model.annotation_tensor: annotations[start:end], model.is_training_placeholder: True}
+
+		    loss, summary_string = sess.run([model.cross_entropy_sum, model.merged_summary_op], feed_dict=feed_dict)
+
+		    sess.run(model.train_op, feed_dict=feed_dict)
+
+		    summary_string_writer.add_summary(summary_string, e)
+
+		    
+		    if n%10==0:
+			print e,'-',n
+			losses.append(loss)
+			print("Current Average Loss: " + str(np.array(losses).mean()))
+		pred_np, probabilities_np = sess.run([model.pred, model.probabilities
+		], feed_dict={model.image_tensor: images[1:2], model.annotation_tensor: annotations[1:2], model.is_training_placeholder: False})
+		plt.imsave('./images/'+str(e)+self.seq_name+'/'+'.png', np.squeeze(pred_np))	    
+		saver.save(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
+
+	    feed_dict[model.is_training_placeholder] = False
+	    feed_dict = {model.feature_tensor: vgg_features[1:2],model.annotation_tensor: annotations[1:2],model.is_training_placeholder: False}
+
+
+	    
+	    pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
+						     feed_dict=feed_dict)
+				
+
+	    final_predictions, final_probabilities, final_loss = sess.run([pred,
+									   probabilities,
+									   cross_entropy_sum],
+									  feed_dict=feed_dict)
 
 
 
+	    print("Final Loss: " + str(final_loss))
+
+	    summary_string_writer.close()
 
 
 
@@ -217,84 +292,11 @@ class DSN(object):
 
 if __name__ == "__main__":
 
-    model = DSN()
+    model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
     model.build_model(mode='include_VGG')
-
-    summary_string_writer = tf.summary.FileWriter(model.log_folder)
-
-    config = tf.ConfigProto(device_count = {'GPU': 0})
-
-    with tf.Session() as sess:
-	    
-	print 'Loading weights.'
-
-	#~ # Run the initializers.
-	sess.run(tf.global_variables_initializer())
-	model.read_vgg_weights_except_fc8_func(sess)
-	sess.run(model.vgg_fc8_weights_initializer)
- 
-	#~ # Load model. 
-	#~ sess.run(tf.global_variables_initializer())
-	#~ variables_to_restore = slim.get_model_variables()
-	#~ restorer = tf.train.Saver(variables_to_restore)
-	#~ restorer.restore(sess, '/tensorflow_models/SYNTHIA/segm_model')
-	
-	saver = tf.train.Saver(model.train_vars)
-
-	images, annotations = load_synthia(no_elements=900)
-
-	feed_dict = {model.image_tensor: images,
-		     model.annotation_tensor: annotations,
-		     model.is_training_placeholder: False}
-
-	EPOCHS = 1000
-	BATCH_SIZE = 1
-
-	for e in range(EPOCHS):
-	    
-	    losses = []
-	    
-	    print e
-	    
-	    for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
-			
-		feed_dict = {model.image_tensor: images[start:end], model.annotation_tensor: annotations[start:end], model.is_training_placeholder: True}
-
-		loss, summary_string = sess.run([model.cross_entropy_sum, model.merged_summary_op], feed_dict=feed_dict)
-
-		sess.run(model.train_op, feed_dict=feed_dict)
-
-		summary_string_writer.add_summary(summary_string, e)
-
-		
-		if n%10==0:
-		    print e,'-',n
-		    losses.append(loss)
-		    print("Current Average Loss: " + str(np.array(losses).mean()))
-		    pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.image_tensor: images[1:2], model.annotation_tensor: annotations[1:2], model.is_training_placeholder: False})
-		    plt.imsave('./images/'+str(e)+'_'+str(n)+'.png', np.squeeze(pred_np))
-		
-	    saver.save(sess, './tensorflow_models/SYNTHIA/segm_model')
-
-	feed_dict[model.is_training_placeholder] = False
-	feed_dict = {model.feature_tensor: vgg_features[1:2],model.annotation_tensor: annotations[1:2],model.is_training_placeholder: False}
+    model.train_model()
 
 
-	
-	pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
-						 feed_dict=feed_dict)
-			    
-
-	final_predictions, final_probabilities, final_loss = sess.run([pred,
-								       probabilities,
-								       cross_entropy_sum],
-								      feed_dict=feed_dict)
-
-
-
-	print("Final Loss: " + str(final_loss))
-
-	summary_string_writer.close()
 	
 	    
 	    
