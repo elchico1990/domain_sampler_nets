@@ -5,6 +5,8 @@ import skimage.io as io
 import numpy as np
 from matplotlib import pyplot as plt
 
+import cPickle
+
 import urllib2
 
 slim = tf.contrib.slim
@@ -89,124 +91,73 @@ class DSN(object):
 		
 		return logits
 	    
-    def build_model(self, mode):
+    def build_model(self):
 	
-	if mode=='include_VGG':
+	self.image_tensor = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 3], 'images')
+	self.annotation_tensor = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 1], 'annotations')
+	self.is_training_placeholder = tf.placeholder(tf.bool)
 
-	    self.image_tensor = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 3], 'images')
-	    self.annotation_tensor = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 1], 'annotations')
-	    self.is_training_placeholder = tf.placeholder(tf.bool)
+	labels_tensors = [tf.to_float(tf.equal(self.annotation_tensor, i)) for i in range(self.no_classes)]
 
-	    labels_tensors = [tf.to_float(tf.equal(self.annotation_tensor, i)) for i in range(self.no_classes)]
-
-	    try:
-		combined_mask = tf.concat(axis=3, values = labels_tensors)
-	    except:
-		combined_mask = tf.concat(3,labels_tensors)
-		
-	    flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
-
-	    image_float = tf.to_float(self.image_tensor, name='ToFloat')
-
-	    processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
+	try:
+	    combined_mask = tf.concat(axis=3, values = labels_tensors)
+	except:
+	    combined_mask = tf.concat(3,labels_tensors)
 	    
-	    # extracting VGG-16 representation, up to the (N-1) layer
-	    
-	    self.vgg_output = self.vgg_encoding(processed_images, self.is_training_placeholder)
-	    
-	    vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
-	    vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc7','vgg_16/fc8'])
-	    
-	    # extracting semantic representation
-	    
-	    logits = self.semantic_extractor(self.vgg_output)
-	    
-	    flat_logits = tf.reshape(tensor=logits, shape=(-1, self.no_classes))
+	flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
 
-	    cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
-								      labels=flat_labels)
+	image_float = tf.to_float(self.image_tensor, name='ToFloat')
 
-	    self.cross_entropy_sum = tf.reduce_mean(cross_entropies) # ORIGINAL WAS reduce_sum, CHECK PAPERS !!!
+	processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
+	
+	# extracting VGG-16 representation, up to the (N-1) layer
+	
+	self.vgg_output = self.vgg_encoding(processed_images, self.is_training_placeholder)
+	self.vgg_outoput_flat = tf.squeeze(self.vgg_output)
+	
+	vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
+	vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc7','vgg_16/fc8'])
+	
+	# extracting semantic representation
+	
+	logits = self.semantic_extractor(self.vgg_output)
+	
+	flat_logits = tf.reshape(tensor=logits, shape=(-1, self.no_classes))
 
-	    self.pred = tf.argmax(logits, dimension=3)
+	cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
+								  labels=flat_labels)
 
-	    self.probabilities = tf.nn.softmax(logits)
+	self.cross_entropy_sum = tf.reduce_mean(cross_entropies) # ORIGINAL WAS reduce_sum, CHECK PAPERS !!!
 
-	    # Optimizers
+	self.pred = tf.argmax(logits, dimension=3)
 
-	    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+	self.probabilities = tf.nn.softmax(logits)
 
-	    # no re-training of VGG-16 variables
+	# Optimizers
 
-	    t_vars = tf.trainable_variables()
-	    self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc7' in var.name)]
+	optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
 
-	    # train op
-	    with tf.variable_scope('training_op',reuse=False):
-		self.train_op = slim.learning.create_train_op(self.cross_entropy_sum, optimizer, variables_to_train=self.train_vars)
+	# no re-training of VGG-16 variables
 
-	    tf.summary.scalar('cross_entropy_loss', self.cross_entropy_sum)
+	t_vars = tf.trainable_variables()
+	self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc7' in var.name)]
 
-	    self.merged_summary_op = tf.summary.merge_all()
+	# train op
+	with tf.variable_scope('training_op',reuse=False):
+	    self.train_op = slim.learning.create_train_op(self.cross_entropy_sum, optimizer, variables_to_train=self.train_vars)
 
+	tf.summary.scalar('cross_entropy_loss', self.cross_entropy_sum)
 
-	    # necessary to load VGG-16 weights
-
-	    self.read_vgg_weights_except_fc8_func = slim.assign_from_checkpoint_fn(
-		self.vgg_checkpoint_path,
-		vgg_except_fc8_weights)
-
-	    self.vgg_fc8_weights_initializer = tf.variables_initializer(vgg_fc8_weights)	
-	    
-	if mode=='exclude_VGG':
-
-	    self.feature_tensor = tf.placeholder(tf.float32, [None, 8, 8, 128], 'vgg_features')
-	    self.annotation_tensor = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 1], 'annotations')
-	    self.is_training_placeholder = tf.placeholder(tf.bool)
-
-	    labels_tensors = [tf.to_float(tf.equal(self.annotation_tensor, i)) for i in range(self.no_classes)]
-
-	    try:
-		combined_mask = tf.concat(axis=3, values = labels_tensors)
-	    except:
-		combined_mask = tf.concat(3,labels_tensors)
-		
-	    flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
-
-	    # extracting semantic representation
-	    
-	    logits = self.semantic_extractor(self.feature_tensor)
-
-	    flat_logits = tf.reshape(tensor=logits, shape=(-1, self.no_classes))
-
-	    cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
-								      labels=flat_labels)
-
-	    self.cross_entropy_sum = tf.reduce_mean(cross_entropies) # ORIGINAL WAS reduce_sum, CHECK PAPERS !!!
-
-	    self.pred = tf.argmax(logits, dimension=3)
-
-	    self.probabilities = tf.nn.softmax(logits)
-
-	    # Optimizers
-
-	    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
-
-	    # no re-training of VGG-16 variables
-
-	    t_vars = tf.trainable_variables()
-	    train_vars = [var for var in t_vars if 'vgg_16' not in var.name]
-
-	    # train op
-	    with tf.variable_scope('training_op',reuse=False):
-		self.train_op = slim.learning.create_train_op(self.cross_entropy_sum, optimizer, variables_to_train=train_vars)
-
-	    tf.summary.scalar('cross_entropy_loss', self.cross_entropy_sum)
-
-	    self.merged_summary_op = tf.summary.merge_all()
+	self.merged_summary_op = tf.summary.merge_all()
 
 
+	# necessary to load VGG-16 weights
 
+	self.read_vgg_weights_except_fc8_func = slim.assign_from_checkpoint_fn(
+	    self.vgg_checkpoint_path,
+	    vgg_except_fc8_weights)
+
+	self.vgg_fc8_weights_initializer = tf.variables_initializer(vgg_fc8_weights)	
 
     def train_model(self):
 
@@ -223,13 +174,20 @@ class DSN(object):
 	    model.read_vgg_weights_except_fc8_func(sess)
 	    sess.run(model.vgg_fc8_weights_initializer)
      
-	    #~ # Load model. 
-	    #~ sess.run(tf.global_variables_initializer())
-	    #~ variables_to_restore = slim.get_model_variables()
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, '/tensorflow_models/SYNTHIA/segm_model')
+	    #~ # Run the initializers.
+	    sess.run(tf.global_variables_initializer())
+	    model.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(model.vgg_fc8_weights_initializer)
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
 	    
 	    saver = tf.train.Saver(model.train_vars)
+	    
+	    with open('./tensorflow_models/'+self.seq_name+'/train_vars.pkl','w') as f:
+		cPickle.dump(model.train_vars,f,cPickle.HIGHEST_PROTOCOL)
+		
+	    print 'break'
 
 	    images, annotations = load_synthia(self.seq_name, no_elements=900)
 
@@ -261,8 +219,7 @@ class DSN(object):
 			print e,'-',n
 			losses.append(loss)
 			print("Current Average Loss: " + str(np.array(losses).mean()))
-		pred_np, probabilities_np = sess.run([model.pred, model.probabilities
-		], feed_dict={model.image_tensor: images[1:2], model.annotation_tensor: annotations[1:2], model.is_training_placeholder: False})
+		pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.image_tensor: images[1:2], model.annotation_tensor: annotations[1:2], model.is_training_placeholder: False})
 		plt.imsave('./images/'+str(e)+self.seq_name+'/'+'.png', np.squeeze(pred_np))	    
 		saver.save(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
 
@@ -286,16 +243,62 @@ class DSN(object):
 
 	    summary_string_writer.close()
 
+    def eval_model(self, seq_2_name):
 
+	summary_string_writer = tf.summary.FileWriter(model.log_folder)
+
+	config = tf.ConfigProto(device_count = {'GPU': 0})
+
+	with tf.Session() as sess:
+		
+	    print 'Loading weights.'
+
+	    #~ # Run the initializers.
+	    sess.run(tf.global_variables_initializer())
+	    model.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(model.vgg_fc8_weights_initializer)
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
+	    
+	    saver = tf.train.Saver(model.train_vars)
+
+	    images_source, annotations_source = load_synthia(self.seq_name, no_elements=90)
+	    images_target, annotations_target = load_synthia(seq_2_name, no_elements=90)
+			 
+	    features_source = np.zeros((len(images_source,512)))
+	    features_target = np.zeros((len(images_target,512)))
+	    
+	    pred_source = np.zeros((len(images_source,224,224)))
+	    pred_source = np.zeros((len(images_target,224,224)))
+	    
+	    for n, image, annotation in zip(range(len(source_images)), source_images, source_annotations):
+		
+		feed_dict = {model.image_tensor: image, model.annotation_tensor: annotation, model.is_training_placeholder: False}
+		feat, pred = sess.run([model.vgg_output_flat, model.pred], feed_dict=feed_dict)
+		features_source[n] = feat
+		pred_source[n] = pred
+		
+	    print 'break'
 
 
 
 if __name__ == "__main__":
 
     model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
-    model.build_model(mode='include_VGG')
-    model.train_model()
+    
+    print 'Building model.'
+    
+    model.build_model()
+    
+    print 'Evaluating model.'
+    
+    model.eval_model(seq_2_name='blablabla')
 
+    
+    
+    #~ model.train_model()
+    
 
 	
 	    
