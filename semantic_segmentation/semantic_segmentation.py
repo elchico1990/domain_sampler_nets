@@ -388,7 +388,7 @@ class DSN(object):
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
 	    
-	    print 'Extracting VGG-16 features from ' + self.seq_name
+	    print 'Extracting VGG-16 features.'
 	    
 	    for n, image in enumerate(source_images):
 		
@@ -454,19 +454,22 @@ class DSN(object):
                     if (t+1) % 5000 == 0:  
 			saver.save(sess, './experiments/'+self.seq_name+'/model/sampler')
  
-    def plot_tsne(self, seq_2_name = '...'):
+    def features_to_pkl(self, seq_2_names = ['...']):
 	
 	source_images, _ = load_synthia(self.seq_name, no_elements=900)
-	target_images, _ = load_synthia(seq_2_name, no_elements=900)
+	
 	
 	source_features = self.extract_VGG16_features(source_images)
 	tf.reset_default_graph()
-	target_features = self.extract_VGG16_features(target_images)
-	tf.reset_default_graph()
+	
+	target_features = dict()
+	
+	for s in seq_2_names:
+	    target_images, _ = load_synthia(s, no_elements=900)
+	    target_features[s] = self.extract_VGG16_features(target_images)
+	    tf.reset_default_graph()
 	
 	self.build_model(mode='train_feature_generator')
-			
-	self.config = tf.ConfigProto(device_count = {'GPU': 0})
 
         with tf.Session() as sess:
             # initialize G and D
@@ -486,31 +489,6 @@ class DSN(object):
 	    
 	    with open('./experiments/'+self.seq_name+'/features.pkl','w') as f:
 		cPickle.dump((source_features, target_features, fzy), f, cPickle.HIGHEST_PROTOCOL)
-
-	    #~ print 'Computing T-SNE.'
-#~ 
-	    #~ model = TSNE(n_components=2, random_state=0)
-#~ 
-	       #~ 
-	    #~ if sys.argv[1] == '1':
-		#~ TSNE_hA = model.fit_transform(source_features)
-		#~ 
-		#~ f, ax = plt.plot()
-		#~ ax.set_facecolor('white')
-		#~ 
-		#~ ax.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.ones((n_samples)), s=3, cmap = mpl.cm.jet)
-		#~ 
-	    #~ elif sys.argv[1] == '2':
-		#~ TSNE_hA = model.fit_transform(np.vstack((fzy,source_features)))
-		#~ 
-		#~ f, ax = plt.plot()
-		#~ ax.set_facecolor('white')
-		#~ 
-		#~ ax.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet, alpha=0.5)
-#~ 
-#~ 
-	    #plt.legend()
-	    #~ plt.show()
 	    
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
@@ -520,19 +498,23 @@ class DSN(object):
 
 if __name__ == "__main__":
 
-    model = DSN(seq_name='SYNTHIA-SEQS-01-FALL')
+    model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
 
-    #~ print 'Training feature generator'
-    #~ 
-    #~ model.plot_tsne(seq_2_name = 'SYNTHIA-SEQS-01-NIGHT')
+    print 'Training feature generator'
+    
+    seq_2_names = ['SYNTHIA-SEQS-01-NIGHT','SYNTHIA-SEQS-01-FALL']
+    
+    model.features_to_pkl(seq_2_names = seq_2_names)
+    #~ tf.reset_default_graph()
+	
     
     #~ print 'Evaluating model.'
  
     #~ model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-SPRING')
  
-    print 'Training semantic extractor'
+    #~ print 'Training semantic extractor'
     
-    model.train_semantic_extractor()
+    #~ model.train_semantic_extractor()
 	    
 	    
 	    
