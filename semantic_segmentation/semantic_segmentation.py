@@ -16,7 +16,7 @@ import vgg_preprocessing
 from vgg_preprocessing import (_mean_image_subtraction, _R_MEAN, _G_MEAN, _B_MEAN)
 
 from load_synthia import load_synthia
-from utils import *
+import utils
 
 class DSN(object):
     
@@ -27,7 +27,7 @@ class DSN(object):
 	self.log_dir = './logs'
 	self.vgg_checkpoint_path = './vgg_16.ckpt'
 	
-    def vgg_encoding(self, processed_images, is_training_placeholder): 
+    def vgg_encoding(self, processed_images, is_training_placeholder, reuse=False): 
 		
 	with slim.arg_scope(vgg.vgg_arg_scope()):
 
@@ -36,7 +36,7 @@ class DSN(object):
 				is_training=is_training_placeholder,
 				spatial_squeeze=False,
 				fc_conv_padding='VALID',
-				reuse=False,
+				reuse=reuse,
 				return_fc7=True)
 				
 	    return fc7
@@ -121,7 +121,7 @@ class DSN(object):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
 				    activation_fn=tf.nn.relu, is_training=is_training):
 		    
-		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		    net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 	    
@@ -261,13 +261,13 @@ class DSN(object):
 	    sess.run(model.vgg_fc8_weights_initializer)
      
 	    #~ # Run the initializers.
-	    sess.run(tf.global_variables_initializer())
-	    model.read_vgg_weights_except_fc8_func(sess)
-	    sess.run(model.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
-	    
+	    #~ sess.run(tf.global_variables_initializer())
+	    #~ model.read_vgg_weights_except_fc8_func(sess)
+	    #~ sess.run(model.vgg_fc8_weights_initializer)
+	    #~ variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
+	    #~ 
 	    saver = tf.train.Saver(model.train_vars)
 	    
 	    feed_dict = {model.images: images,
@@ -299,8 +299,8 @@ class DSN(object):
 			losses.append(loss)
 			print("Current Average Loss: " + str(np.array(losses).mean()))
 		pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.images: images[1:2], model.annotations: annotations[1:2], model.is_training_placeholder: False})
-		plt.imsave('./images/'+str(e)+self.seq_name+'/'+'.png', np.squeeze(pred_np))	    
-		saver.save(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
+		plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'.png', np.squeeze(pred_np))	    
+		saver.save(sess, './experiments/'+self.seq_name+'/model/segm_model')
 
 	    summary_string_writer.close()
 	    
@@ -335,7 +335,7 @@ class DSN(object):
 	    sess.run(self.vgg_fc8_weights_initializer)
 	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
+	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
 	    
 	    saver = tf.train.Saver(self.train_vars)
 
@@ -386,7 +386,7 @@ class DSN(object):
 	    sess.run(self.vgg_fc8_weights_initializer)
 	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
+	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
 	    
 	    print 'Extracting VGG-16 features from ' + self.seq_name
 	    
@@ -398,13 +398,13 @@ class DSN(object):
 		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.zeros((1,224,224,1)), self.is_training_placeholder: False}
 		feat = sess.run(self.vgg_output_flat, feed_dict=feed_dict)
 		source_features[n] = feat
-		
+	    
 	    return source_features
 	    
     def train_feature_generator(self):
 	
-	epochs=1000
-	batch_size=64
+	epochs=10000
+	batch_size=32
 	noise_dim=100
 
 	summary_string_writer = tf.summary.FileWriter(self.log_dir)
@@ -414,8 +414,6 @@ class DSN(object):
 	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
 		
 	source_features = self.extract_VGG16_features(source_images)
-		
-	tf.reset_default_graph()
 	
 	self.build_model(mode='train_feature_generator')
 	
@@ -436,7 +434,7 @@ class DSN(object):
 		    
 		    t += 1
 
-		    Z_samples = sample_Z(batch_size, noise_dim, 'uniform')
+		    Z_samples = utils.sample_Z(batch_size, noise_dim, 'uniform')
 
 		    feed_dict = {self.noise: Z_samples, self.fx: source_features[start:end]}
 	    
@@ -446,17 +444,74 @@ class DSN(object):
 		    sess.run(self.d_train_op, feed_dict)
 		    sess.run(self.g_train_op, feed_dict)
 		    
-		    if (t+1) % 100 == 0:
+		    if (t+1) % 500 == 0:
 			summary, dl, gl = sess.run([self.summary_op, self.d_loss, self.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
 				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
 			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
-                    if (t+1) % 1000 == 0:  
-			saver.save(sess, './tensorflow_models/'+self.seq_name+'/sampler')
+                    if (t+1) % 5000 == 0:  
+			saver.save(sess, './experiments/'+self.seq_name+'/model/sampler')
  
-		
+    def plot_tsne(self, seq_2_name = '...'):
+	
+	source_images, _ = load_synthia(self.seq_name, no_elements=900)
+	target_images, _ = load_synthia(seq_2_name, no_elements=900)
+	
+	source_features = self.extract_VGG16_features(source_images)
+	tf.reset_default_graph()
+	target_features = self.extract_VGG16_features(target_images)
+	tf.reset_default_graph()
+	
+	self.build_model(mode='train_feature_generator')
+			
+	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+
+        with tf.Session() as sess:
+            # initialize G and D
+            tf.global_variables_initializer().run()
+	    
+	    print ('Loading feature generator.')
+	    variables_to_restore = slim.get_model_variables(scope='feature_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/sampler')
+	    
+	    n_samples = 900
+            noise = utils.sample_Z(n_samples,100,'uniform')
+	    
+	    feed_dict = {model.noise: noise, model.fx: source_features[1:2]}
+	    
+	    fzy = sess.run([model.fzy], feed_dict)
+	    
+	    with open('./experiments/'+self.seq_name+'/features.pkl','w') as f:
+		cPickle.dump((source_features, target_features, fzy), f, cPickle.HIGHEST_PROTOCOL)
+
+	    #~ print 'Computing T-SNE.'
+#~ 
+	    #~ model = TSNE(n_components=2, random_state=0)
+#~ 
+	       #~ 
+	    #~ if sys.argv[1] == '1':
+		#~ TSNE_hA = model.fit_transform(source_features)
+		#~ 
+		#~ f, ax = plt.plot()
+		#~ ax.set_facecolor('white')
+		#~ 
+		#~ ax.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.ones((n_samples)), s=3, cmap = mpl.cm.jet)
+		#~ 
+	    #~ elif sys.argv[1] == '2':
+		#~ TSNE_hA = model.fit_transform(np.vstack((fzy,source_features)))
+		#~ 
+		#~ f, ax = plt.plot()
+		#~ ax.set_facecolor('white')
+		#~ 
+		#~ ax.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet, alpha=0.5)
+#~ 
+#~ 
+	    #plt.legend()
+	    #~ plt.show()
+	    
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
@@ -465,24 +520,19 @@ class DSN(object):
 
 if __name__ == "__main__":
 
-    model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
+    model = DSN(seq_name='SYNTHIA-SEQS-01-FALL')
 
-    print 'Training feature generator'
-    
-    model.train_feature_generator()
+    #~ print 'Training feature generator'
+    #~ 
+    #~ model.plot_tsne(seq_2_name = 'SYNTHIA-SEQS-01-NIGHT')
     
     #~ print 'Evaluating model.'
  
     #~ model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-SPRING')
  
-    #~ print 'Training semantic extractor'
+    print 'Training semantic extractor'
     
-    #~ model.train_semantic_extractor()
-    
-
-	
-	    
-	    
+    model.train_semantic_extractor()
 	    
 	    
 	    
