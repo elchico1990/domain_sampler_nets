@@ -24,7 +24,7 @@ class DSN(object):
 
 	self.seq_name = seq_name
 	self.no_classes = no_classes
-	self.log_folder = './logs'
+	self.log_dir = './logs'
 	self.vgg_checkpoint_path = './vgg_16.ckpt'
 	
     def vgg_encoding(self, processed_images, is_training_placeholder): 
@@ -90,80 +90,166 @@ class DSN(object):
 		logits = slim.conv2d(net, 13, [1, 1], scope='output')  				             # (batch_size, 448, 448, 13)
 		
 		return logits
+	
+    def feature_generator(self, noise, reuse=False, is_training=True):
+    
+	'''
+	Takes in input noise, and generates 
+	f_z, which is handled by the net as 
+	f(x) was handled.  
+	'''
+    
+	with tf.variable_scope('feature_generator', reuse=reuse):
+	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.constant_initializer(0.0)):
+		
+		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+				    activation_fn=tf.nn.relu, is_training=is_training):
+		    
+		    net = slim.fully_connected(noise, 1024, activation_fn = tf.nn.relu, scope='sgen_fc1')
+		    net = slim.batch_norm(net, scope='sgen_bn1')
+		    net = slim.dropout(net, 0.5)
+		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
+		    net = slim.batch_norm(net, scope='sgen_bn2')
+		    net = slim.dropout(net, 0.5)
+		    net = slim.fully_connected(net, 128, activation_fn = tf.tanh, scope='sgen_feat')
+		    return net
+		
+    def feature_discriminator(self, inputs, reuse=False, is_training=True):
+
+	with tf.variable_scope('feature_discriminator',reuse=reuse):
+	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.constant_initializer(0.0)):
+		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
+				    activation_fn=tf.nn.relu, is_training=is_training):
+		    
+		    net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
+		    return net
 	    
-    def build_model(self):
+    def build_model(self, mode='pretrain'):
 	
-	self.image_tensor = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 3], 'images')
-	self.annotation_tensor = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 1], 'annotations')
-	self.is_training_placeholder = tf.placeholder(tf.bool)
+	if mode=='train_semantic_extractor':
+	
+	    self.images = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 3], 'images')
+	    self.annotations = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 1], 'annotations')
+	    self.is_training_placeholder = tf.placeholder(tf.bool)
 
-	labels_tensors = [tf.to_float(tf.equal(self.annotation_tensor, i)) for i in range(self.no_classes)]
+	    labels_tensors = [tf.to_float(tf.equal(self.annotations, i)) for i in range(self.no_classes)]
 
-	try:
-	    combined_mask = tf.concat(axis=3, values = labels_tensors)
-	except:
-	    combined_mask = tf.concat(3,labels_tensors)
+	    try:
+		combined_mask = tf.concat(axis=3, values = labels_tensors)
+	    except:
+		combined_mask = tf.concat(3,labels_tensors)
+		
+	    flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
+
+	    image_float = tf.to_float(self.images, name='ToFloat')
+
+	    processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
 	    
-	flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
+	    # extracting VGG-16 representation, up to the (N-1) layer
+	    
+	    self.vgg_output = self.vgg_encoding(processed_images, self.is_training_placeholder)
+	    self.vgg_output_flat = tf.squeeze(self.vgg_output)
+	    
+	    vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
+	    vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc7','vgg_16/fc8'])
+	    
+	    # extracting semantic representation
+	    
+	    logits = self.semantic_extractor(self.vgg_output)
+	    
+	    flat_logits = tf.reshape(tensor=logits, shape=(-1, self.no_classes))
 
-	image_float = tf.to_float(self.image_tensor, name='ToFloat')
+	    cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
+								      labels=flat_labels)
 
-	processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
+	    self.cross_entropy_sum = tf.reduce_mean(cross_entropies) # ORIGINAL WAS reduce_sum, CHECK PAPERS !!!
+
+	    self.pred = tf.argmax(logits, dimension=3)
+
+	    self.probabilities = tf.nn.softmax(logits)
+
+	    # Optimizers
+
+	    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+
+	    # no re-training of VGG-16 variables
+
+	    t_vars = tf.trainable_variables()
+	    self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc7' in var.name)]
+
+	    # train op
+	    with tf.variable_scope('training_op',reuse=False):
+		self.train_op = slim.learning.create_train_op(self.cross_entropy_sum, optimizer, variables_to_train=self.train_vars)
+
+	    tf.summary.scalar('cross_entropy_loss', self.cross_entropy_sum)
+
+	    self.merged_summary_op = tf.summary.merge_all()
+
+
+	    # necessary to load VGG-16 weights
+
+	    self.read_vgg_weights_except_fc8_func = slim.assign_from_checkpoint_fn(
+		self.vgg_checkpoint_path,
+		vgg_except_fc8_weights)
+
+	    self.vgg_fc8_weights_initializer = tf.variables_initializer(vgg_fc8_weights)
+	    	
+	if mode=='train_feature_generator':
 	
-	# extracting VGG-16 representation, up to the (N-1) layer
-	
-	self.vgg_output = self.vgg_encoding(processed_images, self.is_training_placeholder)
-	self.vgg_output_flat = tf.squeeze(self.vgg_output)
-	
-	vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
-	vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc7','vgg_16/fc8'])
-	
-	# extracting semantic representation
-	
-	logits = self.semantic_extractor(self.vgg_output)
-	
-	flat_logits = tf.reshape(tensor=logits, shape=(-1, self.no_classes))
+	    self.fx = tf.placeholder(tf.float32, [None, 128], 'images')
+	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+			
+	    self.fzy = self.feature_generator(self.noise, is_training=True) 
 
-	cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
-								  labels=flat_labels)
+	    self.logits_real = self.feature_discriminator(self.fx, reuse=False) 
+	    self.logits_fake = self.feature_discriminator(self.fzy, reuse=True)
+	    
+	    self.d_loss_real = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
+	    self.d_loss_fake = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
+	    
+	    self.d_loss = self.d_loss_real + self.d_loss_fake
+	    
+	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
+	    
+	    self.d_optimizer = tf.train.AdamOptimizer(0.0001)
+	    self.g_optimizer = tf.train.AdamOptimizer(0.0001)
+	    
+	    t_vars = tf.trainable_variables()
+	    d_vars = [var for var in t_vars if 'feature_discriminator' in var.name]
+	    g_vars = [var for var in t_vars if 'feature_generator' in var.name]
+	    
+	    # train op
+	    with tf.variable_scope('source_train_op',reuse=False):
+		self.d_train_op = slim.learning.create_train_op(self.d_loss, self.d_optimizer, variables_to_train=d_vars)
+		self.g_train_op = slim.learning.create_train_op(self.g_loss, self.g_optimizer, variables_to_train=g_vars)
+	    
+	    # summary op
+	    d_loss_summary = tf.summary.scalar('feature_discriminator_loss', self.d_loss)
+	    g_loss_summary = tf.summary.scalar('feature_generator_loss', self.g_loss)
+	    self.summary_op = tf.summary.merge([d_loss_summary, g_loss_summary])
 
-	self.cross_entropy_sum = tf.reduce_mean(cross_entropies) # ORIGINAL WAS reduce_sum, CHECK PAPERS !!!
-
-	self.pred = tf.argmax(logits, dimension=3)
-
-	self.probabilities = tf.nn.softmax(logits)
-
-	# Optimizers
-
-	optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
-
-	# no re-training of VGG-16 variables
-
-	t_vars = tf.trainable_variables()
-	self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc7' in var.name)]
-
-	# train op
-	with tf.variable_scope('training_op',reuse=False):
-	    self.train_op = slim.learning.create_train_op(self.cross_entropy_sum, optimizer, variables_to_train=self.train_vars)
-
-	tf.summary.scalar('cross_entropy_loss', self.cross_entropy_sum)
-
-	self.merged_summary_op = tf.summary.merge_all()
+	    for var in tf.trainable_variables():
+		tf.summary.histogram(var.op.name, var)
 
 
-	# necessary to load VGG-16 weights
 
-	self.read_vgg_weights_except_fc8_func = slim.assign_from_checkpoint_fn(
-	    self.vgg_checkpoint_path,
-	    vgg_except_fc8_weights)
 
-	self.vgg_fc8_weights_initializer = tf.variables_initializer(vgg_fc8_weights)	
+####################################################################################################################################################################################
+####################################################################################################################################################################################
+####################################################################################################################################################################################
+####################################################################################################################################################################################
 
-    def train_model(self):
 
-	summary_string_writer = tf.summary.FileWriter(model.log_folder)
+    def train_semantic_extractor(self):
+
+	self.build_model('train_semantic_extractor')
+
+	summary_string_writer = tf.summary.FileWriter(model.log_dir)
 
 	config = tf.ConfigProto(device_count = {'GPU': 0})
+
+        images, annotations = load_synthia(self.seq_name, no_elements=900)
 
 	with tf.Session() as sess:
 		
@@ -184,15 +270,8 @@ class DSN(object):
 	    
 	    saver = tf.train.Saver(model.train_vars)
 	    
-	    with open('./tensorflow_models/'+self.seq_name+'/train_vars.pkl','w') as f:
-		cPickle.dump(model.train_vars,f,cPickle.HIGHEST_PROTOCOL)
-		
-	    print 'break'
-
-	    images, annotations = load_synthia(self.seq_name, no_elements=900)
-
-	    feed_dict = {model.image_tensor: images,
-			 model.annotation_tensor: annotations,
+	    feed_dict = {model.images: images,
+			 model.annotations: annotations,
 			 model.is_training_placeholder: False}
 
 	    EPOCHS = 1000
@@ -206,7 +285,7 @@ class DSN(object):
 		
 		for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
 			    
-		    feed_dict = {model.image_tensor: images[start:end], model.annotation_tensor: annotations[start:end], model.is_training_placeholder: True}
+		    feed_dict = {model.images: images[start:end], model.annotations: annotations[start:end], model.is_training_placeholder: True}
 
 		    loss, summary_string = sess.run([model.cross_entropy_sum, model.merged_summary_op], feed_dict=feed_dict)
 
@@ -219,35 +298,32 @@ class DSN(object):
 			print e,'-',n
 			losses.append(loss)
 			print("Current Average Loss: " + str(np.array(losses).mean()))
-		pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.image_tensor: images[1:2], model.annotation_tensor: annotations[1:2], model.is_training_placeholder: False})
+		pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.images: images[1:2], model.annotations: annotations[1:2], model.is_training_placeholder: False})
 		plt.imsave('./images/'+str(e)+self.seq_name+'/'+'.png', np.squeeze(pred_np))	    
 		saver.save(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
 
-	    feed_dict[model.is_training_placeholder] = False
-	    feed_dict = {model.feature_tensor: vgg_features[1:2],model.annotation_tensor: annotations[1:2],model.is_training_placeholder: False}
-
-
-	    
-	    pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, train_images, train_annotations = sess.run([pred, probabilities, labels_tensors, combined_mask, logits, upsampled_logits, flat_logits, processed_images, image_tensor, annotation_tensor],
-						     feed_dict=feed_dict)
-				
-
-	    final_predictions, final_probabilities, final_loss = sess.run([pred,
-									   probabilities,
-									   cross_entropy_sum],
-									  feed_dict=feed_dict)
-
-
-
-	    print("Final Loss: " + str(final_loss))
-
 	    summary_string_writer.close()
+	    
+    def eval_semantic_extractor(self, seq_2_name):
+	
+	self.build_model('train_semantic_extractor')
 
-    def eval_model(self, seq_2_name):
-
-	summary_string_writer = tf.summary.FileWriter(model.log_folder)
+	summary_string_writer = tf.summary.FileWriter(model.log_dir)
 
 	config = tf.ConfigProto(device_count = {'GPU': 0})
+
+
+	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
+	target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
+		     
+	source_features = np.zeros((len(source_images),128))
+	target_features = np.zeros((len(target_images),128))
+	source_losses = np.zeros((len(source_images), 1))
+	
+	source_preds = np.zeros((len(source_images),224,224))
+	target_preds = np.zeros((len(target_images),224,224))
+	target_losses = np.zeros((len(target_images), 1))
+	
 
 	with tf.Session() as sess:
 		
@@ -255,33 +331,22 @@ class DSN(object):
 
 	    #~ # Run the initializers.
 	    sess.run(tf.global_variables_initializer())
-	    model.read_vgg_weights_except_fc8_func(sess)
-	    sess.run(model.vgg_fc8_weights_initializer)
+	    self.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(self.vgg_fc8_weights_initializer)
 	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
 	    
-	    saver = tf.train.Saver(model.train_vars)
+	    saver = tf.train.Saver(self.train_vars)
 
-	    source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
-	    target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
-			 
-	    source_features = np.zeros((len(source_images),128))
-	    target_features = np.zeros((len(target_images),128))
-	    source_losses = np.zeros((len(source_images), 1))
-	    
-	    source_preds = np.zeros((len(source_images),224,224))
-	    target_preds = np.zeros((len(target_images),224,224))
-	    target_losses = np.zeros((len(target_images), 1))
-	    
 	    print 'Evaluating SOURCE - ' + self.seq_name
 	    
 	    for n, image, annotation in zip(range(len(source_images)), source_images, source_annotations):
 		
 		if n%100==0:
 		    print n 
-		feed_dict = {model.image_tensor: np.expand_dims(image,0), model.annotation_tensor: np.expand_dims(annotation,0), model.is_training_placeholder: False}
-		feat, pred, loss = sess.run([model.vgg_output_flat, model.pred, model.cross_entropy_sum], feed_dict=feed_dict)
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training_placeholder: False}
+		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
 		source_features[n] = feat
 		source_preds[n] = pred
 		source_losses[n] = loss
@@ -294,32 +359,125 @@ class DSN(object):
 		
 		if n%100==0:
 		    print n 
-		feed_dict = {model.image_tensor: np.expand_dims(image,0), model.annotation_tensor: np.expand_dims(annotation,0), model.is_training_placeholder: False}
-		feat, pred, loss = sess.run([model.vgg_output_flat, model.pred, model.cross_entropy_sum], feed_dict=feed_dict)
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training_placeholder: False}
+		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
 		target_features[n] = feat
 		target_preds[n] = pred
 		target_losses[n] = loss
 		
 	    print 'Average target loss: ' + str(target_losses.mean())
 	    print 'break'
+	    
+    def extract_VGG16_features(self, source_images):
+	
+	print 'Extracting VGG_16 features.'
+	
+	self.build_model(mode='train_semantic_extractor')
+	
+	source_features = np.zeros((len(source_images),128))
 
+	with tf.Session() as sess:
+		
+	    print 'Loading weights.'
+
+	    #~ # Run the initializers.
+	    sess.run(tf.global_variables_initializer())
+	    self.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(self.vgg_fc8_weights_initializer)
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, './tensorflow_models/'+self.seq_name+'/segm_model')
+	    
+	    print 'Extracting VGG-16 features from ' + self.seq_name
+	    
+	    for n, image in enumerate(source_images):
+		
+		if n%100==0:
+		    print n 
+		    
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.zeros((1,224,224,1)), self.is_training_placeholder: False}
+		feat = sess.run(self.vgg_output_flat, feed_dict=feed_dict)
+		source_features[n] = feat
+		
+	    return source_features
+	    
+    def train_feature_generator(self):
+	
+	epochs=1000
+	batch_size=64
+	noise_dim=100
+
+	summary_string_writer = tf.summary.FileWriter(self.log_dir)
+
+	config = tf.ConfigProto(device_count = {'GPU': 0})
+
+	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
+		
+	source_features = self.extract_VGG16_features(source_images)
+		
+	tf.reset_default_graph()
+	
+	self.build_model(mode='train_feature_generator')
+	
+        with tf.Session() as sess:
+	
+	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+            saver = tf.train.Saver()
+	    
+            tf.global_variables_initializer().run()
+	    
+	    t = 0
+	    
+	    for i in range(epochs):
+		
+		#~ print 'Epoch',str(i)
+		
+		for start, end in zip(range(0, len(source_images), batch_size), range(batch_size, len(source_images), batch_size)):
+		    
+		    t += 1
+
+		    Z_samples = sample_Z(batch_size, noise_dim, 'uniform')
+
+		    feed_dict = {self.noise: Z_samples, self.fx: source_features[start:end]}
+	    
+		    avg_D_fake = sess.run(self.logits_fake, feed_dict)
+		    avg_D_real = sess.run(self.logits_real, feed_dict)
+		    
+		    sess.run(self.d_train_op, feed_dict)
+		    sess.run(self.g_train_op, feed_dict)
+		    
+		    if (t+1) % 100 == 0:
+			summary, dl, gl = sess.run([self.summary_op, self.d_loss, self.g_loss], feed_dict)
+			summary_writer.add_summary(summary, t)
+			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
+				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
+			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
+			
+                    if (t+1) % 1000 == 0:  
+			saver.save(sess, './tensorflow_models/'+self.seq_name+'/sampler')
+ 
+		
+####################################################################################################################################################################################
+####################################################################################################################################################################################
+####################################################################################################################################################################################
+####################################################################################################################################################################################
 
 
 if __name__ == "__main__":
 
     model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
-    
-    print 'Building model.'
-    
-    model.build_model()
-    
-    print 'Evaluating model.'
-    
-    model.eval_model(seq_2_name='SYNTHIA-SEQS-01-SPRING')
 
+    print 'Training feature generator'
     
+    model.train_feature_generator()
     
-    #~ model.train_model()
+    #~ print 'Evaluating model.'
+ 
+    #~ model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-SPRING')
+ 
+    #~ print 'Training semantic extractor'
+    
+    #~ model.train_semantic_extractor()
     
 
 	

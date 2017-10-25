@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.random as npr
 
 def get_kernel_size(factor):
     """
@@ -40,3 +41,10 @@ def bilinear_upsample_weights(factor, number_of_classes):
         weights[:, :, i, i] = upsample_kernel
 
     return weights
+
+
+def sample_Z(m, n, mode='uniform'):
+	if mode=='uniform':
+		return npr.uniform(-1., 1., size=[m, n])
+	if mode=='gaussian':
+		return np.clip(npr.normal(0,0.1,(m,n)),-1,1)
