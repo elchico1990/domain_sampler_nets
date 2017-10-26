@@ -120,12 +120,21 @@ class DSN(object):
 	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.constant_initializer(0.0)):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
 				    activation_fn=tf.nn.relu, is_training=is_training):
+		    if self.mode=='train_feature_generator':
+			net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
+			net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    
-		    net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
+		    elif self.mode=='train_domain_invariant_encoder':
+			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_2_fc1')
+			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_2_fc2')
+			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_2_fc3')
+		 
+		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_2_prob')
 		    return net
 	    
     def build_model(self, mode='pretrain'):
+	
+	self.mode=mode
 	
 	if mode=='train_semantic_extractor':
 	
@@ -231,6 +240,65 @@ class DSN(object):
 
 	    for var in tf.trainable_variables():
 		tf.summary.histogram(var.op.name, var)
+	    	
+	if mode=='train_domain_invariant_encoder':
+	
+            self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
+            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
+	    
+	    self.fzy = self.sampler_generator(self.noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    
+	    self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
+	    
+	    self.fx = self.vgg_encoding(self.images, reuse=True)
+	    
+	    
+	    # E losses
+	    
+	    self.logits_E_real = self.feature_discriminator(self.fzy, self.src_labels)
+	    
+	    self.logits_E_fake = self.feature_discriminator(self.fx, self.labels, reuse=True)
+	    
+	    self.DE_loss_real = tf.reduce_mean(tf.square(self.logits_E_real - tf.ones_like(self.logits_E_real)))
+	    self.DE_loss_fake = tf.reduce_mean(tf.square(self.logits_E_fake - tf.zeros_like(self.logits_E_fake)))
+	    
+	    self.DE_loss = self.DE_loss_real + self.DE_loss_fake 
+	    
+	    self.E_loss = tf.reduce_mean(tf.square(self.logits_E_fake - tf.ones_like(self.logits_E_fake)))
+	    	    
+	    # Optimizers
+	    
+            self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            
+            
+            t_vars = tf.trainable_variables()
+            E_vars = [var for var in t_vars if 'vgg' in var.name]
+            DE_vars = [var for var in t_vars if 'feature_discriminator' in var.name]
+            
+            # train op
+	    try:
+		with tf.variable_scope('training_op',reuse=False):
+		    self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
+		    self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
+		    
+	    except:
+		with tf.variable_scope('training_op',reuse=True):
+		    self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
+		    self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
+		    
+	    
+            
+            # summary op
+            E_loss_summary = tf.summary.scalar('E_loss', self.E_loss)
+            DE_loss_summary = tf.summary.scalar('DE_loss', self.DE_loss)
+            self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary,
+						    const_loss_summary])
+            
+
+            for var in tf.trainable_variables():
+		tf.summary.histogram(var.op.name, var)
 
 
 
@@ -274,7 +342,7 @@ class DSN(object):
 			 model.annotations: annotations,
 			 model.is_training_placeholder: False}
 
-	    EPOCHS = 1000
+	    EPOCHS = 30
 	    BATCH_SIZE = 1
 
 	    for e in range(EPOCHS):
@@ -454,6 +522,75 @@ class DSN(object):
                     if (t+1) % 5000 == 0:  
 			saver.save(sess, './experiments/'+self.seq_name+'/model/sampler')
  
+    def train_domain_invariant_encoder(self, seq_2_name):
+	
+	print 'Adapting from ' + self.seq_name + ' to ' + seq_2_name
+	
+	epochs=10000
+	batch_size=4
+	noise_dim=100
+
+	summary_string_writer = tf.summary.FileWriter(self.log_dir)
+
+	config = tf.ConfigProto(device_count = {'GPU': 0})
+
+	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
+	target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
+	
+	self.build_model(mode='train_feature_generator')
+	
+        with tf.Session() as sess:
+	    
+	    print 'Loading weights.'
+
+	    # Run the initializers.
+	    sess.run(tf.global_variables_initializer())
+	    self.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(self.vgg_fc8_weights_initializer)
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
+	    
+	    variables_to_restore = slim.get_model_variables(scope='feature_generator')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.sampler)
+	
+	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+            saver = tf.train.Saver()
+	    
+	    print ('Start training.')
+	    trg_count = 0
+	    t = 0
+	    
+	    for step in range(45000):
+		
+		trg_count += 1
+		t+=1
+		
+		i = step % int(source_images.shape[0] / self.batch_size)
+		j = step % int(target_images.shape[0] / self.batch_size)
+		
+		src_images = source_images[i*batch_size:(i+1)*batch_size]
+		trg_images = target_images[j*batch_size:(j+1)*batch_size]
+		noise = utils.sample_Z(batch_size,100,'uniform')
+		
+		feed_dict = {model.src_images: src_images, model.trg_images: trg_images, model.noise: noise}
+		
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict) 
+		
+		logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
+		 
+		if (step+1) % 100 == 0:
+		     
+		    summary, E, DE, const_loss = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.const_loss], feed_dict)
+		    summary_writer.add_summary(summary, step)
+		    print ('Step: [%d/%d] E: [%.3f] DE: [%.3f] const: [%.3f] E_real: [%.2f] E_fake: [%.2f]' \
+			       %(step+1, self.train_iter, E, DE, const_loss, logits_E_real.mean(),logits_E_fake.mean()))
+
+		if (t+1) % 1000 == 0:  
+		    saver.save(sess, './experiments/'+self.seq_name+'/model/di_encoder')
+		    
     def features_to_pkl(self, seq_2_names = ['...']):
 	
 	source_images, _ = load_synthia(self.seq_name, no_elements=900)
@@ -498,13 +635,23 @@ class DSN(object):
 
 if __name__ == "__main__":
 
-    model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
+    for s_name in ['SYNTHIA-SEQS-01-FOG',
+		   'SYNTHIA-SEQS-01-SPRING',
+		   'SYNTHIA-SEQS-01-SUNSET',
+		   'SYNTHIA-SEQS-01-WINTER',
+		   'SYNTHIA-SEQS-01-WINTERNIGHT']:
 
-    print 'Training feature generator'
+	model = DSN(seq_name=s_name)
+
+	print 'Training semantic extractor'
+	model.train_semantic_extractor()
+	tf.reset_default_graph()
     
-    seq_2_names = ['SYNTHIA-SEQS-01-NIGHT','SYNTHIA-SEQS-01-FALL']
+    #~ print 'Training feature generator'
     
-    model.features_to_pkl(seq_2_names = seq_2_names)
+    #~ seq_2_names = ['SYNTHIA-SEQS-01-NIGHT','SYNTHIA-SEQS-01-FALL']
+    
+    #~ model.features_to_pkl(seq_2_names = seq_2_names)
     #~ tf.reset_default_graph()
 	
     
@@ -512,9 +659,6 @@ if __name__ == "__main__":
  
     #~ model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-SPRING')
  
-    #~ print 'Training semantic extractor'
-    
-    #~ model.train_semantic_extractor()
 	    
 	    
 	    
