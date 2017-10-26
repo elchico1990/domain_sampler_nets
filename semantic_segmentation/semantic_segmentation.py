@@ -275,14 +275,14 @@ class DSN(object):
             
             
             t_vars = tf.trainable_variables()
-            E_vars = [var for var in t_vars if 'vgg' in var.name]
-            DE_vars = [var for var in t_vars if 'feature_discriminator' in var.name]
+            self.E_vars = [var for var in t_vars if ('fc6' in var.name) or ('fc7' in var.name)]
+            self.DE_vars = [var for var in t_vars if 'feature_discriminator' in var.name]
             
             # train op
 	    try:
 		with tf.variable_scope('training_op',reuse=False):
-		    self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=E_vars)
-		    self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
+		    self.E_train_op = slim.learning.create_train_op(self.E_loss, self.E_optimizer, variables_to_train=self.E_vars)
+		    self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=self.DE_vars)
 		    
 	    except:
 		with tf.variable_scope('training_op',reuse=True):
@@ -321,7 +321,7 @@ class DSN(object):
 
 	self.build_model('train_semantic_extractor')
 
-	summary_string_writer = tf.summary.FileWriter(model.log_dir)
+	summary_string_writer = tf.summary.FileWriter(self.log_dir)
 
 	config = tf.ConfigProto(device_count = {'GPU': 0})
 
@@ -333,22 +333,22 @@ class DSN(object):
 
 	    #~ # Run the initializers.
 	    sess.run(tf.global_variables_initializer())
-	    model.read_vgg_weights_except_fc8_func(sess)
-	    sess.run(model.vgg_fc8_weights_initializer)
+	    self.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(self.vgg_fc8_weights_initializer)
      
 	    #~ # Run the initializers.
 	    #~ sess.run(tf.global_variables_initializer())
-	    #~ model.read_vgg_weights_except_fc8_func(sess)
-	    #~ sess.run(model.vgg_fc8_weights_initializer)
+	    #~ self.read_vgg_weights_except_fc8_func(sess)
+	    #~ sess.run(self.vgg_fc8_weights_initializer)
 	    #~ variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    #~ restorer = tf.train.Saver(variables_to_restore)
 	    #~ restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
 	    #~ 
-	    saver = tf.train.Saver(model.train_vars)
+	    saver = tf.train.Saver(self.train_vars)
 	    
-	    feed_dict = {model.images: images,
-			 model.annotations: annotations,
-			 model.is_training: False}
+	    feed_dict = {self.images: images,
+			 self.annotations: annotations,
+			 self.is_training: False}
 
 	    EPOCHS = 30
 	    BATCH_SIZE = 1
@@ -361,11 +361,11 @@ class DSN(object):
 		
 		for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
 			    
-		    feed_dict = {model.images: images[start:end], model.annotations: annotations[start:end], model.is_training: True}
+		    feed_dict = {self.images: images[start:end], self.annotations: annotations[start:end], self.is_training: True}
 
-		    loss, summary_string = sess.run([model.cross_entropy_sum, model.merged_summary_op], feed_dict=feed_dict)
+		    loss, summary_string = sess.run([self.cross_entropy_sum, self.merged_summary_op], feed_dict=feed_dict)
 
-		    sess.run(model.train_op, feed_dict=feed_dict)
+		    sess.run(self.train_op, feed_dict=feed_dict)
 
 		    summary_string_writer.add_summary(summary_string, e)
 
@@ -374,7 +374,7 @@ class DSN(object):
 			print e,'-',n
 			losses.append(loss)
 			print("Current Average Loss: " + str(np.array(losses).mean()))
-		pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.images: images[1:2], model.annotations: annotations[1:2], model.is_training: False})
+		pred_np, probabilities_np = sess.run([self.pred, self.probabilities], feed_dict={self.images: images[1:2], self.annotations: annotations[1:2], self.is_training: False})
 		plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'.png', np.squeeze(pred_np))	    
 		saver.save(sess, './experiments/'+self.seq_name+'/model/segm_model')
 
@@ -384,7 +384,7 @@ class DSN(object):
 	
 	self.build_model('train_semantic_extractor')
 
-	summary_string_writer = tf.summary.FileWriter(model.log_dir)
+	summary_string_writer = tf.summary.FileWriter(self.log_dir)
 
 	config = tf.ConfigProto(device_count = {'GPU': 0})
 
@@ -564,7 +564,7 @@ class DSN(object):
 	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/sampler')
 	
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-            saver = tf.train.Saver()
+            saver = tf.train.Saver(self.E_vars)
 	    
 	    print ('Start training.')
 	    trg_count = 0
@@ -582,21 +582,21 @@ class DSN(object):
 		trg_images = target_images[j*batch_size:(j+1)*batch_size]
 		noise = utils.sample_Z(batch_size,100,'uniform')
 		
-		feed_dict = {model.src_images: src_images, model.trg_images: trg_images, model.noise: noise, model.is_training: True}
+		feed_dict = {self.src_images: src_images, self.trg_images: trg_images, self.noise: noise, self.is_training: True}
 		
-		sess.run(model.E_train_op, feed_dict) 
-		sess.run(model.DE_train_op, feed_dict) 
+		sess.run(self.E_train_op, feed_dict) 
+		sess.run(self.DE_train_op, feed_dict) 
 		
-		logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
+		logits_E_real,logits_E_fake = sess.run([self.logits_E_real,self.logits_E_fake],feed_dict) 
 		 
-		if (step+1) % 100 == 0:
+		if (step+1) % 10 == 0:
 		    
-		    summary, E, DE, const_loss = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.const_loss], feed_dict)
+		    summary, E, DE = sess.run([self.summary_op, self.E_loss, self.DE_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
-		    print ('Step: [%d/%d] E: [%.3f] DE: [%.3f] E_real: [%.2f] E_fake: [%.2f]' \
-			       %(step+1, self.train_iter, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
+		    print ('Step: [%d] E: [%.3f] DE: [%.3f] E_real: [%.2f] E_fake: [%.2f]' \
+			       %(step+1, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
 
-		if (t+1) % 1000 == 0:  
+		if (t+1) % 10 == 0:  
 		    saver.save(sess, './experiments/'+self.seq_name+'/model/di_encoder')
 		    
     def features_to_pkl(self, seq_2_names = ['...']):
@@ -628,9 +628,9 @@ class DSN(object):
 	    n_samples = 900
             noise = utils.sample_Z(n_samples,100,'uniform')
 	    
-	    feed_dict = {model.noise: noise, model.fx: source_features[1:2]}
+	    feed_dict = {self.noise: noise, self.fx: source_features[1:2]}
 	    
-	    fzy = sess.run([model.fzy], feed_dict)
+	    fzy = sess.run([self.fzy], feed_dict)
 	    
 	    with open('./experiments/'+self.seq_name+'/features.pkl','w') as f:
 		cPickle.dump((source_features, target_features, fzy), f, cPickle.HIGHEST_PROTOCOL)
