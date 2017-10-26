@@ -11,7 +11,7 @@ import glob
 
 def load_synthia(seq_name, no_elements=1000):
     
-    print 'Loading SYNTHIA dataset,',str(no_elements),'samples.'
+    print 'Loading ' + seq_name
 
     data_dir = './data'
     seq_num = '01'  

@@ -27,13 +27,13 @@ class DSN(object):
 	self.log_dir = './logs'
 	self.vgg_checkpoint_path = './vgg_16.ckpt'
 	
-    def vgg_encoding(self, processed_images, is_training_placeholder, reuse=False): 
+    def vgg_encoding(self, processed_images, is_training, reuse=False): 
 		
 	with slim.arg_scope(vgg.vgg_arg_scope()):
 
 	    fc7 = vgg.vgg_16(processed_images,
 				num_classes=self.no_classes,
-				is_training=is_training_placeholder,
+				is_training=is_training,
 				spatial_squeeze=False,
 				fc_conv_padding='VALID',
 				reuse=reuse,
@@ -140,14 +140,11 @@ class DSN(object):
 	
 	    self.images = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 3], 'images')
 	    self.annotations = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 1], 'annotations')
-	    self.is_training_placeholder = tf.placeholder(tf.bool)
+	    self.is_training = tf.placeholder(tf.bool)
 
 	    labels_tensors = [tf.to_float(tf.equal(self.annotations, i)) for i in range(self.no_classes)]
 
-	    try:
-		combined_mask = tf.concat(axis=3, values = labels_tensors)
-	    except:
-		combined_mask = tf.concat(3,labels_tensors)
+	    combined_mask = tf.concat(3,labels_tensors)
 		
 	    flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
 
@@ -157,7 +154,7 @@ class DSN(object):
 	    
 	    # extracting VGG-16 representation, up to the (N-1) layer
 	    
-	    self.vgg_output = self.vgg_encoding(processed_images, self.is_training_placeholder)
+	    self.vgg_output = self.vgg_encoding(processed_images, self.is_training)
 	    self.vgg_output_flat = tf.squeeze(self.vgg_output)
 	    
 	    vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
@@ -244,21 +241,25 @@ class DSN(object):
 	if mode=='train_domain_invariant_encoder':
 	
             self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
-            self.src_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'svhn_images')
-            self.trg_images = tf.placeholder(tf.float32, [None, 32, 32, 3], 'mnist_images')
+            self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'svhn_images')
+            self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'mnist_images')
+	    self.is_training = tf.placeholder(tf.bool)
 	    
-	    self.fzy = self.sampler_generator(self.noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
+	    self.images = tf.concat(0, [self.src_images, self.trg_images])
 	    
-	    self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
+	    self.fx = self.vgg_encoding(self.images, self.is_training)
 	    
-	    self.fx = self.vgg_encoding(self.images, reuse=True)
+	    vgg_fc8_weights = slim.get_variables_to_restore(include=['vgg_16/fc8'])
+	    vgg_except_fc8_weights = slim.get_variables_to_restore(exclude= ['vgg_16/fc7','vgg_16/fc8'])
+	    
+	    self.fzy = self.feature_generator(self.noise) 
 	    
 	    
 	    # E losses
 	    
-	    self.logits_E_real = self.feature_discriminator(self.fzy, self.src_labels)
+	    self.logits_E_real = self.feature_discriminator(self.fzy)
 	    
-	    self.logits_E_fake = self.feature_discriminator(self.fx, self.labels, reuse=True)
+	    self.logits_E_fake = self.feature_discriminator(self.fx, reuse=True)
 	    
 	    self.DE_loss_real = tf.reduce_mean(tf.square(self.logits_E_real - tf.ones_like(self.logits_E_real)))
 	    self.DE_loss_fake = tf.reduce_mean(tf.square(self.logits_E_fake - tf.zeros_like(self.logits_E_fake)))
@@ -269,8 +270,8 @@ class DSN(object):
 	    	    
 	    # Optimizers
 	    
-            self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            self.DE_optimizer = tf.train.AdamOptimizer(0.000005 / 100.)
+            self.E_optimizer = tf.train.AdamOptimizer(0.000005 / 100.)
             
             
             t_vars = tf.trainable_variables()
@@ -293,12 +294,19 @@ class DSN(object):
             # summary op
             E_loss_summary = tf.summary.scalar('E_loss', self.E_loss)
             DE_loss_summary = tf.summary.scalar('DE_loss', self.DE_loss)
-            self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary,
-						    const_loss_summary])
+            self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary])
             
 
             for var in tf.trainable_variables():
 		tf.summary.histogram(var.op.name, var)
+		
+    	    # necessary to load VGG-16 weights
+
+	    self.read_vgg_weights_except_fc8_func = slim.assign_from_checkpoint_fn(
+		self.vgg_checkpoint_path,
+		vgg_except_fc8_weights)
+
+	    self.vgg_fc8_weights_initializer = tf.variables_initializer(vgg_fc8_weights)
 
 
 
@@ -340,7 +348,7 @@ class DSN(object):
 	    
 	    feed_dict = {model.images: images,
 			 model.annotations: annotations,
-			 model.is_training_placeholder: False}
+			 model.is_training: False}
 
 	    EPOCHS = 30
 	    BATCH_SIZE = 1
@@ -353,7 +361,7 @@ class DSN(object):
 		
 		for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
 			    
-		    feed_dict = {model.images: images[start:end], model.annotations: annotations[start:end], model.is_training_placeholder: True}
+		    feed_dict = {model.images: images[start:end], model.annotations: annotations[start:end], model.is_training: True}
 
 		    loss, summary_string = sess.run([model.cross_entropy_sum, model.merged_summary_op], feed_dict=feed_dict)
 
@@ -366,7 +374,7 @@ class DSN(object):
 			print e,'-',n
 			losses.append(loss)
 			print("Current Average Loss: " + str(np.array(losses).mean()))
-		pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.images: images[1:2], model.annotations: annotations[1:2], model.is_training_placeholder: False})
+		pred_np, probabilities_np = sess.run([model.pred, model.probabilities], feed_dict={model.images: images[1:2], model.annotations: annotations[1:2], model.is_training: False})
 		plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'.png', np.squeeze(pred_np))	    
 		saver.save(sess, './experiments/'+self.seq_name+'/model/segm_model')
 
@@ -413,7 +421,7 @@ class DSN(object):
 		
 		if n%100==0:
 		    print n 
-		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training_placeholder: False}
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
 		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
 		source_features[n] = feat
 		source_preds[n] = pred
@@ -427,7 +435,7 @@ class DSN(object):
 		
 		if n%100==0:
 		    print n 
-		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training_placeholder: False}
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
 		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
 		target_features[n] = feat
 		target_preds[n] = pred
@@ -463,7 +471,7 @@ class DSN(object):
 		if n%100==0:
 		    print n 
 		    
-		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.zeros((1,224,224,1)), self.is_training_placeholder: False}
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.zeros((1,224,224,1)), self.is_training: False}
 		feat = sess.run(self.vgg_output_flat, feed_dict=feed_dict)
 		source_features[n] = feat
 	    
@@ -529,15 +537,15 @@ class DSN(object):
 	epochs=10000
 	batch_size=4
 	noise_dim=100
+		
+	self.build_model('train_domain_invariant_encoder')
 
 	summary_string_writer = tf.summary.FileWriter(self.log_dir)
 
 	config = tf.ConfigProto(device_count = {'GPU': 0})
 
-	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
-	target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
-	
-	self.build_model(mode='train_feature_generator')
+	source_images, source_annotations = load_synthia(self.seq_name, no_elements=10)
+	target_images, target_annotations = load_synthia(seq_2_name, no_elements=10)
 	
         with tf.Session() as sess:
 	    
@@ -553,7 +561,7 @@ class DSN(object):
 	    
 	    variables_to_restore = slim.get_model_variables(scope='feature_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.sampler)
+	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/sampler')
 	
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver()
@@ -567,14 +575,14 @@ class DSN(object):
 		trg_count += 1
 		t+=1
 		
-		i = step % int(source_images.shape[0] / self.batch_size)
-		j = step % int(target_images.shape[0] / self.batch_size)
+		i = step % int(source_images.shape[0] / batch_size)
+		j = step % int(target_images.shape[0] / batch_size)
 		
 		src_images = source_images[i*batch_size:(i+1)*batch_size]
 		trg_images = target_images[j*batch_size:(j+1)*batch_size]
 		noise = utils.sample_Z(batch_size,100,'uniform')
 		
-		feed_dict = {model.src_images: src_images, model.trg_images: trg_images, model.noise: noise}
+		feed_dict = {model.src_images: src_images, model.trg_images: trg_images, model.noise: noise, model.is_training: True}
 		
 		sess.run(model.E_train_op, feed_dict) 
 		sess.run(model.DE_train_op, feed_dict) 
@@ -582,11 +590,11 @@ class DSN(object):
 		logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
 		 
 		if (step+1) % 100 == 0:
-		     
+		    
 		    summary, E, DE, const_loss = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.const_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
-		    print ('Step: [%d/%d] E: [%.3f] DE: [%.3f] const: [%.3f] E_real: [%.2f] E_fake: [%.2f]' \
-			       %(step+1, self.train_iter, E, DE, const_loss, logits_E_real.mean(),logits_E_fake.mean()))
+		    print ('Step: [%d/%d] E: [%.3f] DE: [%.3f] E_real: [%.2f] E_fake: [%.2f]' \
+			       %(step+1, self.train_iter, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
 
 		if (t+1) % 1000 == 0:  
 		    saver.save(sess, './experiments/'+self.seq_name+'/model/di_encoder')
@@ -634,18 +642,22 @@ class DSN(object):
 
 
 if __name__ == "__main__":
+    
+    
+    model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
+    model.train_domain_invariant_encoder(seq_2_name='SYNTHIA-SEQS-01-NIGHT')
 
-    for s_name in ['SYNTHIA-SEQS-01-FOG',
-		   'SYNTHIA-SEQS-01-SPRING',
-		   'SYNTHIA-SEQS-01-SUNSET',
-		   'SYNTHIA-SEQS-01-WINTER',
-		   'SYNTHIA-SEQS-01-WINTERNIGHT']:
-
-	model = DSN(seq_name=s_name)
-
-	print 'Training semantic extractor'
-	model.train_semantic_extractor()
-	tf.reset_default_graph()
+    #~ for s_name in ['SYNTHIA-SEQS-01-FOG',
+		   #~ 'SYNTHIA-SEQS-01-SPRING',
+		   #~ 'SYNTHIA-SEQS-01-SUNSET',
+		   #~ 'SYNTHIA-SEQS-01-WINTER',
+		   #~ 'SYNTHIA-SEQS-01-WINTERNIGHT']:
+#~ 
+	#~ model = DSN(seq_name=s_name)
+#~ 
+	#~ print 'Training semantic extractor'
+	#~ model.train_semantic_extractor()
+	#~ tf.reset_default_graph()
     
     #~ print 'Training feature generator'
     
