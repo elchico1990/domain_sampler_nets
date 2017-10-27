@@ -122,13 +122,10 @@ class DSN(object):
 				    activation_fn=tf.nn.relu, is_training=is_training):
 		    if self.mode=='train_feature_generator':
 			net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-			net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    
 		    elif self.mode=='train_domain_invariant_encoder':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_2_fc1')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_2_fc2')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_2_fc3')
-		 
+		
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_2_prob')
 		    return net
 	    
@@ -136,7 +133,7 @@ class DSN(object):
 	
 	self.mode=mode
 	
-	if mode=='train_semantic_extractor':
+	if self.mode=='train_semantic_extractor':
 	
 	    self.images = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 3], 'images')
 	    self.annotations = tf.placeholder(tf.float32, [None, 224 * 1,224 * 1, 1], 'annotations')
@@ -201,7 +198,7 @@ class DSN(object):
 
 	    self.vgg_fc8_weights_initializer = tf.variables_initializer(vgg_fc8_weights)
 	    	
-	if mode=='train_feature_generator':
+	if self.mode=='train_feature_generator':
 	
 	    self.fx = tf.placeholder(tf.float32, [None, 128], 'images')
 	    self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
@@ -238,7 +235,7 @@ class DSN(object):
 	    for var in tf.trainable_variables():
 		tf.summary.histogram(var.op.name, var)
 	    	
-	if mode=='train_domain_invariant_encoder':
+	if self.mode=='train_domain_invariant_encoder':
 	
             self.noise = tf.placeholder(tf.float32, [None, 100], 'noise')
             self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'svhn_images')
@@ -270,8 +267,8 @@ class DSN(object):
 	    	    
 	    # Optimizers
 	    
-            self.DE_optimizer = tf.train.AdamOptimizer(0.000005 / 100.)
-            self.E_optimizer = tf.train.AdamOptimizer(0.000005 / 100.)
+            self.DE_optimizer = tf.train.AdamOptimizer(0.00000005)
+            self.E_optimizer = tf.train.AdamOptimizer(0.00000005)
             
             
             t_vars = tf.trainable_variables()
@@ -311,8 +308,6 @@ class DSN(object):
 
 
 
-####################################################################################################################################################################################
-####################################################################################################################################################################################
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
 
@@ -370,7 +365,7 @@ class DSN(object):
 		    summary_string_writer.add_summary(summary_string, e)
 
 		    
-		    if n%10==0:
+		    if n%100==0:
 			print e,'-',n
 			losses.append(loss)
 			print("Current Average Loss: " + str(np.array(losses).mean()))
@@ -380,7 +375,7 @@ class DSN(object):
 
 	    summary_string_writer.close()
 	    
-    def eval_semantic_extractor(self, seq_2_name):
+    def eval_semantic_extractor(self, seq_2_name, train_stage='pretrain'):
 	
 	self.build_model('train_semantic_extractor')
 
@@ -412,6 +407,13 @@ class DSN(object):
 	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
+	    
+	    if train_stage=='dsn':
+		print 'Loading adapted fc6-fc7 weights.'
+		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, './experiments/'+self.seq_name+'/model/di_encoder')
+		
 	    
 	    saver = tf.train.Saver(self.train_vars)
 
@@ -504,7 +506,7 @@ class DSN(object):
 	    
 	    for i in range(epochs):
 		
-		#~ print 'Epoch',str(i)
+		print 'Epoch',str(i), '.....................................................................'
 		
 		for start, end in zip(range(0, len(source_images), batch_size), range(batch_size, len(source_images), batch_size)):
 		    
@@ -520,7 +522,7 @@ class DSN(object):
 		    sess.run(self.d_train_op, feed_dict)
 		    sess.run(self.g_train_op, feed_dict)
 		    
-		    if (t+1) % 500 == 0:
+		    if (t+1) % 50 == 0:
 			summary, dl, gl = sess.run([self.summary_op, self.d_loss, self.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
@@ -544,8 +546,8 @@ class DSN(object):
 
 	config = tf.ConfigProto(device_count = {'GPU': 0})
 
-	source_images, source_annotations = load_synthia(self.seq_name, no_elements=10)
-	target_images, target_annotations = load_synthia(seq_2_name, no_elements=10)
+	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
+	target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
 	
         with tf.Session() as sess:
 	    
@@ -570,7 +572,7 @@ class DSN(object):
 	    trg_count = 0
 	    t = 0
 	    
-	    for step in range(45000):
+	    for step in range(100000):
 		
 		trg_count += 1
 		t+=1
@@ -589,17 +591,17 @@ class DSN(object):
 		
 		logits_E_real,logits_E_fake = sess.run([self.logits_E_real,self.logits_E_fake],feed_dict) 
 		 
-		if (step+1) % 10 == 0:
+		if (step+1) % 100 == 0:
 		    
 		    summary, E, DE = sess.run([self.summary_op, self.E_loss, self.DE_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
 		    print ('Step: [%d] E: [%.3f] DE: [%.3f] E_real: [%.2f] E_fake: [%.2f]' \
 			       %(step+1, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
 
-		if (t+1) % 10 == 0:  
+		if (t+1) % 1000 == 0:  
 		    saver.save(sess, './experiments/'+self.seq_name+'/model/di_encoder')
 		    
-    def features_to_pkl(self, seq_2_names = ['...']):
+    def features_to_pkl(self, seq_2_names = ['...'], train_stage='pretrain'):
 	
 	source_images, _ = load_synthia(self.seq_name, no_elements=900)
 	
@@ -624,6 +626,12 @@ class DSN(object):
 	    variables_to_restore = slim.get_model_variables(scope='feature_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/sampler')
+	    	    
+	    if train_stage=='dsn':
+		print 'Loading adapted fc6-fc7 weights.'
+		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, './experiments/'+self.seq_name+'/model/di_encoder')
 	    
 	    n_samples = 900
             noise = utils.sample_Z(n_samples,100,'uniform')
@@ -632,11 +640,12 @@ class DSN(object):
 	    
 	    fzy = sess.run([self.fzy], feed_dict)
 	    
-	    with open('./experiments/'+self.seq_name+'/features.pkl','w') as f:
+	    with open('./experiments/'+self.seq_name+'/features_'+train_stage+'.pkl','w') as f:
 		cPickle.dump((source_features, target_features, fzy), f, cPickle.HIGHEST_PROTOCOL)
 	    
-####################################################################################################################################################################################
-####################################################################################################################################################################################
+    def mean_IoU(predictions, annotations):
+	return 0
+	    
 ####################################################################################################################################################################################
 ####################################################################################################################################################################################
 
@@ -644,13 +653,10 @@ class DSN(object):
 if __name__ == "__main__":
     
     
-    model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
-    model.train_domain_invariant_encoder(seq_2_name='SYNTHIA-SEQS-01-NIGHT')
-
-    #~ for s_name in ['SYNTHIA-SEQS-01-FOG',
-		   #~ 'SYNTHIA-SEQS-01-SPRING',
-		   #~ 'SYNTHIA-SEQS-01-SUNSET',
-		   #~ 'SYNTHIA-SEQS-01-WINTER',
+    #~ model = DSN(seq_name='SYNTHIA-SEQS-01-NIGHT')
+    #~ model.train_domain_invariant_encoder(seq_2_name='SYNTHIA-SEQS-01-DAWN')
+#~ 
+    #~ for s_name in ['SYNTHIA-SEQS-01-WINTER',
 		   #~ 'SYNTHIA-SEQS-01-WINTERNIGHT']:
 #~ 
 	#~ model = DSN(seq_name=s_name)
@@ -660,17 +666,22 @@ if __name__ == "__main__":
 	#~ tf.reset_default_graph()
     
     #~ print 'Training feature generator'
+
+    model = DSN(seq_name='SYNTHIA-SEQS-01-NIGHT')
     
-    #~ seq_2_names = ['SYNTHIA-SEQS-01-NIGHT','SYNTHIA-SEQS-01-FALL']
+    seq_2_names = ['SYNTHIA-SEQS-01-DAWN','SYNTHIA-SEQS-01-FALL']
     
-    #~ model.features_to_pkl(seq_2_names = seq_2_names)
+    model.features_to_pkl(seq_2_names = seq_2_names, train_stage='dsn')
     #~ tf.reset_default_graph()
 	
     
     #~ print 'Evaluating model.'
+    #~ 
+    #~ model = DSN(seq_name='SYNTHIA-SEQS-01-NIGHT')
+    #~ model.train_feature_generator()
  
-    #~ model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-SPRING')
- 
+    #~ model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-DAWN', train_stage='dsn')
+  
 	    
 	    
 	    
