@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-file_dir = './experiments/SYNTHIA-SEQS-01-NIGHT/features.pkl'
+file_dir = './experiments/SYNTHIA-SEQS-01-DAWN/features_dsn.pkl'
 
 with open(file_dir,'r') as f:
 	source_features, target_features, generated_features = cPickle.load(f)

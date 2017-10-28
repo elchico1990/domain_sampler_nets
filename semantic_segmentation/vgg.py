@@ -173,10 +173,12 @@ def vgg_16(inputs,
 	  net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5', reuse=reuse)
 	  net = slim.max_pool2d(net, [2, 2], scope='pool5')
 	  # Use conv2d instead of fully_connected layers.
+	  
 	  net = slim.conv2d(net, 4096, [7, 7], padding=fc_conv_padding, scope='fc6', reuse=reuse)
-	  net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
-			     scope='dropout6')
-	  net = slim.conv2d(net, 128, [1, 1], activation_fn = tf.tanh, padding=fc_conv_padding, scope='fc7', reuse=reuse)
+	  #~ net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
+			     #~ scope='dropout6')
+	  #~ 
+	  net = slim.conv2d(net, 1024, [1, 1], activation_fn = tf.tanh, padding=fc_conv_padding, scope='fc7', reuse=reuse)
 	  
 	  if return_fc7 == True:
 	    return net

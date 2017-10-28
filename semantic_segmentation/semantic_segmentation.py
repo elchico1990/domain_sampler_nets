@@ -53,41 +53,35 @@ class DSN(object):
     #~ 
 		#~ fc_bottleneck = tf.squeeze(net_tmp) # (batch_size, 1024)
 
-		net = slim.conv2d_transpose(vgg_output, 256, [7, 7], padding='VALID', scope='dec0')                # (batch_size, 7, 7, 512)
-		net = slim.conv2d_transpose(net, 256, [3, 3], stride=2, padding='SAME', scope='dec1')           # (batch_size, 14, 14, 512)
+		net = slim.conv2d_transpose(vgg_output, 256, [7, 7], padding='VALID', scope='dec0')                # (batch_size, 7, 7, 256)
+		net = slim.conv2d_transpose(net, 256, [3, 3], stride=2, padding='SAME', scope='dec1')           # (batch_size, 14, 14, 256)
 				
-		net = slim.conv2d_transpose(net, 256, [3, 3],stride=2,  padding='SAME', scope='dec2')   	     # (batch_size, 28, 28, 512)
+		net = slim.conv2d_transpose(net, 256, [3, 3],stride=2,  padding='SAME', scope='dec2')   	     # (batch_size, 28, 28, 256)
 		
-		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec21') 	     # (batch_size, 28, 28, 512)
-		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec22')	     # (batch_size, 28, 28, 512)
-		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec23')	     # (batch_size, 28, 28, 512)
+		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec21') 	     # (batch_size, 28, 28, 256)
+		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec22')	     # (batch_size, 28, 28, 256)
+		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec23')	     # (batch_size, 28, 28, 256)
 		
-		net = slim.conv2d_transpose(net, 256, [3, 3],stride=2,  padding='SAME', scope='dec3')          # (batch_size, 56, 56, 512)
+		net = slim.conv2d_transpose(net, 256, [3, 3],stride=2,  padding='SAME', scope='dec3')          # (batch_size, 56, 56, 256)
 		
-		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec31')	     # (batch_size, 56, 56, 512)
-		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec32')	     # (batch_size, 56, 56, 512)
+		net = slim.conv2d_transpose(net, 256, [3, 3],stride=1,  padding='SAME', scope='dec31')	     # (batch_size, 56, 56, 256)
+		net = slim.conv2d_transpose(net, 512, [3, 3],stride=1,  padding='SAME', scope='dec32')	     # (batch_size, 56, 56, 512)
 		 
-		net = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec33')	     # (batch_size, 56, 56, 256)
+		net = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec33')	     # (batch_size, 56, 56, 128)
 		
-		net = slim.conv2d_transpose(net, 128, [3, 3],stride=2,  padding='SAME', scope='dec4') 	     # (batch_size, 112, 112, 256)
+		net = slim.conv2d_transpose(net, 128, [3, 3],stride=2,  padding='SAME', scope='dec4') 	     # (batch_size, 112, 112, 128)
 		
-		net9 = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec41')	     # (batch_size, 112, 112, 256)
+		net9 = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec41')	     # (batch_size, 112, 112, 128)
 		net = slim.conv2d_transpose(net, 128, [3, 3],stride=1,  padding='SAME', scope='dec42')	     # (batch_size, 112, 112, 256)
 		
-		net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='dec43')       # (batch_size, 112, 112, 128)
+		net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='dec43')       # (batch_size, 112, 112, 64)
 		
-		net = slim.conv2d_transpose(net, 64, [3, 3],stride=2,  padding='SAME', scope='dec5')        # (batch_size, 224, 224, 128)
+		net = slim.conv2d_transpose(net, 64, [3, 3],stride=2,  padding='SAME', scope='dec5')        # (batch_size, 224, 224, 64)
+		net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='dec51')        # (batch_size, 224, 224, 64)
+		net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='dec52')        # (batch_size, 224, 224, 64)
+
 		
-		#~ net13 = slim.conv2d_transpose(net12, 128, [3, 3],stride=1,  padding='SAME', scope='dec51')       # (batch_size, 224, 224, 128)
-		
-		#~ net14 = slim.conv2d_transpose(net13, 64, [3, 3],stride=1,  padding='SAME', scope='dec52')        # (batch_size, 224, 224, 64)
-		
-		#~ net = slim.conv2d_transpose(net, 64, [3, 3],stride=2, padding='SAME', scope='dec6')          # (batch_size, 448, 448, 64)
-		
-		#~ net16 = slim.conv2d_transpose(net15, 64, [3, 3],stride=1, padding='SAME', scope='dec61')         # (batch_size, 448, 448, 64)
-		#~ net17 = slim.conv2d_transpose(net16, 64, [3, 3],stride=1, padding='SAME', scope='dec62')         # (batch_size, 448,448, 64)
-		
-		logits = slim.conv2d(net, 13, [1, 1], scope='output')  				             # (batch_size, 448, 448, 13)
+		logits = slim.conv2d(net, 13, [1, 1], scope='output')  				             # (batch_size, 224, 224, 13)
 		
 		return logits
 	
@@ -113,7 +107,7 @@ class DSN(object):
 		    net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, 128, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
-		
+	
     def feature_discriminator(self, inputs, reuse=False, is_training=True):
 
 	with tf.variable_scope('feature_discriminator',reuse=reuse):
@@ -125,6 +119,7 @@ class DSN(object):
 		    
 		    elif self.mode=='train_domain_invariant_encoder':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_2_fc1')
+			net = slim.fully_connected(inputs, 2018, activation_fn = tf.nn.relu, scope='sdisc_2_fc2')
 		
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_2_prob')
 		    return net
@@ -142,6 +137,7 @@ class DSN(object):
 	    labels_tensors = [tf.to_float(tf.equal(self.annotations, i)) for i in range(self.no_classes)]
 
 	    combined_mask = tf.concat(3,labels_tensors)
+	    
 		
 	    flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
 
@@ -165,8 +161,8 @@ class DSN(object):
 
 	    cross_entropies = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
 								      labels=flat_labels)
-
-	    self.cross_entropy_sum = tf.reduce_mean(cross_entropies) # ORIGINAL WAS reduce_sum, CHECK PAPERS !!!
+    
+	    self.cross_entropy_sum = tf.reduce_sum(cross_entropies) 
 
 	    self.pred = tf.argmax(logits, dimension=3)
 
@@ -174,12 +170,12 @@ class DSN(object):
 
 	    # Optimizers
 
-	    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+	    optimizer = tf.train.AdamOptimizer(learning_rate=0.00001)
 
 	    # no re-training of VGG-16 variables
 
 	    t_vars = tf.trainable_variables()
-	    self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc7' in var.name)]
+	    self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc6' in var.name) or ('fc7' in var.name)]
 
 	    # train op
 	    with tf.variable_scope('training_op',reuse=False):
@@ -267,8 +263,8 @@ class DSN(object):
 	    	    
 	    # Optimizers
 	    
-            self.DE_optimizer = tf.train.AdamOptimizer(0.00000005)
-            self.E_optimizer = tf.train.AdamOptimizer(0.00000005)
+            self.DE_optimizer = tf.train.AdamOptimizer(0.000001)
+            self.E_optimizer = tf.train.AdamOptimizer(0.000001)
             
             
             t_vars = tf.trainable_variables()
@@ -304,8 +300,6 @@ class DSN(object):
 		vgg_except_fc8_weights)
 
 	    self.vgg_fc8_weights_initializer = tf.variables_initializer(vgg_fc8_weights)
-
-
 
 
 ####################################################################################################################################################################################
@@ -345,16 +339,22 @@ class DSN(object):
 			 self.annotations: annotations,
 			 self.is_training: False}
 
-	    EPOCHS = 30
+	    EPOCHS = 1000000
 	    BATCH_SIZE = 1
 
 	    for e in range(EPOCHS):
 		
 		losses = []
 		
-		print e
+		#~ print e
+		
+		print 'Saving model.'
+		saver.save(sess, './experiments/'+self.seq_name+'/model/segm_model')
 		
 		for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
+		    
+		    if n % 100 == 0:
+			print n
 			    
 		    feed_dict = {self.images: images[start:end], self.annotations: annotations[start:end], self.is_training: True}
 
@@ -365,119 +365,24 @@ class DSN(object):
 		    summary_string_writer.add_summary(summary_string, e)
 
 		    
-		    if n%100==0:
-			print e,'-',n
-			losses.append(loss)
-			print("Current Average Loss: " + str(np.array(losses).mean()))
-		pred_np, probabilities_np = sess.run([self.pred, self.probabilities], feed_dict={self.images: images[1:2], self.annotations: annotations[1:2], self.is_training: False})
+		    losses.append(loss)
+			
+			
+		print e,'- current average loss:',str(np.array(losses).mean())
+		pred_np, probabilities_np = sess.run([self.pred, self.probabilities], feed_dict={self.images: images[0:1], self.annotations: annotations[0:1], self.is_training: False})
 		plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'.png', np.squeeze(pred_np))	    
-		saver.save(sess, './experiments/'+self.seq_name+'/model/segm_model')
+		plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'_image.png', np.squeeze(images[0:1]))	    
+		plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'_annotation.png', np.squeeze(annotations[0:1]))	    
+	    
+		#~ pred_np, probabilities_np = sess.run([self.pred, self.probabilities], feed_dict={self.images: images[6:7], self.annotations: annotations[6:7], self.is_training: False})
+		#~ plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'_2.png', np.squeeze(pred_np))	    
+		#~ plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'_image_2.png', np.squeeze(images[6:7]))	    
+		#~ plt.imsave('./experiments/'+self.seq_name+'/images/'+str(e)+'_annotation_2.png', np.squeeze(images[6:7]))	    
+		
+		
+		
 
 	    summary_string_writer.close()
-	    
-    def eval_semantic_extractor(self, seq_2_name, train_stage='pretrain'):
-	
-	self.build_model('train_semantic_extractor')
-
-	summary_string_writer = tf.summary.FileWriter(self.log_dir)
-
-	config = tf.ConfigProto(device_count = {'GPU': 0})
-
-
-	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
-	target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
-		     
-	source_features = np.zeros((len(source_images),128))
-	target_features = np.zeros((len(target_images),128))
-	source_losses = np.zeros((len(source_images), 1))
-	
-	source_preds = np.zeros((len(source_images),224,224))
-	target_preds = np.zeros((len(target_images),224,224))
-	target_losses = np.zeros((len(target_images), 1))
-	
-
-	with tf.Session() as sess:
-		
-	    print 'Loading weights.'
-
-	    #~ # Run the initializers.
-	    sess.run(tf.global_variables_initializer())
-	    self.read_vgg_weights_except_fc8_func(sess)
-	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
-	    
-	    if train_stage=='dsn':
-		print 'Loading adapted fc6-fc7 weights.'
-		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, './experiments/'+self.seq_name+'/model/di_encoder')
-		
-	    
-	    saver = tf.train.Saver(self.train_vars)
-
-	    print 'Evaluating SOURCE - ' + self.seq_name
-	    
-	    for n, image, annotation in zip(range(len(source_images)), source_images, source_annotations):
-		
-		if n%100==0:
-		    print n 
-		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
-		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
-		source_features[n] = feat
-		source_preds[n] = pred
-		source_losses[n] = loss
-	    
-	    print 'Average source loss: ' + str(source_losses.mean())
-	    
-	    print 'Evaluating TARGET - ' + seq_2_name
-	    
-	    for n, image, annotation in zip(range(len(target_images)), target_images, target_annotations):
-		
-		if n%100==0:
-		    print n 
-		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
-		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
-		target_features[n] = feat
-		target_preds[n] = pred
-		target_losses[n] = loss
-		
-	    print 'Average target loss: ' + str(target_losses.mean())
-	    print 'break'
-	    
-    def extract_VGG16_features(self, source_images):
-	
-	print 'Extracting VGG_16 features.'
-	
-	self.build_model(mode='train_semantic_extractor')
-	
-	source_features = np.zeros((len(source_images),128))
-
-	with tf.Session() as sess:
-		
-	    print 'Loading weights.'
-
-	    #~ # Run the initializers.
-	    sess.run(tf.global_variables_initializer())
-	    self.read_vgg_weights_except_fc8_func(sess)
-	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
-	    
-	    print 'Extracting VGG-16 features.'
-	    
-	    for n, image in enumerate(source_images):
-		
-		if n%100==0:
-		    print n 
-		    
-		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.zeros((1,224,224,1)), self.is_training: False}
-		feat = sess.run(self.vgg_output_flat, feed_dict=feed_dict)
-		source_features[n] = feat
-	    
-	    return source_features
 	    
     def train_feature_generator(self):
 	
@@ -599,21 +504,132 @@ class DSN(object):
 			       %(step+1, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
 
 		if (t+1) % 1000 == 0:  
-		    saver.save(sess, './experiments/'+self.seq_name+'/model/di_encoder')
+		    saver.save(sess, './experiments/'+self.seq_name+'/model/di_encoder_new')
+	    
+	    
+	    
+    def eval_semantic_extractor(self, seq_2_name, train_stage='pretrain'):
+	
+	self.build_model('train_semantic_extractor')
+
+	summary_string_writer = tf.summary.FileWriter(self.log_dir)
+
+	config = tf.ConfigProto(device_count = {'GPU': 0})
+
+
+	source_images, source_annotations = load_synthia(self.seq_name, no_elements=10)
+	target_images, target_annotations = load_synthia(seq_2_name, no_elements=10)
+		     
+	source_features = np.zeros((len(source_images),128))
+	target_features = np.zeros((len(target_images),128))
+	source_losses = np.zeros((len(source_images), 1))
+	
+	source_preds = np.zeros((len(source_images),224,224))
+	target_preds = np.zeros((len(target_images),224,224))
+	target_losses = np.zeros((len(target_images), 1))
+	
+
+	with tf.Session() as sess:
+		
+	    print 'Loading weights.'
+
+	    #~ # Run the initializers.
+	    sess.run(tf.global_variables_initializer())
+	    self.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(self.vgg_fc8_weights_initializer)
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
+	    
+	    if train_stage=='dsn':
+		print 'Loading adapted fc6-fc7 weights.'
+		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, './experiments/'+self.seq_name+'/model/di_encoder')
+		
+	    
+	    saver = tf.train.Saver(self.train_vars)
+
+	    print 'Evaluating SOURCE - ' + self.seq_name
+	    
+	    for n, image, annotation in zip(range(len(source_images)), source_images, source_annotations):
+		
+		if n%100==0:
+		    print n 
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
+		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
+		source_features[n] = feat
+		source_preds[n] = pred
+		source_losses[n] = loss
+	    
+	    print 'Average source loss: ' + str(source_losses.mean())
+	    
+	    print 'Evaluating TARGET - ' + seq_2_name
+	    
+	    for n, image, annotation in zip(range(len(target_images)), target_images, target_annotations):
+		
+		if n%100==0:
+		    print n 
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
+		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
+		target_features[n] = feat
+		target_preds[n] = pred
+		target_losses[n] = loss
+		
+	    print 'Average target loss: ' + str(target_losses.mean())
+	    print 'break'
+	    
+    def extract_VGG16_features(self, source_images, train_stage='pretrain'):
+	
+	print 'Extracting VGG_16 features.'
+	
+	self.build_model(mode='train_semantic_extractor')
+	
+	source_features = np.zeros((len(source_images),128))
+
+	with tf.Session() as sess:
+		
+	    print 'Loading weights.'
+
+	    #~ # Run the initializers.
+	    sess.run(tf.global_variables_initializer())
+	    self.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(self.vgg_fc8_weights_initializer)
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
+	    	    	    
+	    if train_stage=='dsn':
+		print 'Loading adapted fc6-fc7 weights.'
+		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
+		restorer = tf.train.Saver(variables_to_restore)
+		restorer.restore(sess, './experiments/'+self.seq_name+'/model/di_encoder')
+
+	    print 'Extracting VGG-16 features.'
+	    
+	    for n, image in enumerate(source_images):
+		
+		if n%100==0:
+		    print n 
+		    
+		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.zeros((1,224,224,1)), self.is_training: False}
+		feat = sess.run(self.vgg_output_flat, feed_dict=feed_dict)
+		source_features[n] = feat
+	    
+	    return source_features
 		    
     def features_to_pkl(self, seq_2_names = ['...'], train_stage='pretrain'):
 	
 	source_images, _ = load_synthia(self.seq_name, no_elements=900)
-	
-	
-	source_features = self.extract_VGG16_features(source_images)
+		
+	source_features = self.extract_VGG16_features(source_images, train_stage='dsn')
 	tf.reset_default_graph()
 	
 	target_features = dict()
 	
 	for s in seq_2_names:
 	    target_images, _ = load_synthia(s, no_elements=900)
-	    target_features[s] = self.extract_VGG16_features(target_images)
+	    target_features[s] = self.extract_VGG16_features(target_images, train_stage='dsn')
 	    tf.reset_default_graph()
 	
 	self.build_model(mode='train_feature_generator')
@@ -626,12 +642,6 @@ class DSN(object):
 	    variables_to_restore = slim.get_model_variables(scope='feature_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/sampler')
-	    	    
-	    if train_stage=='dsn':
-		print 'Loading adapted fc6-fc7 weights.'
-		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, './experiments/'+self.seq_name+'/model/di_encoder')
 	    
 	    n_samples = 900
             noise = utils.sample_Z(n_samples,100,'uniform')
@@ -656,22 +666,22 @@ if __name__ == "__main__":
     #~ model = DSN(seq_name='SYNTHIA-SEQS-01-NIGHT')
     #~ model.train_domain_invariant_encoder(seq_2_name='SYNTHIA-SEQS-01-DAWN')
 #~ 
-    #~ for s_name in ['SYNTHIA-SEQS-01-WINTER',
-		   #~ 'SYNTHIA-SEQS-01-WINTERNIGHT']:
-#~ 
-	#~ model = DSN(seq_name=s_name)
-#~ 
-	#~ print 'Training semantic extractor'
-	#~ model.train_semantic_extractor()
-	#~ tf.reset_default_graph()
+    for s_name in ['SYNTHIA-SEQS-01-WINTER',
+		   'SYNTHIA-SEQS-01-WINTERNIGHT']:
+
+	model = DSN(seq_name=s_name)
+
+	print 'Training semantic extractor'
+	model.train_semantic_extractor()
+	tf.reset_default_graph()
     
     #~ print 'Training feature generator'
 
-    model = DSN(seq_name='SYNTHIA-SEQS-01-NIGHT')
-    
-    seq_2_names = ['SYNTHIA-SEQS-01-DAWN','SYNTHIA-SEQS-01-FALL']
-    
-    model.features_to_pkl(seq_2_names = seq_2_names, train_stage='dsn')
+    #~ model = DSN(seq_name='SYNTHIA-SEQS-01-DAWN')
+    #~ 
+    #~ seq_2_names = ['SYNTHIA-SEQS-01-NIGHT','SYNTHIA-SEQS-01-FALL']
+    #~ 
+    #~ model.features_to_pkl(seq_2_names = seq_2_names, train_stage='dsn')
     #~ tf.reset_default_graph()
 	
     
