@@ -357,7 +357,7 @@ class DSN(object):
 			 self.is_training: False}
 
 	    EPOCHS = 1000000
-	    BATCH_SIZE = 1
+	    BATCH_SIZE = 16
 
 	    for e in range(10, EPOCHS):
 		
