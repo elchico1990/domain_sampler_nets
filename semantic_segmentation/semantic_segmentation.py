@@ -146,7 +146,6 @@ class DSN(object):
 	    flat_labels = tf.reshape(tensor=combined_mask, shape=(-1, self.no_classes))
 
 	    image_float = tf.to_float(self.images, name='ToFloat')
-
 	    processed_images = tf.subtract(image_float, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
 	    
 	    # extracting VGG-16 representation, up to the (N-1) layer
@@ -246,6 +245,10 @@ class DSN(object):
 	    self.is_training = tf.placeholder(tf.bool)
 	    
 	    self.images = tf.concat(0, [self.src_images, self.trg_images])
+	    
+	    self.images = tf.to_float(self.images, name='ToFloat')
+	    self.images = tf.subtract(self.images, tf.constant([_R_MEAN, _G_MEAN, _B_MEAN]))
+	    
 	    
 	    self.fx = self.vgg_encoding(self.images, self.is_training)
 	    
@@ -721,41 +724,41 @@ if __name__ == "__main__":
     
     
  
-    MODE = 'extract_all_maps'
-    
+    MODE = 'train_semantic_extractor'
+    SEQ_NAME = 'SYNTHIA-SEQS-01-DAWN'
     
     if MODE == 'train_semantic_extractor':    
 	print 'Training Semantic Extractor.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
+	model = DSN(seq_name=SEQ_NAME)
 	model.train_semantic_extractor()
 	tf.reset_default_graph()
 
     elif MODE == 'train_feature_generator':
 	print 'Training Feature Generator'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
+	model = DSN(seq_name=SEQ_NAME)
 	model.train_feature_generator()
 	tf.reset_default_graph()
     
     elif MODE == 'train_domain_invariant_encoder':
 	print 'Training Domain-Invariant Encoder.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
+	model = DSN(seq_name=SEQ_NAME)
 	model.train_domain_invariant_encoder(seq_2_name='SYNTHIA-SEQS-01-NIGHT')
 	tf.reset_default_graph()
 
     elif MODE == 'save_features':
 	print 'Saving Features.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
+	model = DSN(seq_name=SEQ_NAME)
 	seq_2_names = ['SYNTHIA-SEQS-01-NIGHT']
 	model.features_to_pkl(seq_2_names = seq_2_names, train_stage='pretrain')
 
     elif MODE == 'evaluate_semantic_extractor':        
 	print 'Evaluate Semantic Extractor.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
+	model = DSN(seq_name=SEQ_NAME)
 	model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-NIGHT', train_stage='dsn')
     
     elif MODE == 'extract_all_maps':
 	print 'Extracting All Maps.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
+	model = DSN(seq_name=SEQ_NAME)
 	model.extract_all_maps(train_stage='pretraining')
 	
     else:
