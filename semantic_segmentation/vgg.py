@@ -128,7 +128,9 @@ def vgg_16(inputs,
            scope='vgg_16',
            fc_conv_padding='VALID',
            reuse=False,
-           return_fc7=False):
+           return_fc7=False,
+	   fc7_size=1024):
+	       
   """Oxford Net VGG 16-Layers version D Example.
   Note: All the fully_connected layers have been transformed to conv2d layers.
         To use in classification mode, resize input to 224x224.
@@ -157,31 +159,31 @@ def vgg_16(inputs,
                         outputs_collections=end_points_collection):
 			    
     
-      with tf.device('/gpu:1'):
+      #~ with tf.device('/gpu:1'):
 			    
-	  net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1', reuse=reuse)
-	  net = slim.max_pool2d(net, [2, 2], scope='pool1')
-	  net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2', reuse=reuse)
-	  net = slim.max_pool2d(net, [2, 2], scope='pool2')
-	  net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3', reuse=reuse)
-	  net = slim.max_pool2d(net, [2, 2], scope='pool3')
-	  
+      net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1', reuse=reuse)
+      net = slim.max_pool2d(net, [2, 2], scope='pool1')
+      net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2', reuse=reuse)
+      net = slim.max_pool2d(net, [2, 2], scope='pool2')
+      net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3', reuse=reuse)
+      net = slim.max_pool2d(net, [2, 2], scope='pool3')
       
-      with tf.device('/gpu:2'):
-	  net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4', reuse=reuse)
-	  net = slim.max_pool2d(net, [2, 2], scope='pool4')
-	  net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5', reuse=reuse)
-	  net = slim.max_pool2d(net, [2, 2], scope='pool5')
-	  # Use conv2d instead of fully_connected layers.
-	  
-	  net = slim.conv2d(net, 4096, [7, 7], padding=fc_conv_padding, scope='fc6', reuse=reuse)
-	  #~ net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
-			     #~ scope='dropout6')
-	  #~ 
-	  net = slim.conv2d(net, 1024, [1, 1], activation_fn = tf.tanh, padding=fc_conv_padding, scope='fc7', reuse=reuse)
-	  
-	  if return_fc7 == True:
-	    return net
+  
+      #~ with tf.device('/gpu:1'):
+      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4', reuse=reuse)
+      net = slim.max_pool2d(net, [2, 2], scope='pool4')
+      net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5', reuse=reuse)
+      net = slim.max_pool2d(net, [2, 2], scope='pool5')
+      # Use conv2d instead of fully_connected layers.
+      
+      net = slim.conv2d(net, 4096, [7, 7], padding=fc_conv_padding, scope='fc6', reuse=reuse)
+      #~ net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
+			 #~ scope='dropout6')
+      #~ 
+      net = slim.conv2d(net, fc7_size, [1, 1], activation_fn = tf.tanh, padding=fc_conv_padding, scope='fc7', reuse=reuse)
+      
+      if return_fc7 == True:
+	return net
 		  
       net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                          scope='dropout7')

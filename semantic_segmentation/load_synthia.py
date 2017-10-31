@@ -25,8 +25,8 @@ def load_synthia(seq_name, no_elements=1000):
     img_dir = '/cvgl/group/Synthia/'+seq_name+'/RGB/Stereo_Left/Omni_F'
     gt_labels_dir = '/cvgl/group/Synthia/'+seq_name+'/GT/LABELS/Stereo_Left/Omni_F' 
 
-    img_files = sorted(glob.glob(img_dir+'/*'))[:no_elements]
-    gt_labels_files = sorted(glob.glob(gt_labels_dir+'/*'))[:no_elements]
+    img_files = sorted(glob.glob(img_dir+'/*'))
+    gt_labels_files = sorted(glob.glob(gt_labels_dir+'/*'))
 
     scale = 1
 
@@ -61,7 +61,7 @@ def load_synthia(seq_name, no_elements=1000):
 
 if __name__=='__main__':
     
-    images, gt_labels = load_synthia(no_elements=100)
+    images, gt_labels = load_synthia(seq_name='SYNTHIA-SEQS-01-DAWN',no_elements=100)
     print 'break'
 
 
