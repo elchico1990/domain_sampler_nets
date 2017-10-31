@@ -116,14 +116,11 @@ class DSN(object):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
 				    activation_fn=tf.nn.relu, is_training=is_training):
 		    if self.mode=='train_feature_generator':
-			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-			net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
+			net = slim.fully_connected(inputs, 128, activation_fn = tf.nn.relu, scope='sdisc_fc1')
 		    
 		    elif self.mode=='train_domain_invariant_encoder':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_2_fc1')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_2_fc2')
-			net = slim.fully_connected(net, 2048, activation_fn = tf.nn.relu, scope='sdisc_2_fc3')
-			#~ net = slim.fully_connected(net, 2048, activation_fn = utils.lrelu, scope='sdisc_2_fc4')
+			net = slim.fully_connected(inputs, 2018, activation_fn = tf.nn.relu, scope='sdisc_2_fc2')
 		
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_2_prob')
 		    return net
@@ -215,8 +212,8 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    self.d_optimizer = tf.train.AdamOptimizer(0.000001)
-	    self.g_optimizer = tf.train.AdamOptimizer(0.000001)
+	    self.d_optimizer = tf.train.AdamOptimizer(0.00001)
+	    self.g_optimizer = tf.train.AdamOptimizer(0.00001)
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'feature_discriminator' in var.name]
@@ -270,8 +267,8 @@ class DSN(object):
 	    	    
 	    # Optimizers
 	    
-            self.DE_optimizer = tf.train.AdamOptimizer(0.0000001)
-            self.E_optimizer = tf.train.AdamOptimizer(0.0000001)
+            self.DE_optimizer = tf.train.AdamOptimizer(0.000001)
+            self.E_optimizer = tf.train.AdamOptimizer(0.000001)
             
             
             t_vars = tf.trainable_variables()
@@ -437,13 +434,14 @@ class DSN(object):
 		    sess.run(self.d_train_op, feed_dict)
 		    sess.run(self.g_train_op, feed_dict)
 		    
-		    if (t+1) % 200 == 0:
+		    if (t+1) % 50 == 0:
 			summary, dl, gl = sess.run([self.summary_op, self.d_loss, self.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: [%.6f] g_loss: [%.6f]' \
 				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl))
 			print 'avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
+ 
     def train_domain_invariant_encoder(self, seq_2_name):
 	
 	print 'Adapting from ' + self.seq_name + ' to ' + seq_2_name
@@ -469,7 +467,7 @@ class DSN(object):
 	    sess.run(tf.global_variables_initializer())
 	    self.read_vgg_weights_except_fc8_func(sess)
 	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
 	    
@@ -513,6 +511,8 @@ class DSN(object):
 		if (t+1) % 1000 == 0:  
 		    saver.save(sess, './experiments/'+self.seq_name+'/model/di_encoder')
 	    
+	    
+	    
     def eval_semantic_extractor(self, seq_2_name, train_stage='pretrain'):
 	
 	self.build_model('train_semantic_extractor')
@@ -542,7 +542,7 @@ class DSN(object):
 	    sess.run(tf.global_variables_initializer())
 	    self.read_vgg_weights_except_fc8_func(sess)
 	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
 	    
@@ -600,7 +600,7 @@ class DSN(object):
 	    sess.run(tf.global_variables_initializer())
 	    self.read_vgg_weights_except_fc8_func(sess)
 	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
 	    	    	    
@@ -657,59 +657,7 @@ class DSN(object):
 	    
 	    with open('./experiments/'+self.seq_name+'/features_'+train_stage+'.pkl','w') as f:
 		cPickle.dump((source_features, target_features, fzy), f, cPickle.HIGHEST_PROTOCOL)
-    
-    def extract_all_maps(self, train_stage='pretrain'):
-	
-	self.build_model('train_semantic_extractor')
-
-	summary_string_writer = tf.summary.FileWriter(self.log_dir)
-
-	config = tf.ConfigProto(device_count = {'GPU': 0})
-
-
-	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
-		     
-	source_features = np.zeros((len(source_images),1024))
-	source_losses = np.zeros((len(source_images), 1))
-	
-	source_preds = np.zeros((len(source_images),224,224))
-	
-
-	with tf.Session() as sess:
-		
-	    print 'Loading weights.'
-
-	    #~ # Run the initializers.
-	    sess.run(tf.global_variables_initializer())
-	    self.read_vgg_weights_except_fc8_func(sess)
-	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, './experiments/'+self.seq_name+'/model/segm_model')
 	    
-	    if train_stage=='dsn':
-		print 'Loading adapted fc6-fc7 weights.'
-		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
-		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, './experiments/'+self.seq_name+'/model/di_encoder')
-		
-	    
-	    saver = tf.train.Saver(self.train_vars)
-
-	    print 'Evaluating SOURCE - ' + self.seq_name
-	    
-	    for n, image, annotation in zip(range(len(source_images)), source_images, source_annotations):
-		
-		if n%100==0:
-		    print n
-		     
-		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
-		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
-
-		plt.imsave('./experiments/'+self.seq_name+'/images/whole_dataset/'+str(n)+'.png', np.squeeze(pred))	    
-		plt.imsave('./experiments/'+self.seq_name+'/images/whole_dataset/'+str(n)+'_image.png', np.squeeze(image))	    
-		plt.imsave('./experiments/'+self.seq_name+'/images/whole_dataset/'+str(n)+'_annotation.png', np.squeeze(annotation))	    
-
     def mean_IoU(predictions, annotations):
 	return 0
 	    
@@ -720,46 +668,35 @@ class DSN(object):
 if __name__ == "__main__":
     
     
- 
-    MODE = 'extract_all_maps'
+    #~ model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
+    #~ model.train_domain_invariant_encoder(seq_2_name='SYNTHIA-SEQS-01-NIGHT')
+#~ 
+    #~ for s_name in ['SYNTHIA-SEQS-01-WINTER',
+		   #~ 'SYNTHIA-SEQS-01-WINTERNIGHT']:
+#~ 
+	#~ model = DSN(seq_name=s_name)
+#~ 
+	#~ print 'Training semantic extractor'
+	#~ model.train_semantic_extractor()
+	#~ tf.reset_default_graph()
     
-    
-    if MODE == 'train_semantic_extractor':    
-	print 'Training Semantic Extractor.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
-	model.train_semantic_extractor()
-	tf.reset_default_graph()
+    #~ print 'Training feature generator'
 
-    elif MODE == 'train_feature_generator':
-	print 'Training Feature Generator'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
-	model.train_feature_generator()
-	tf.reset_default_graph()
+    model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
     
-    elif MODE == 'train_domain_invariant_encoder':
-	print 'Training Domain-Invariant Encoder.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
-	model.train_domain_invariant_encoder(seq_2_name='SYNTHIA-SEQS-01-NIGHT')
-	tf.reset_default_graph()
-
-    elif MODE == 'save_features':
-	print 'Saving Features.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
-	seq_2_names = ['SYNTHIA-SEQS-01-NIGHT']
-	model.features_to_pkl(seq_2_names = seq_2_names, train_stage='pretrain')
-
-    elif MODE == 'evaluate_semantic_extractor':        
-	print 'Evaluate Semantic Extractor.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
-	model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-NIGHT', train_stage='dsn')
+    seq_2_names = ['SYNTHIA-SEQS-01-NIGHT']
     
-    elif MODE == 'extract_all_maps':
-	print 'Extracting All Maps.'
-	model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
-	model.extract_all_maps(train_stage='pretraining')
+    model.features_to_pkl(seq_2_names = seq_2_names, train_stage='blsakjfhjkag')
+    tf.reset_default_graph()
 	
-    else:
-	raise Exception('Unrecognized mode.')
+    
+    #~ print 'Evaluating model.'
+    #~ 
+    #~ model = DSN(seq_name='SYNTHIA-SEQS-01-WINTER')
+    #~ model.train_feature_generator()
+ 
+    #~ model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-DAWN', train_stage='dsn')
+  
 	    
 	    
 	    

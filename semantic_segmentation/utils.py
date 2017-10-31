@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.random as npr
-
+import tensorflow as tf
 
 
 def sample_Z(m, n, mode='uniform'):

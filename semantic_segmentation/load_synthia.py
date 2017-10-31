@@ -54,7 +54,7 @@ def load_synthia(seq_name, no_elements=1000):
     rnd_indices = np.arange(0,len(images))
     npr.shuffle(rnd_indices)
     
-    imags = images[rnd_indices]
+    images = images[rnd_indices]
     gt_labels = gt_labels[rnd_indices]
     
     return images, np.expand_dims(gt_labels,3).astype(int)
