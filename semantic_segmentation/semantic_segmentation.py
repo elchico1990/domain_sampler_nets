@@ -404,7 +404,7 @@ class DSN(object):
     def train_feature_generator(self):
 	
 	epochs=10000
-	batch_size=64
+	batch_size=1
 	noise_dim=100
 
 	summary_string_writer = tf.summary.FileWriter(self.log_dir)
