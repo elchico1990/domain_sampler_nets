@@ -359,7 +359,7 @@ class DSN(object):
 	    EPOCHS = 1000000
 	    BATCH_SIZE = 1
 
-	    for e in range(15, EPOCHS):
+	    for e in range(400, EPOCHS):
 		
 		losses = []
 		
