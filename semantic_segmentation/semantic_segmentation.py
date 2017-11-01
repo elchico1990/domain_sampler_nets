@@ -338,17 +338,17 @@ class DSN(object):
 	    print 'Loading weights.'
 
 	    #~ # Run the initializers.
-	    #sess.run(tf.global_variables_initializer())
-	    #self.read_vgg_weights_except_fc8_func(sess)
-	    #sess.run(self.vgg_fc8_weights_initializer)
-     
-	    #~ # Run the initializers.
 	    sess.run(tf.global_variables_initializer())
 	    self.read_vgg_weights_except_fc8_func(sess)
 	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, os.path.join(self.exp_dir,'model/segm_model'))
+     
+	    #~ # Run the initializers.
+	    #sess.run(tf.global_variables_initializer())
+	    #self.read_vgg_weights_except_fc8_func(sess)
+	    #sess.run(self.vgg_fc8_weights_initializer)
+	    #variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    #restorer = tf.train.Saver(variables_to_restore)
+	    #restorer.restore(sess, os.path.join(self.exp_dir,'model/segm_model'))
 	     
 	    saver = tf.train.Saver(self.train_vars)
 	    
