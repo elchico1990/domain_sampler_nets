@@ -51,7 +51,7 @@ class Solver(object):
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
         
-        image_file = 'train_32x32.mat' if split=='train' else 'test_32x32.mat'
+        image_file = 'extra_32x32.mat' if split=='train' else 'test_32x32.mat'
             
         image_dir = os.path.join(image_dir, image_file)
         svhn = scipy.io.loadmat(image_dir)

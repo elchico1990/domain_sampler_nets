@@ -318,12 +318,12 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    
-	    #~ print ('Loading pretrained encoder disc.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.pretrained_sampler)
+	    print ('Loading pretrained encoder disc.')
+	    variables_to_restore = slim.get_model_variables(scope='disc_e')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_sampler)
 	    
 	    #~ print ('Loading pretrained G.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
@@ -368,15 +368,15 @@ class Solver(object):
 		
 		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict) 
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict) 
 		
-		sess.run(model.G_train_op, feed_dict)
-		if step%15==0:
-		    sess.run(model.DG_train_op, feed_dict) 
-		sess.run(model.const_train_op, feed_dict)
-		sess.run(model.const_train_op, feed_dict)
-		sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.G_train_op, feed_dict)
+		#~ if step%15==0:
+		    #~ sess.run(model.DG_train_op, feed_dict) 
+		#~ sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.const_train_op, feed_dict)
 		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
@@ -590,8 +590,8 @@ class Solver(object):
 		ax1.set_facecolor('white')
 		ax2.set_facecolor('white')
 		
-		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet)
-		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet)
+		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)))), s=3, cmap = mpl.cm.jet, alpha=0.5)
+		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels,src_labels)), s=3, cmap = mpl.cm.jet, alpha=0.5)
 
 
 	    elif sys.argv[2] == '3':
@@ -601,8 +601,8 @@ class Solver(object):
 		ax1.set_facecolor('white')
 		ax2.set_facecolor('white')
 
-		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet)
-		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet)
+		ax1.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((np.ones((n_samples,)), 2 * np.ones((n_samples,)), 3 * np.ones((n_samples,)))), s=5,  cmap = mpl.cm.jet, alpha=0.5)
+		ax2.scatter(TSNE_hA[:,0], TSNE_hA[:,1], c = np.hstack((src_labels, src_labels, trg_labels, )), s=5,  cmap = mpl.cm.jet, alpha=0.5)
 		
 	    elif sys.argv[2] == '4':
 		TSNE_hA = model.fit_transform(h_repr)

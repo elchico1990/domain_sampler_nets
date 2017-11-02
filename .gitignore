@@ -23,4 +23,7 @@
 /dtn/weakly_supervised_learning/model/
 /semantic_segmentation/data
 /semantic_segmentation/model
+/semantic_segmentation/images
+/semantic_segmentation/logs
+/semantic_segmentation/experiments/
 
