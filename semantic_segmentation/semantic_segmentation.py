@@ -111,7 +111,10 @@ class DSN(object):
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc2')
 		    net = slim.batch_norm(net, scope='sgen_bn2')
 		    net = slim.dropout(net, 0.5)
-		    net = slim.fully_connected(net, 1024, activation_fn = tf.tanh, scope='sgen_feat')
+		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc3')
+		    net = slim.batch_norm(net, scope='sgen_bn3')
+		    net = slim.dropout(net, 0.5)
+		    net = slim.fully_connected(net, self.fc7_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 	
     def feature_discriminator(self, inputs, reuse=False, is_training=True):
@@ -121,8 +124,8 @@ class DSN(object):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
 				    activation_fn=tf.nn.relu, is_training=is_training):
 		    if self.mode=='train_feature_generator':
-			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc1')
-			net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
+			net = slim.fully_connected(inputs, 512, activation_fn = utils.lrelu, scope='sdisc_fc1')
+			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
 		    
 		    elif self.mode=='train_domain_invariant_encoder':
 			net = slim.fully_connected(inputs, 1024, activation_fn = tf.nn.relu, scope='sdisc_2_fc1')
@@ -181,6 +184,8 @@ class DSN(object):
 	    optimizer = tf.train.AdamOptimizer(learning_rate=0.00001)
 
 	    # no re-training of VGG-16 variables
+	    
+	    #~ print '\n\n\n\n\n\nWARNING - TRAINNIG ALL VGG-16 PARAMETERS\n\n\n\n\n\n'
 
 	    t_vars = tf.trainable_variables()
 	    self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc6' in var.name) or ('fc7' in var.name)]
@@ -219,8 +224,8 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    self.d_optimizer = tf.train.AdamOptimizer(0.000001)
-	    self.g_optimizer = tf.train.AdamOptimizer(0.000001)
+	    self.d_optimizer = tf.train.AdamOptimizer(0.00001)
+	    self.g_optimizer = tf.train.AdamOptimizer(0.0001)
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'feature_discriminator' in var.name]
@@ -318,7 +323,6 @@ class DSN(object):
 
 
 ####################################################################################################################################################################################
-####################################################################################################################################################################################
 
 
     def train_semantic_extractor(self):
@@ -343,6 +347,8 @@ class DSN(object):
 	    #sess.run(self.vgg_fc8_weights_initializer)
      
 	    #~ # Run the initializers.
+   	    #~ print '\n\n\n\n\n\nWARNING - LOADING ALL VGG-16 PARAMETERS\n\n\n\n\n\n'
+
 	    sess.run(tf.global_variables_initializer())
 	    self.read_vgg_weights_except_fc8_func(sess)
 	    sess.run(self.vgg_fc8_weights_initializer)
@@ -357,7 +363,7 @@ class DSN(object):
 			 self.is_training: False}
 
 	    EPOCHS = 1000000
-	    BATCH_SIZE = 1
+	    BATCH_SIZE = 32
 
 	    for e in range(400, EPOCHS):
 		
@@ -404,7 +410,7 @@ class DSN(object):
     def train_feature_generator(self):
 	
 	epochs=10000
-	batch_size=1
+	batch_size=64
 	noise_dim=100
 
 	summary_string_writer = tf.summary.FileWriter(self.log_dir)
@@ -724,16 +730,15 @@ class DSN(object):
 	return 0
 	    
 ####################################################################################################################################################################################
-####################################################################################################################################################################################
 
 
 if __name__ == "__main__":
     
     
     GPU_ID = sys.argv[1]
-    MODE = 'train_semantic_extractor'
+    MODE = 'save_features'
     SEQ_NAME = 'SYNTHIA-SEQS-01-DAWN'
-    FC7_SIZE = sys.argv[2]
+    FC7_SIZE = int(sys.argv[2])
     EXP_FOLDER = '/cvgl2/u/rvolpi/experiments/'
     EXP_SUBFOLDER = str(FC7_SIZE)
 
@@ -786,16 +791,7 @@ if __name__ == "__main__":
 	    
 	    
 	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
-	    
+	
 	    
 
 #TO PLOT IMAGES
