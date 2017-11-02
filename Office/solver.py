@@ -165,19 +165,19 @@ class Solver(object):
 
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
 		src_rand_idxs = np.random.permutation(src_images.shape[0])[:100]
-		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:]
-		src_acc, trg_acc, trg_pred, trg_labels = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred, model.trg_labels], 
+		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:100]
+		src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, model.trg_accuracy], 
 				       feed_dict={model.keep_prob : 1.0,
 						    model.src_images: src_images[src_rand_idxs], 
 						    model.src_labels: src_labels[src_rand_idxs],
-						    model.trg_images: trg_images, 
-						    model.trg_labels: trg_labels})
+						    model.trg_images: trg_images[trg_rand_idxs], 
+						    model.trg_labels: trg_labels[trg_rand_idxs]})
 		summary_writer.add_summary(summary, t)
 		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f]' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
 			   
-		with open('trg_acc_6.pkl','wb') as f:
-		    cPickle.dump((trg_pred,trg_labels),f,cPickle.HIGHEST_PROTOCOL)
+		#~ with open('trg_acc_6.pkl','wb') as f:
+		    #~ cPickle.dump((trg_pred,trg_labels),f,cPickle.HIGHEST_PROTOCOL)
 		    
 		#~ if trg_acc < 0.55:
 		    #~ print 'Restarting!'
@@ -553,7 +553,7 @@ class Solver(object):
 	    
 		print('Done!')
 		t+=1
-    
+		
 		src_acc, trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
 				       feed_dict={model.src_images: src_images, 
 						  model.src_labels: src_labels,
