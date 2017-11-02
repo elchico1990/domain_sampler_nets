@@ -122,9 +122,7 @@ class Solver(object):
         return images, np.squeeze(labels)
 
     def pretrain(self):
-        src_images, src_labels = self.load_office(split=self.src_dir)
-        trg_images, trg_labels = self.load_office(split=self.trg_dir)
-	        
+        
 
         # build a graph
         model = self.model
@@ -143,6 +141,9 @@ class Solver(object):
 	    
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
+	    src_images, src_labels = self.load_office(split=self.src_dir)
+	    trg_images, trg_labels = self.load_office(split=self.trg_dir)
+	        
 	    epochs = 500
 	    
 	    t = 0
@@ -514,9 +515,6 @@ class Solver(object):
 	    
     def test(self):
 	
-	# load svhn dataset
-	src_images, src_labels = self.load_office(split=self.src_dir)
-        trg_images, trg_labels = self.load_office(split=self.trg_dir)
 	
 	
 	# build a graph
@@ -524,6 +522,9 @@ class Solver(object):
 	model.build_model()
 		
 	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	
+	src_images, src_labels = self.load_office(split=self.src_dir)
+        trg_images, trg_labels = self.load_office(split=self.trg_dir)
 	
 	with tf.Session(config=self.config) as sess:
 	    tf.global_variables_initializer().run()

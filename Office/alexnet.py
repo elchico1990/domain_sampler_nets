@@ -78,24 +78,24 @@ class AlexNet(object):
 
         # 6th Layer: Flatten -> FC (w ReLu) -> Dropout
         flattened = tf.reshape(pool5, [-1, 6*6*256])
-        fc6 = fc(flattened, 6*6*256, 4096, name='fc6',reuse=reuse)
+        fc6 = fc(flattened, 6*6*256, 4096, name='fc6',reuse=reuse,is_training=self.is_training)
         dropout6 = dropout(fc6, self.KEEP_PROB_HIDDEN)
-	dropout6 = tf.contrib.layers.batch_norm(dropout6,self.is_training,center=True,scale=True,scope='bna6',reuse=reuse)
+	#~ dropout6 = tf.contrib.layers.batch_norm(dropout6,self.is_training,center=True,scale=True,scope='bna6',reuse=reuse)
 
         # 7th Layer: FC (w ReLu) -> Dropout
-        fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse)
+        fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse,is_training=self.is_training)
         dropout7 = dropout(fc7, self.KEEP_PROB_HIDDEN)
 	#~ dropout7 = tf.contrib.layers.batch_norm(dropout7,self.is_training,center=True,scale=True,scope='bna7',reuse=reuse)
 
         
-        self.fc_repr = fc(dropout7, 4096, self.HIDDEN_REPR_SIZE, tanh=True, name='fc_repr',reuse=reuse)
+        self.fc_repr = fc(dropout7, 4096, self.HIDDEN_REPR_SIZE, tanh=True, name='fc_repr',reuse=reuse,is_training=self.is_training)
         dropout_repr =  dropout(self.fc_repr, self.KEEP_PROB_HIDDEN)
 	#~ dropout_repr = tf.contrib.layers.batch_norm(dropout_repr,self.is_training,center=True,scale=True,scope='bna_repr',reuse=reuse)
 
         
 
         # 8th Layer: FC and return unscaled activations
-        self.fc8 = fc(dropout_repr, self.HIDDEN_REPR_SIZE, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse)
+        self.fc8 = fc(dropout_repr, self.HIDDEN_REPR_SIZE, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse,is_training=self.is_training)
 
     def load_initial_weights(self, session):
         """Load weights from file into network.
@@ -177,7 +177,7 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
     return relu
 
 
-def fc(x, num_in, num_out, name, relu=True, tanh=False, reuse=False):
+def fc(x, num_in, num_out, name, relu=True, tanh=False, reuse=False,is_training=True):
     """Create a fully connected layer."""
     if tanh:
         relu=False
@@ -190,7 +190,8 @@ def fc(x, num_in, num_out, name, relu=True, tanh=False, reuse=False):
         biases = tf.get_variable('biases', [num_out], trainable=True, initializer=tf.contrib.layers.xavier_initializer())
 
         # Matrix multiply weights and inputs and add bias
-        act = tf.nn.xw_plus_b(x, weights, biases, name=scope.name)
+        act = tf.nn.xw_plus_b(x, weights, biases)
+        act = tf.contrib.layers.batch_norm(act,is_training,center=True,scale=True,scope=scope.name+'/bn',reuse=reuse)
 
     if relu:
         # Apply ReLu non linearity

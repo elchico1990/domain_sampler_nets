@@ -58,8 +58,8 @@ class DSN(object):
 	
 	if is_training:
 	    keep_prob_input = 1.0
-	    keep_prob_conv = 1.0
-	    keep_prob_hidden = 1.0
+	    keep_prob_conv = 0.7
+	    keep_prob_hidden = 0.5
 	else:
 	    keep_prob_input = 1.0
 	    keep_prob_conv = 1.0
