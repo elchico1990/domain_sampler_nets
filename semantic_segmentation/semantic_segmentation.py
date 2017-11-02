@@ -26,6 +26,9 @@ class DSN(object):
 	self.exp_dir = os.path.join(exp_folder, seq_name, exp_subfolder)
 	self.fc7_size = fc7_size
 	
+	
+	print self.exp_dir
+	
 	self.seq_name = seq_name
 	self.no_classes = no_classes
 	self.log_dir = os.path.join(self.exp_dir,'logs')
@@ -654,7 +657,7 @@ class DSN(object):
 	    tf.reset_default_graph()
 	
 	self.build_model(mode='train_feature_generator')
-
+	
         with tf.Session() as sess:
             # initialize G and D
             tf.global_variables_initializer().run()
@@ -766,7 +769,7 @@ if __name__ == "__main__":
 	print 'Saving Features.'
 	seq_2_names = ['SYNTHIA-SEQS-01-NIGHT']
 	model.features_to_pkl(seq_2_names = seq_2_names, train_stage='pretrain')
-
+	
     elif MODE == 'evaluate_semantic_extractor':        
 	print 'Evaluate Semantic Extractor.'
 	model.eval_semantic_extractor(seq_2_name='SYNTHIA-SEQS-01-NIGHT', train_stage='dsn')
