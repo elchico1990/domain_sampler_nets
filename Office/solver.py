@@ -551,6 +551,7 @@ class Solver(object):
 		else:
 		    raise NameError('Unrecognized mode.')
 	    
+		print('Done!')
 		t+=1
     
 		src_acc, trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 

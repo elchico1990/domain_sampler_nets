@@ -75,6 +75,7 @@ class AlexNet(object):
         conv5 = conv(conv4, 3, 3, 256, 1, 1, groups=2, name='conv5',reuse=reuse)
 	conv5 = dropout(conv5, self.KEEP_PROB_CONV)
         pool5 = max_pool(conv5, 3, 3, 2, 2, padding='VALID', name='pool5')
+        #~ pool5 = tf.contrib.layers.batch_norm(pool5,self.is_training,center=True,scale=True,scope='bna5',reuse=reuse)
 
         # 6th Layer: Flatten -> FC (w ReLu) -> Dropout
         flattened = tf.reshape(pool5, [-1, 6*6*256])
