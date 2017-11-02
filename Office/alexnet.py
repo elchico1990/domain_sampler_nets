@@ -53,16 +53,16 @@ class AlexNet(object):
         conv1 = conv(self.X, 11, 11, 96, 4, 4, padding='VALID', name='conv1',reuse=reuse)
 	conv1 = dropout(conv1, self.KEEP_PROB_CONV)
         pool1 = max_pool(conv1, 3, 3, 2, 2, padding='VALID', name='pool1')
-        norm1 = lrn(pool1, 2, 2e-05, 0.75, name='norm1')
+        #~ pool1 = lrn(pool1, 2, 2e-05, 0.75, name='norm1')
 
         # 2nd Layer: Conv (w ReLu) -> Pool -> Lrn with 2 groups
-        conv2 = conv(norm1, 5, 5, 256, 1, 1, groups=2, name='conv2',reuse=reuse)
+        conv2 = conv(pool1, 5, 5, 256, 1, 1, groups=2, name='conv2',reuse=reuse)
 	conv2 = dropout(conv2, self.KEEP_PROB_CONV)
         pool2 = max_pool(conv2, 3, 3, 2, 2, padding='VALID', name='pool2')
-        norm2 = lrn(pool2, 2, 2e-05, 0.75, name='norm2')
+        #~ pool2 = lrn(pool2, 2, 2e-05, 0.75, name='norm2')
 
         # 3rd Layer: Conv (w ReLu)
-        conv3 = conv(norm2, 3, 3, 384, 1, 1, name='conv3',reuse=reuse)
+        conv3 = conv(pool2, 3, 3, 384, 1, 1, name='conv3',reuse=reuse)
 	conv3 = dropout(conv3, self.KEEP_PROB_CONV)
 	#~ conv3 = tf.contrib.layers.batch_norm(conv3,self.is_training,center=True,scale=True,scope='bna3',reuse=reuse)
 
@@ -157,6 +157,7 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
 
     if groups == 1:
         conv = convolve(x, weights)
+        conv =lrn(conv, 2, 2e-05, 0.75,name=name+'/norm')
 
     # In the cases of multiple groups, split inputs & weights and
     else:
@@ -165,6 +166,7 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
         weight_groups = tf.split(axis=3, num_or_size_splits=groups,
                                  value=weights)
         output_groups = [convolve(i, k) for i, k in zip(input_groups, weight_groups)]
+        output_groups = [lrn(group, 2, 2e-05, 0.75, name=name+'/norm') for group in output_groups]
 
         # Concat the convolved output together again
         conv = tf.concat(axis=3, values=output_groups)

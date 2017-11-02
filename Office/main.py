@@ -9,7 +9,7 @@ FLAGS = flags.FLAGS
 
 def main(_):
     
-    model = DSN(mode=FLAGS.mode, learning_rate=0.0001)
+    model = DSN(mode=FLAGS.mode, learning_rate=0.00005)
     src_split, trg_split = FLAGS.splits.split('2')[0], FLAGS.splits.split('2')[1]
     solver = Solver(model, batch_size=128, src_dir=src_split, trg_dir=trg_split)
     

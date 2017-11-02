@@ -164,8 +164,8 @@ class Solver(object):
 		    sess.run(model.train_op, feed_dict)
 
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
-		src_rand_idxs = np.random.permutation(src_images.shape[0])[:100]
-		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:100]
+		src_rand_idxs = np.random.permutation(src_images.shape[0])[:200]
+		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:450]
 		src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, model.trg_accuracy], 
 				       feed_dict={model.keep_prob : 1.0,
 						    model.src_images: src_images[src_rand_idxs], 
@@ -543,7 +543,7 @@ class Solver(object):
 		    restorer.restore(sess, self.test_model)
 		
 		elif sys.argv[1] == 'pretrain':
-		    print ('Loading pretrained model.')
+		    print ('Loading pretrained '+self.pretrained_model)
 		    variables_to_restore = tf.global_variables()
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.pretrained_model)
