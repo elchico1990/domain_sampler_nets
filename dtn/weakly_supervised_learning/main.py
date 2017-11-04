@@ -33,6 +33,8 @@ def main(_):
 	    solver.train_convdeconv()
     elif FLAGS.mode == 'train_gen_images':
 	    solver.train_gen_images()
+    elif FLAGS.mode == 'end_to_end':
+	    solver.train_end_to_end()
     
     
     elif FLAGS.mode == 'train_all':
