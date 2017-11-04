@@ -53,16 +53,16 @@ class AlexNet(object):
         conv1 = conv(self.X, 11, 11, 96, 4, 4, padding='VALID', name='conv1',reuse=reuse)
 	conv1 = dropout(conv1, self.KEEP_PROB_CONV)
         pool1 = max_pool(conv1, 3, 3, 2, 2, padding='VALID', name='pool1')
-        norm1 = lrn(pool1, 2, 2e-05, 0.75, name='norm1')
+        #~ pool1 = lrn(pool1, 2, 2e-05, 0.75, name='norm1')
 
         # 2nd Layer: Conv (w ReLu) -> Pool -> Lrn with 2 groups
-        conv2 = conv(norm1, 5, 5, 256, 1, 1, groups=2, name='conv2',reuse=reuse)
+        conv2 = conv(pool1, 5, 5, 256, 1, 1, groups=2, name='conv2',reuse=reuse)
 	conv2 = dropout(conv2, self.KEEP_PROB_CONV)
         pool2 = max_pool(conv2, 3, 3, 2, 2, padding='VALID', name='pool2')
-        norm2 = lrn(pool2, 2, 2e-05, 0.75, name='norm2')
+        #~ pool2 = lrn(pool2, 2, 2e-05, 0.75, name='norm2')
 
         # 3rd Layer: Conv (w ReLu)
-        conv3 = conv(norm2, 3, 3, 384, 1, 1, name='conv3',reuse=reuse)
+        conv3 = conv(pool2, 3, 3, 384, 1, 1, name='conv3',reuse=reuse)
 	conv3 = dropout(conv3, self.KEEP_PROB_CONV)
 	#~ conv3 = tf.contrib.layers.batch_norm(conv3,self.is_training,center=True,scale=True,scope='bna3',reuse=reuse)
 
@@ -75,27 +75,28 @@ class AlexNet(object):
         conv5 = conv(conv4, 3, 3, 256, 1, 1, groups=2, name='conv5',reuse=reuse)
 	conv5 = dropout(conv5, self.KEEP_PROB_CONV)
         pool5 = max_pool(conv5, 3, 3, 2, 2, padding='VALID', name='pool5')
+        #~ pool5 = tf.contrib.layers.batch_norm(pool5,self.is_training,center=True,scale=True,scope='bna5',reuse=reuse)
 
         # 6th Layer: Flatten -> FC (w ReLu) -> Dropout
         flattened = tf.reshape(pool5, [-1, 6*6*256])
-        fc6 = fc(flattened, 6*6*256, 4096, name='fc6',reuse=reuse)
+        fc6 = fc(flattened, 6*6*256, 4096, name='fc6',reuse=reuse,is_training=self.is_training)
         dropout6 = dropout(fc6, self.KEEP_PROB_HIDDEN)
-	dropout6 = tf.contrib.layers.batch_norm(dropout6,self.is_training,center=True,scale=True,scope='bna6',reuse=reuse)
+	#~ dropout6 = tf.contrib.layers.batch_norm(dropout6,self.is_training,center=True,scale=True,scope='bna6',reuse=reuse)
 
         # 7th Layer: FC (w ReLu) -> Dropout
-        fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse)
+        fc7 = fc(dropout6, 4096, 4096, name='fc7',reuse=reuse,is_training=self.is_training)
         dropout7 = dropout(fc7, self.KEEP_PROB_HIDDEN)
 	#~ dropout7 = tf.contrib.layers.batch_norm(dropout7,self.is_training,center=True,scale=True,scope='bna7',reuse=reuse)
 
         
-        self.fc_repr = fc(dropout7, 4096, self.HIDDEN_REPR_SIZE, tanh=True, name='fc_repr',reuse=reuse)
+        self.fc_repr = fc(dropout7, 4096, self.HIDDEN_REPR_SIZE, tanh=True, name='fc_repr',reuse=reuse,is_training=self.is_training)
         dropout_repr =  dropout(self.fc_repr, self.KEEP_PROB_HIDDEN)
 	#~ dropout_repr = tf.contrib.layers.batch_norm(dropout_repr,self.is_training,center=True,scale=True,scope='bna_repr',reuse=reuse)
 
         
 
         # 8th Layer: FC and return unscaled activations
-        self.fc8 = fc(dropout_repr, self.HIDDEN_REPR_SIZE, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse)
+        self.fc8 = fc(dropout_repr, self.HIDDEN_REPR_SIZE, self.NUM_CLASSES, relu=False, name='fc8',reuse=reuse,is_training=self.is_training)
 
     def load_initial_weights(self, session):
         """Load weights from file into network.
@@ -156,6 +157,7 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
 
     if groups == 1:
         conv = convolve(x, weights)
+        conv =lrn(conv, 2, 2e-05, 0.75,name=name+'/norm')
 
     # In the cases of multiple groups, split inputs & weights and
     else:
@@ -164,6 +166,7 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
         weight_groups = tf.split(axis=3, num_or_size_splits=groups,
                                  value=weights)
         output_groups = [convolve(i, k) for i, k in zip(input_groups, weight_groups)]
+        output_groups = [lrn(group, 2, 2e-05, 0.75, name=name+'/norm') for group in output_groups]
 
         # Concat the convolved output together again
         conv = tf.concat(axis=3, values=output_groups)
@@ -177,7 +180,7 @@ def conv(x, filter_height, filter_width, num_filters, stride_y, stride_x, name,
     return relu
 
 
-def fc(x, num_in, num_out, name, relu=True, tanh=False, reuse=False):
+def fc(x, num_in, num_out, name, relu=True, tanh=False, reuse=False,is_training=True):
     """Create a fully connected layer."""
     if tanh:
         relu=False
@@ -190,7 +193,8 @@ def fc(x, num_in, num_out, name, relu=True, tanh=False, reuse=False):
         biases = tf.get_variable('biases', [num_out], trainable=True, initializer=tf.contrib.layers.xavier_initializer())
 
         # Matrix multiply weights and inputs and add bias
-        act = tf.nn.xw_plus_b(x, weights, biases, name=scope.name)
+        act = tf.nn.xw_plus_b(x, weights, biases)
+        act = tf.contrib.layers.batch_norm(act,is_training,center=True,scale=True,scope=scope.name+'/bn',reuse=reuse)
 
     if relu:
         # Apply ReLu non linearity

@@ -25,8 +25,8 @@ def load_synthia(seq_name, no_elements=1000):
     img_dir = '/cvgl/group/Synthia/'+seq_name+'/RGB/Stereo_Left/Omni_F'
     gt_labels_dir = '/cvgl/group/Synthia/'+seq_name+'/GT/LABELS/Stereo_Left/Omni_F' 
 
-    img_files = sorted(glob.glob(img_dir+'/*'))
-    gt_labels_files = sorted(glob.glob(gt_labels_dir+'/*'))
+    img_files = sorted(glob.glob(img_dir+'/*'))[:]
+    gt_labels_files = sorted(glob.glob(gt_labels_dir+'/*'))[:]
 
     scale = 1
 

@@ -95,24 +95,33 @@ class DSN(object):
     def build_model(self):
         
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images':
-            
+   
 	    self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
+
+            if self.mode == 'test':
+		self.images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
+	    else:
+		self.images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
+            self.labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             
-	    self.src_logits = self.E(self.src_images, is_training = True)
+	    self.logits = self.E(self.images, is_training = True)
 		
-	    self.src_pred = tf.argmax(self.src_logits, 1)
-            self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
-            self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
-            
-            self.loss = slim.losses.sparse_softmax_cross_entropy(self.src_logits, self.src_labels)
+	    self.pred = tf.argmax(self.logits, 1)
+            self.correct_pred = tf.equal(self.pred, self.labels)
+            self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
+       
+            self.loss = slim.losses.sparse_softmax_cross_entropy(self.logits, self.labels)
+	    
             self.optimizer = tf.train.AdamOptimizer(.001) 
             self.train_op = slim.learning.create_train_op(self.loss, self.optimizer)
 	    
             # summary op
             loss_summary = tf.summary.scalar('classification_loss', self.loss)
-            src_accuracy_summary = tf.summary.scalar('src_accuracy', self.src_accuracy)
-            self.summary_op = tf.summary.merge([loss_summary, src_accuracy_summary])
+	    
+            accuracy_summary = tf.summary.scalar('src_accuracy', self.accuracy)
+            self.summary_op = tf.summary.merge([loss_summary, accuracy_summary])
+	    
 	
 	elif self.mode == 'train_sampler':
 				

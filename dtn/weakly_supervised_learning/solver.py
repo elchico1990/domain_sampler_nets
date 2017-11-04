@@ -79,17 +79,8 @@ class Solver(object):
 	
 	print 'Pretraining.'
         
-	src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	src_images = src_images[:2000]
-	src_labels = src_labels[:2000]
+	images, labels = self.load_mnist(self.mnist_dir, split='train')
 	
-	trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	trg_images = trg_images[2000:]
-	trg_labels = trg_labels[2000:]
-    
-    
         # build a graph
         model = self.model
         model.build_model()
@@ -97,11 +88,6 @@ class Solver(object):
         with tf.Session(config=self.config) as sess:
             tf.global_variables_initializer().run()
             saver = tf.train.Saver()
-	    
-            #~ print ('Loading pretrained model.')
-            #~ variables_to_restore = slim.get_model_variables(scope='encoder')
-            #~ restorer = tf.train.Saver(variables_to_restore)
-            #~ restorer.restore(sess, self.test_model)
 	    
             summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 
@@ -113,26 +99,23 @@ class Solver(object):
 		
 		print 'Epoch',str(i)
 		
-		for start, end in zip(range(0, len(src_images), self.batch_size), range(self.batch_size, len(src_images), self.batch_size)):
+		for start, end in zip(range(0, len(images), self.batch_size), range(self.batch_size, len(images), self.batch_size)):
 		    
 		    t+=1
 		       
-		    feed_dict = {model.src_images: src_images[start:end], model.src_labels: src_labels[start:end], model.trg_images: trg_images[0:2], model.trg_labels: trg_labels[0:2]} #trg here is just needed by the model but otherwise useless. 
+		    feed_dict = {model.images: images[start:end], model.labels: labels[start:end]} #trg here is just needed by the model but otherwise useless. 
 		    
 		    sess.run(model.train_op, feed_dict) 
 
 		    if (t+1) % 250 == 0:
-			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
-			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:1000]
-			trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:3000]
-			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.loss], 
-					       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
-							  model.src_labels: src_test_labels[src_rand_idxs],
-							  model.trg_images: trg_test_images[trg_rand_idxs], 
-							  model.trg_labels: trg_test_labels[trg_rand_idxs]})
+			summary, l, acc = sess.run([model.summary_op, model.loss, model.accuracy], feed_dict)
+			rand_idxs = np.random.permutation(images.shape[0])[:1000]
+			test_src_acc, test_trg_acc, _ = sess.run(fetches=[model.accuracy, model.loss], 
+					       feed_dict={model.images: images[rand_idxs], 
+							  model.labels: labels[rand_idxs]})
 			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f] src test acc [%.2f] trg test acc [%.4f]' \
-				   %(t+1, self.pretrain_iter, l, src_acc, test_src_acc, test_trg_acc))
+			print ('Step: [%d/%d] loss: [%.6f] train acc: [%.2f]' \
+				   %(t+1, self.pretrain_iter, l, acc)
 			
 		    if (t+1) % 250 == 0:
 			#~ print 'Saved.'
