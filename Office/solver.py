@@ -30,6 +30,8 @@ from sklearn.manifold import TSNE
 # WA  48.3
 # Avg 68.8
 
+
+
 class Solver(object):
 
     def __init__(self, model, batch_size=64, pretrain_iter=100000, train_iter=10000, sample_iter=2000, 
@@ -88,6 +90,8 @@ class Solver(object):
 	
 	elif self.user == 'Ric':
 	    VGG_MEAN = [103.939, 116.779, 123.68]
+	    #~ VGG_MEAN = [VGG_MEAN[2],VGG_MEAN[1],VGG_MEAN[0] ]
+	    
 
 	    images = np.zeros((self.no_images[split],227,227,3))
 	    labels = np.zeros((self.no_images[split],1))
@@ -144,7 +148,7 @@ class Solver(object):
 	    src_images, src_labels = self.load_office(split=self.src_dir)
 	    trg_images, trg_labels = self.load_office(split=self.trg_dir)
 	        
-	    epochs = 500
+	    epochs = 1000
 	    
 	    t = 0
 
@@ -165,7 +169,7 @@ class Solver(object):
 
 		summary, l = sess.run([model.summary_op, model.loss], feed_dict)
 		src_rand_idxs = np.random.permutation(src_images.shape[0])[:200]
-		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:450]
+		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:1000]
 		src_acc, trg_acc = sess.run(fetches=[model.src_accuracy, model.trg_accuracy], 
 				       feed_dict={model.keep_prob : 1.0,
 						    model.src_images: src_images[src_rand_idxs], 
@@ -175,19 +179,13 @@ class Solver(object):
 		summary_writer.add_summary(summary, t)
 		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f]' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
-			   
-		#~ with open('trg_acc_6.pkl','wb') as f:
-		    #~ cPickle.dump((trg_pred,trg_labels),f,cPickle.HIGHEST_PROTOCOL)
-		    
-		#~ if trg_acc < 0.55:
-		    #~ print 'Restarting!'
-		    #~ tf.global_variables_initializer().run()
-		    #~ saver = tf.train.Saver()
-		    #~ model.model_AlexNet.load_initial_weights(sess)
-		    #~ continue
 		
 		#~ # 'Saved.'
 		saver.save(sess, os.path.join(self.model_save_path, 'model'))
+		
+		a = (trg_acc > 0.60)
+		if a:
+		    return 0
     
     def train_sampler(self):
 	
@@ -298,8 +296,8 @@ class Solver(object):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 
-	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
-	    with tf.device('/gpu:2'):
+	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+	    with tf.device('/gpu:1'):
 			    
 		# initialize G and D
 		tf.global_variables_initializer().run()
@@ -422,7 +420,7 @@ class Solver(object):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 			
-	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	#~ self.config = tf.ConfigProto(device_count = {'GPU': 0})
 
         with tf.Session(config=self.config) as sess:
             # initialize G and D
@@ -532,7 +530,8 @@ class Solver(object):
 	    
 	    t = 0
 	    
-	    while(True):
+	    cond =True
+	    while(cond):
 		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
@@ -564,6 +563,7 @@ class Solver(object):
 			   %(t+1, self.pretrain_iter, src_acc, trg_acc))
 	
 		time.sleep(.5)
+		cond=False
 	    
     def test_ensemble(self):
 	
@@ -608,11 +608,25 @@ class Solver(object):
 			   
 	print 'break'
 	
-		    
-if __name__=='__main__':
-
+def main(_):
+    
+    
+    
+    src_split, trg_split = FLAGS.splits.split('2')[0], FLAGS.splits.split('2')[1]
+    
     from model import DSN
     model = DSN(mode='eval_dsn', learning_rate=0.0003)
-    solver = Solver(model)
+    solver = Solver(model, src_dir=src_split, trg_dir=trg_split)
     solver.check_TSNE()
+
+
+if __name__=='__main__':
+    
+    flags = tf.app.flags
+    flags.DEFINE_string('splits', 'amazon2webcam', "src2trg")
+    FLAGS = flags.FLAGS
+    
+    tf.app.run()
+    
+
 

@@ -123,7 +123,7 @@ class DSN(object):
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,31)))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
-	    self.optimizer = tf.train.AdamOptimizer(0.0001)
+	    self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
 	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
 	    
 	    #~ train_vars_1 = [var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
@@ -241,11 +241,11 @@ class DSN(object):
             
 	    E_gradients = tf.gradients(self.E_loss, E_vars)
 	    E_gradients = list(zip(E_gradients, E_vars))
-	    self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+	    self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
 	    
 	    DE_gradients = tf.gradients(self.DE_loss, DE_vars)
 	    DE_gradients = list(zip(DE_gradients, DE_vars))
-	    self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+	    self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 10.)
 	    
 	    
 	    self.E_train_op = self.E_optimizer.apply_gradients(grads_and_vars=E_gradients)
