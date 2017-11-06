@@ -13,9 +13,9 @@ with open(file_dir,'r') as f:
 
 generated_features = generated_features[0]
 
-source_features = source_features[:1000]
-target_features = target_features['SYNTHIA-SEQS-01-NIGHT'][:1000]
-generated_features = generated_features[:1000]
+source_features = source_features[:300]
+target_features = target_features['SYNTHIA-SEQS-01-NIGHT'][:300]
+generated_features = generated_features[:300]
 
 model = TSNE(n_components=2, random_state=0)
 

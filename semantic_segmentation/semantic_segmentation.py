@@ -20,14 +20,11 @@ import utils
 
 class DSN(object):
     
-    def __init__(self, seq_name, fc7_size, exp_folder, exp_subfolder, no_classes=13):
+    def __init__(self, seq_name, fc7_size, exp_folder, exp_subfolder, no_classes=14):
 	
 	
 	self.exp_dir = os.path.join(exp_folder, seq_name, exp_subfolder)
 	self.fc7_size = fc7_size
-	
-	
-	print self.exp_dir
 	
 	self.seq_name = seq_name
 	self.no_classes = no_classes
@@ -60,7 +57,7 @@ class DSN(object):
 	    #~ net_tmp = slim.conv2d(vgg_output, 256, [8, 8], scope='conv_plus_1', stride=1, padding='VALID', activation_fn=tf.nn.tanh) #from (batch_size, 8, 8, 4096) to (batch_size, 1, 1, 1024) 
 #~ 
 	    #~ fc_bottleneck = tf.squeeze(net_tmp) # (batch_size, 1024)
-
+#~ 
 	    net = slim.conv2d_transpose(vgg_output, 256, [7, 7], padding='VALID', scope='dec0')                # (batch_size, 7, 7, 256)
 	    net = slim.conv2d_transpose(net, 256, [3, 3], stride=2, padding='SAME', scope='dec1')           # (batch_size, 14, 14, 256)
 			    
@@ -90,7 +87,7 @@ class DSN(object):
 	    net = slim.conv2d_transpose(net, 64, [3, 3],stride=1,  padding='SAME', scope='dec52')        # (batch_size, 224, 224, 64)
 
 	    
-	    logits = slim.conv2d(net, 13, [1, 1], scope='output')  				             # (batch_size, 224, 224, 13)
+	    logits = slim.conv2d_transpose(net, self.no_classes, [1,1], scope='output')  				             # (batch_size, 224, 224, 13)
 	    
 	    return logits
 	
@@ -150,6 +147,7 @@ class DSN(object):
 	    self.is_training = tf.placeholder(tf.bool)
 
 	    labels_tensors = [tf.to_float(tf.equal(self.annotations, i)) for i in range(self.no_classes)]
+	    self.labels_tensors = labels_tensors
 
 	    combined_mask = tf.concat(3,labels_tensors)
 	    
@@ -179,19 +177,21 @@ class DSN(object):
 	    self.cross_entropy_sum = tf.reduce_sum(cross_entropies) 
 
 	    self.pred = tf.argmax(logits, dimension=3)
+	    
+	    self.pred_tensors = [tf.to_float(tf.equal(self.pred, i)) for i in range(self.no_classes)]
 
 	    self.probabilities = tf.nn.softmax(logits)
 
 	    # Optimizers
 
-	    optimizer = tf.train.AdamOptimizer(learning_rate=0.00001)
+	    optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.00001)
 
 	    # no re-training of VGG-16 variables
 	    
-	    #~ print '\n\n\n\n\n\nWARNING - TRAINNIG ALL VGG-16 PARAMETERS\n\n\n\n\n\n'
+	    print '\n\n\n\n\n\nWARNING - TRAINNIG ALL VGG-16 PARAMETERS\n\n\n\n\n\n'
 
 	    t_vars = tf.trainable_variables()
-	    self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc6' in var.name) or ('fc7' in var.name)]
+	    self.train_vars = t_vars#[var for var in t_vars if ('vgg_16' not in var.name) or ('fc6' in var.name) or ('fc7' in var.name)]
 
 	    # train op
 	    with tf.variable_scope('training_op',reuse=False):
@@ -291,7 +291,7 @@ class DSN(object):
             
             
             t_vars = tf.trainable_variables()
-            self.E_vars = [var for var in t_vars if ('fc6' in var.name) or ('fc7' in var.name)]
+            self.E_vars = [var for var in t_vars if ('vgg' in var.name)]
             self.DE_vars = [var for var in t_vars if 'feature_discriminator' in var.name]
             
             # train op
@@ -329,7 +329,21 @@ class DSN(object):
 
 
     def train_semantic_extractor(self):
+		
+	def computeIoU(y_pred_batch, y_true_batch):
+	    qwe = np.asarray([pixelAccuracy(y_pred_batch[i], y_true_batch[i]) for i in range(len(y_true_batch))]) 
+	    return np.mean(qwe[qwe>-1])
+	    
+	def pixelAccuracy(y_pred, y_true):
+	    y_pred = np.argmax(y_pred,axis=0)
+	    y_true = np.argmax(y_true,axis=0)
+	    y_pred = y_pred * (y_true>0)
 
+	    if np.sum(y_true>0) > 0.:
+		return 1.0 * np.sum((y_pred==y_true)*(y_true>0)) /  np.sum(y_true>0)	
+	    else:
+		return -1
+		
 	self.build_model('train_semantic_extractor')
 
 	summary_string_writer = tf.summary.FileWriter(self.log_dir)
@@ -338,44 +352,48 @@ class DSN(object):
 	config = tf.ConfigProto()
 	config.gpu_options.allow_growth=True
 	
-        images, annotations = load_synthia(self.seq_name, no_elements=900)
 
 	with tf.Session(config=config) as sess:
 		
 	    print 'Loading weights.'
 
 	    #~ # Run the initializers.
-	    #sess.run(tf.global_variables_initializer())
-	    #self.read_vgg_weights_except_fc8_func(sess)
-	    #sess.run(self.vgg_fc8_weights_initializer)
+	    sess.run(tf.global_variables_initializer())
+	    self.read_vgg_weights_except_fc8_func(sess)
+	    sess.run(self.vgg_fc8_weights_initializer)
      
 	    #~ # Run the initializers.
    	    #~ print '\n\n\n\n\n\nWARNING - LOADING ALL VGG-16 PARAMETERS\n\n\n\n\n\n'
 
-	    sess.run(tf.global_variables_initializer())
-	    self.read_vgg_weights_except_fc8_func(sess)
-	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, os.path.join(self.exp_dir,'model/segm_model'))
+	    #~ sess.run(tf.global_variables_initializer())
+	    #~ self.read_vgg_weights_except_fc8_func(sess)
+	    #~ sess.run(self.vgg_fc8_weights_initializer)
+	    #~ variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, os.path.join(self.exp_dir,'model/segm_model'))
 	     
 	    saver = tf.train.Saver(self.train_vars)
+	    
+	    images, annotations = load_synthia(self.seq_name, no_elements=900)
 	    
 	    feed_dict = {self.images: images,
 			 self.annotations: annotations,
 			 self.is_training: False}
 
 	    EPOCHS = 1000000
-	    BATCH_SIZE = 32
-
-	    for e in range(400, EPOCHS):
+	    BATCH_SIZE = 1
+	    
+	    
+	    
+	    for e in range(0, EPOCHS):
 		
 		losses = []
+		mIoUs = []
 		
 		#~ print e
 		
-		print 'Saving model.'
-		saver.save(sess, os.path.join(self.exp_dir,'model/segm_model'))
+		#~ print 'Saving model.'
+		#~ saver.save(sess, os.path.join(self.exp_dir,'model/segm_model'))
 		
 		for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
 		    
@@ -384,7 +402,12 @@ class DSN(object):
 			    
 		    feed_dict = {self.images: images[start:end], self.annotations: annotations[start:end], self.is_training: True}
 
-		    loss, summary_string = sess.run([self.cross_entropy_sum, self.merged_summary_op], feed_dict=feed_dict)
+		    loss, summary_string, pred_tensors, labels_tensors = sess.run([self.cross_entropy_sum, self.merged_summary_op, self.pred_tensors, self.labels_tensors], feed_dict=feed_dict)
+		    
+		    labels_tensors = np.squeeze(np.array(labels_tensors))
+		    pred_tensors = np.squeeze(np.array(pred_tensors))
+
+		    
 
 		    sess.run(self.train_op, feed_dict=feed_dict)
 
@@ -392,8 +415,11 @@ class DSN(object):
 
 		    
 		    losses.append(loss)
-			
-			
+		    mIoUs.append(computeIoU(pred_tensors,labels_tensors))
+		    
+		    
+		    
+		print 'mIoU:',np.mean(np.array(mIoUs))
 		print e,'- current average loss:',str(np.array(losses).mean())
 		pred_np, probabilities_np = sess.run([self.pred, self.probabilities], feed_dict={self.images: images[0:1], self.annotations: annotations[0:1], self.is_training: False})
 		plt.imsave(self.exp_dir+'/images/'+str(e)+'.png', np.squeeze(pred_np))	    
@@ -467,8 +493,8 @@ class DSN(object):
 	
 	print 'Adapting from ' + self.seq_name + ' to ' + seq_2_name
 	
-	epochs=10000
-	batch_size=4
+	epochs=1000000
+	batch_size=8
 	noise_dim=100
 		
 	self.build_model('train_domain_invariant_encoder')
@@ -477,9 +503,6 @@ class DSN(object):
 
 	config = tf.ConfigProto(device_count = {'GPU': 0})
 
-	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
-	target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
-	
         with tf.Session() as sess:
 	    
 	    print 'Loading weights.'
@@ -488,22 +511,31 @@ class DSN(object):
 	    sess.run(tf.global_variables_initializer())
 	    self.read_vgg_weights_except_fc8_func(sess)
 	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, os.path.join(self.exp_dir+'model/segm_model'))
+	    #~ restorer.restore(sess, os.path.join(self.exp_dir,'model/segm_model'))
+	    restorer.restore(sess, self.exp_dir+'/model/segm_model')
 	    
 	    variables_to_restore = slim.get_model_variables(scope='feature_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, os.path.join(self.exp_dir+'model/sampler'))
-	
+	    #~ restorer.restore(sess, os.path.join(self.exp_dir+'model/sampler'))
+	    restorer.restore(sess, self.exp_dir+'/model/sampler')
+
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
             saver = tf.train.Saver(self.E_vars)
+
+	    source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
+	    target_images, target_annotations = load_synthia(seq_2_name, no_elements=900)
 	    
 	    print ('Start training.')
 	    trg_count = 0
 	    t = 0
 	    
 	    for step in range(100000):
+
+		#~ if t % 1000 == 0:
+		    #~ print 'Saving model.'  
+		    #~ saver.save(sess, self.exp_dir+'/model/di_encoder_new')
 		
 		trg_count += 1
 		t+=1
@@ -528,12 +560,25 @@ class DSN(object):
 		    summary_writer.add_summary(summary, step)
 		    print ('Step: [%d] E: [%.3f] DE: [%.3f] E_real: [%.2f] E_fake: [%.2f]' \
 			       %(step+1, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
-
-		if (t+1) % 1000 == 0:  
-		    saver.save(sess, os.path.join(self.exp_dir,'model/di_encoder'))
 	    
     def eval_semantic_extractor(self, seq_2_name, train_stage='pretrain'):
 	
+	
+	def computeIoU(y_pred_batch, y_true_batch):
+	    qwe = np.asarray([pixelAccuracy(y_pred_batch[i], y_true_batch[i]) for i in range(len(y_true_batch))]) 
+	    return np.mean(qwe[qwe>-1])
+	    
+	    
+	def pixelAccuracy(y_pred, y_true):
+	    y_pred = np.argmax(y_pred,axis=0)
+	    y_true = np.argmax(y_true,axis=0)
+	    y_pred = y_pred * (y_true>0)
+
+	    if np.sum(y_true>0) > 0.:
+		return 1.0 * np.sum((y_pred==y_true)*(y_true>0)) /  np.sum(y_true>0)	
+	    else:
+		return -1
+		
 	self.build_model('train_semantic_extractor')
 
 	summary_string_writer = tf.summary.FileWriter(self.log_dir)
@@ -542,16 +587,16 @@ class DSN(object):
 
 
 	source_images, source_annotations = load_synthia(self.seq_name, no_elements=10)
-	target_images, target_annotations = load_synthia(seq_2_name, no_elements=10)
-		     
 	source_features = np.zeros((len(source_images),self.fc7_size))
-	target_features = np.zeros((len(target_images),self.fc7_size))
 	source_losses = np.zeros((len(source_images), 1))
-	
 	source_preds = np.zeros((len(source_images),224,224))
+	source_mIoU = np.zeros((len(source_images),))
+	
+	target_images, target_annotations = load_synthia(seq_2_name, no_elements=10)
+	target_features = np.zeros((len(target_images),self.fc7_size))
 	target_preds = np.zeros((len(target_images),224,224))
 	target_losses = np.zeros((len(target_images), 1))
-	
+	target_mIoU = np.zeros((len(target_images),))
 
 	with tf.Session() as sess:
 		
@@ -563,30 +608,40 @@ class DSN(object):
 	    sess.run(self.vgg_fc8_weights_initializer)
 	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, os.path.join(self.exp_dir,'model/segm_model'))
+	    restorer.restore(sess, self.exp_dir+'/model/segm_model')
 	    
 	    if train_stage=='dsn':
 		print 'Loading adapted fc6-fc7 weights.'
 		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, os.path.join(self.exp_dir,'model/di_encoder'))
+		restorer.restore(sess, self.exp_dir+'/model/di_encoder')
 		
 	    
 	    saver = tf.train.Saver(self.train_vars)
 
 	    print 'Evaluating SOURCE - ' + self.seq_name
 	    
+	    
+	    
 	    for n, image, annotation in zip(range(len(source_images)), source_images, source_annotations):
 		
 		if n%100==0:
 		    print n 
+		
 		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
-		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
+		feat, pred, loss, pred_tensors, labels_tensors = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum, self.pred_tensors, self.labels_tensors], feed_dict=feed_dict)
+		
+		labels_tensors = np.squeeze(np.array(labels_tensors))
+		pred_tensors = np.squeeze(np.array(pred_tensors))
+		
+
+		source_mIoU[n] = computeIoU(pred_tensors,labels_tensors)
 		source_features[n] = feat
 		source_preds[n] = pred
 		source_losses[n] = loss
 	    
 	    print 'Average source loss: ' + str(source_losses.mean())
+	    print 'Average source mIoU: ' + str(np.mean(source_mIoU))
 	    
 	    print 'Evaluating TARGET - ' + seq_2_name
 	    
@@ -594,13 +649,22 @@ class DSN(object):
 		
 		if n%100==0:
 		    print n 
+		
 		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
-		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
+		feat, pred, loss, pred_tensors, labels_tensors = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum, self.pred_tensors, self.labels_tensors], feed_dict=feed_dict)
+		
+		labels_tensors = np.squeeze(np.array(labels_tensors))
+		pred_tensors = np.squeeze(np.array(pred_tensors))
+		
+		
+		target_mIoU[n] = computeIoU(pred_tensors,labels_tensors)
 		target_features[n] = feat
 		target_preds[n] = pred
 		target_losses[n] = loss
 		
 	    print 'Average target loss: ' + str(target_losses.mean())
+	    print 'Average source mIoU: ' + str(np.mean(target_mIoU))
+	    
 	    print 'break'
 	    
     def extract_VGG16_features(self, source_images, train_stage='pretrain'):
@@ -619,7 +683,7 @@ class DSN(object):
 	    sess.run(tf.global_variables_initializer())
 	    self.read_vgg_weights_except_fc8_func(sess)
 	    sess.run(self.vgg_fc8_weights_initializer)
-	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
+	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, os.path.join(self.exp_dir,'model/segm_model'))
 	    	    	    
@@ -642,7 +706,7 @@ class DSN(object):
 	    
 	    return source_features
 		    
-    def features_to_pkl(self, seq_2_names = ['...'], train_stage='pretrain'):
+    def features_to_pkl(self, seq_2_names = ['...'], train_stage='dsn'):
 	
 	source_images, _ = load_synthia(self.seq_name, no_elements=900)
 		
@@ -665,7 +729,7 @@ class DSN(object):
 	    print ('Loading feature generator.')
 	    variables_to_restore = slim.get_model_variables(scope='feature_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, os.path.join(self.exp_dir,'model/sampler'))
+	    restorer.restore(sess, self.exp_dir+'/model/sampler')
 	    
 	    n_samples = 900
             noise = utils.sample_Z(n_samples,100,'uniform')
@@ -679,6 +743,8 @@ class DSN(object):
     
     def extract_all_maps(self, train_stage='pretrain'):
 	
+
+	
 	self.build_model('train_semantic_extractor')
 
 	summary_string_writer = tf.summary.FileWriter(self.log_dir)
@@ -686,7 +752,7 @@ class DSN(object):
 	config = tf.ConfigProto(device_count = {'GPU': 0})
 
 
-	source_images, source_annotations = load_synthia(self.seq_name, no_elements=900)
+	source_images, source_annotations = load_synthia('SYNTHIA-SEQS-01-NIGHT', no_elements=900)
 		     
 	source_features = np.zeros((len(source_images),self.fc7_size))
 	source_losses = np.zeros((len(source_images), 1))
@@ -694,7 +760,7 @@ class DSN(object):
 	source_preds = np.zeros((len(source_images),224,224))
 	
 
-	with tf.Session() as sess:
+	with tf.Session(config = config) as sess:
 		
 	    print 'Loading weights.'
 
@@ -704,13 +770,13 @@ class DSN(object):
 	    sess.run(self.vgg_fc8_weights_initializer)
 	    variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name) or ('semantic_extractor' in i.name)]
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, os.path.join(self.exp_dir,'model/segm_model'))
+	    restorer.restore(sess, self.exp_dir+'/model/segm_model')
 	    
 	    if train_stage=='dsn':
 		print 'Loading adapted fc6-fc7 weights.'
 		variables_to_restore = [i for i in slim.get_model_variables() if ('fc6' in i.name) or ('fc7' in i.name)]
 		restorer = tf.train.Saver(variables_to_restore)
-		restorer.restore(sess, './experiments/'+self.seq_name+'/model/di_encoder')
+		restorer.restore(sess, self.exp_dir+'/model/di_encoder_new')
 		
 	    
 	    saver = tf.train.Saver(self.train_vars)
@@ -719,18 +785,25 @@ class DSN(object):
 	    
 	    for n, image, annotation in zip(range(len(source_images)), source_images, source_annotations):
 		
-		if n%100==0:
+		if n%1==0:
 		    print n
 		     
 		feed_dict = {self.images: np.expand_dims(image,0), self.annotations: np.expand_dims(annotation,0), self.is_training: False}
-		feat, pred, loss = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum], feed_dict=feed_dict)
+		feat, pred, loss, pred_tensors, labels_tensors = sess.run([self.vgg_output_flat, self.pred, self.cross_entropy_sum, self.pred_tensors, self.labels_tensors], feed_dict=feed_dict)
+		
+		labels_tensors = np.squeeze(np.array(labels_tensors))
+		pred_tensors = np.squeeze(np.array(pred_tensors))
+		
 
-		plt.imsave(self.exp_dir+'/images/whole_dataset/'+str(n)+'.png', np.squeeze(pred))	    
-		plt.imsave(self.exp_dir+'/images/whole_dataset/'+str(n)+'_image.png', np.squeeze(image))	    
-		plt.imsave(self.exp_dir+'/images/whole_dataset/'+str(n)+'_annotation.png', np.squeeze(annotation))	    
+		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT_di_encoder_new/'+str(n)+'.png', np.squeeze(pred))	    
+		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT_di_encoder_new/'+str(n)+'_image.png', np.squeeze(image))	    
+		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT_di_encoder_new/'+str(n)+'_annotation.png', np.squeeze(annotation))	    
 
     def mean_IoU(predictions, annotations):
 	return 0
+	
+	
+
 	    
 ####################################################################################################################################################################################
 
@@ -739,11 +812,11 @@ if __name__ == "__main__":
     
     
     GPU_ID = sys.argv[1]
-    MODE = 'save_features'
+    MODE = 'train_domain_invariant_encoder'
     SEQ_NAME = 'SYNTHIA-SEQS-01-DAWN'
     FC7_SIZE = int(sys.argv[2])
     EXP_FOLDER = '/cvgl2/u/rvolpi/experiments/'
-    EXP_SUBFOLDER = str(FC7_SIZE)
+    EXP_SUBFOLDER = '256'
 
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152 on stackoverflow
     os.environ["CUDA_VISIBLE_DEVICES"] = str(GPU_ID)
@@ -768,7 +841,7 @@ if __name__ == "__main__":
     elif MODE == 'save_features':
 	print 'Saving Features.'
 	seq_2_names = ['SYNTHIA-SEQS-01-NIGHT']
-	model.features_to_pkl(seq_2_names = seq_2_names, train_stage='pretrain')
+	model.features_to_pkl(seq_2_names = seq_2_names, train_stage='dsn')
 	
     elif MODE == 'evaluate_semantic_extractor':        
 	print 'Evaluate Semantic Extractor.'
@@ -776,13 +849,13 @@ if __name__ == "__main__":
     
     elif MODE == 'extract_all_maps':
 	print 'Extracting All Maps.'
-	model.extract_all_maps(train_stage='pretraining')
+	model.extract_all_maps(train_stage='dsn')
 	
     else:
 	raise Exception('Unrecognized mode.')
 	    
 	    
-	    
+
 	    
 	    
 	    
