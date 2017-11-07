@@ -47,7 +47,8 @@ def load_synthia(seq_name, no_elements=1000):
 	images[n] = img
 	gt_labels[n] = gt_lab
     
-    gt_labels[gt_labels==15.] = 13.
+    gt_labels[gt_labels!=3] = 0
+    gt_labels[gt_labels==3] = 1
     
     npr.seed(231)
     

@@ -20,7 +20,7 @@ import utils
 
 class DSN(object):
     
-    def __init__(self, seq_name, fc7_size, exp_folder, exp_subfolder, no_classes=14):
+    def __init__(self, seq_name, fc7_size, exp_folder, exp_subfolder, no_classes=2):
 	
 	
 	self.exp_dir = os.path.join(exp_folder, seq_name, exp_subfolder)
@@ -184,14 +184,14 @@ class DSN(object):
 
 	    # Optimizers
 
-	    optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.00001)
+	    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
 
 	    # no re-training of VGG-16 variables
 	    
 	    print '\n\n\n\n\n\nWARNING - TRAINNIG ALL VGG-16 PARAMETERS\n\n\n\n\n\n'
 
 	    t_vars = tf.trainable_variables()
-	    self.train_vars = t_vars#[var for var in t_vars if ('vgg_16' not in var.name) or ('fc6' in var.name) or ('fc7' in var.name)]
+	    self.train_vars = [var for var in t_vars if ('vgg_16' not in var.name) or ('fc6' in var.name) or ('fc7' in var.name)]
 
 	    # train op
 	    with tf.variable_scope('training_op',reuse=False):
@@ -390,10 +390,9 @@ class DSN(object):
 		losses = []
 		mIoUs = []
 		
-		#~ print e
-		
-		#~ print 'Saving model.'
-		#~ saver.save(sess, os.path.join(self.exp_dir,'model/segm_model'))
+		print e
+		print 'Saving model.'
+		saver.save(sess, os.path.join(self.exp_dir,'model/segm_model'))
 		
 		for n, start, end in zip(range(len(images)), range(0,len(images),BATCH_SIZE), range(BATCH_SIZE,len(images),BATCH_SIZE)):
 		    
@@ -795,16 +794,14 @@ class DSN(object):
 		pred_tensors = np.squeeze(np.array(pred_tensors))
 		
 
-		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT_di_encoder_new/'+str(n)+'.png', np.squeeze(pred))	    
-		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT_di_encoder_new/'+str(n)+'_image.png', np.squeeze(image))	    
-		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT_di_encoder_new/'+str(n)+'_annotation.png', np.squeeze(annotation))	    
+		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT/'+str(n)+'.png', np.squeeze(pred))	    
+		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT/'+str(n)+'_image.png', np.squeeze(image))	    
+		plt.imsave(self.exp_dir+'/images/whole_dataset_NIGHT/'+str(n)+'_annotation.png', np.squeeze(annotation))	    
 
     def mean_IoU(predictions, annotations):
 	return 0
 	
 	
-
-	    
 ####################################################################################################################################################################################
 
 
@@ -812,11 +809,11 @@ if __name__ == "__main__":
     
     
     GPU_ID = sys.argv[1]
-    MODE = 'train_domain_invariant_encoder'
+    MODE = 'train_semantic_extractor'
     SEQ_NAME = 'SYNTHIA-SEQS-01-DAWN'
     FC7_SIZE = int(sys.argv[2])
     EXP_FOLDER = '/cvgl2/u/rvolpi/experiments/'
-    EXP_SUBFOLDER = '256'
+    EXP_SUBFOLDER = str(sys.argv[2])
 
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152 on stackoverflow
     os.environ["CUDA_VISIBLE_DEVICES"] = str(GPU_ID)
@@ -849,7 +846,7 @@ if __name__ == "__main__":
     
     elif MODE == 'extract_all_maps':
 	print 'Extracting All Maps.'
-	model.extract_all_maps(train_stage='dsn')
+	model.extract_all_maps(train_stage='pretrain')
 	
     else:
 	raise Exception('Unrecognized mode.')
