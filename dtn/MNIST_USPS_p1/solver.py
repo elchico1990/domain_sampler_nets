@@ -507,6 +507,13 @@ class Solver(object):
 	    print 'Extracting source features'
 	    
 	    source_features = sess.run(model.fx, feed_dict={model.src_features: np.zeros((1,128)), model.src_images: source_images, model.src_noise: np.zeros((1,100)), model.src_labels: utils.one_hot(source_labels,10), model.trg_images: target_images[0:1], model.labels_gen: label_gen})
+
+            npr.seed(231)
+	    random_idx = np.arange(len(source_features))
+	    npr.shuffle(random_idx)
+	    source_features = source_features[random_idx]
+	    source_labels = source_labels[random_idx]
+	
 	    	
 	tf.reset_default_graph()
 
