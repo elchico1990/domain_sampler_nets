@@ -506,7 +506,7 @@ class Solver(object):
 	    
 	    print 'Extracting source features'
 	    
-	    source_features = sess.run(model.src_orig_fx, feed_dict={model.src_features: np.zeros((1,128)), model.src_images: source_images, model.src_noise: np.zeros((1,100)), model.src_labels: utils.one_hot(source_labels,10), model.trg_images: target_images[0:1], model.labels_gen: label_gen})
+	    source_features = sess.run(model.orig_src_fx, feed_dict={model.src_features: np.zeros((1,128)), model.src_images: source_images, model.src_noise: np.zeros((1,100)), model.src_labels: utils.one_hot(source_labels,10), model.trg_images: target_images[0:1], model.labels_gen: label_gen})
 
             npr.seed(231)
 	    random_idx = np.arange(len(source_features))
