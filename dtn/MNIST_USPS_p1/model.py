@@ -273,7 +273,7 @@ class DSN(object):
 	    
 	    # E losses
 	    
-	    self.logits_E_real = self.D_e(self.fzy, self.src_labels)
+	    self.logits_E_real = self.D_e(self.fzy, self.src_labels_feat)
 	    self.logits_E_fake = self.D_e(self.fx, self.labels, reuse=True)
 	    
 	    #~ self.DE_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_E_real, tf.ones_like(self.logits_E_real))
