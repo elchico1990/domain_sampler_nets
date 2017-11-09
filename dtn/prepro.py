@@ -32,8 +32,8 @@ def main():
     test = {'X': resize_images(mnist.test.images.reshape(-1, 28, 28)),
             'y': mnist.test.labels}
         
-    save_pickle(train, '/data/mnist/train.pkl')
-    save_pickle(test, '/data/mnist/test.pkl')
+    save_pickle(train, './data/mnist/train.pkl')
+    save_pickle(test, './data/mnist/test.pkl')
 
 def usps():
 	
@@ -103,7 +103,7 @@ def office():
 
 
 if __name__ == "__main__":
-    main()
-    #~ usps()
+    #~ main()
+    usps()
     #~ office()
     

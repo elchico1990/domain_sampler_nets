@@ -13,10 +13,10 @@ import time
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import seaborn as sns
+#~ import seaborn as sns
 
 import utils
-from sklearn.manifold import TSNE
+#~ from sklearn.manifold import TSNE
 from sklearn.metrics import confusion_matrix
 
 from scipy import misc
@@ -33,12 +33,12 @@ class Solver(object):
         self.pretrain_iter = pretrain_iter
         self.train_iter = train_iter
         self.sample_iter = sample_iter
-        self.svhn_dir = 'data/'+svhn_dir
-        self.syn_dir = 'data/'+syn_dir
-        self.mnist_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/data/'+mnist_dir
-        self.mnist_m_dir = 'data/'+mnist_m_dir
-        self.usps_dir = '/home/rvolpi/Desktop/domain_sampler_nets/dtn/data/'+usps_dir
-	self.amazon_dir = 'data/'+amazon_dir
+        self.svhn_dir = '../data/'+svhn_dir
+        self.syn_dir = '../data/'+syn_dir
+        self.mnist_dir = '../data/'+mnist_dir
+        self.mnist_m_dir = '../data/'+mnist_m_dir
+        self.usps_dir = '../data/'+usps_dir
+	self.amazon_dir = '../data/'+amazon_dir
         self.log_dir = log_dir
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
@@ -49,7 +49,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'usps_mnist' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
     
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -258,32 +258,8 @@ class Solver(object):
     def pretrain(self):
 	
 	print 'Pretraining.'
-        
-	if self.protocol == 'svhn_mnist':	
-	    
-	    src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	    src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	
-	elif self.protocol == 'mnist_mnist_m':	
-	    
-	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist_m(self.mnist_m_dir, split='test')
-        
-	elif self.protocol == 'syn_svhn':	
-	    
-	    src_images, src_labels = self.load_syn(self.syn_dir, split='train')
-	    src_test_images, src_test_labels = self.load_syn(self.syn_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
 
-	elif self.protocol == 'mnist_usps':	
+	if self.protocol == 'mnist_usps':	
 	    
 	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
 	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
@@ -302,12 +278,7 @@ class Solver(object):
 
 	    src_test_images = src_images
 	    src_test_labels = src_labels
-	  
-	elif self.protocol == 'amazon_reviews':
-	    
-	    src_images, src_labels, trg_images, trg_labels, trg_test_images, trg_test_labels = self.load_amazon_reviews(self.amazon_dir)
-	    src_test_images, src_test_labels = src_images, src_labels
-	
+	  	
         # build a graph
         model = self.model
         model.build_model()
@@ -339,7 +310,7 @@ class Solver(object):
 		    
 		    sess.run(model.train_op, feed_dict) 
 
-		    if t%10==0:
+		    if t%100==0:
 
 			summary, l, src_acc = sess.run([model.summary_op, model.loss, model.src_accuracy], feed_dict)
 			src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
@@ -358,11 +329,6 @@ class Solver(object):
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
 			
-			if test_trg_acc > 0.78:
-			    break
-		    
-		if test_trg_acc > 0.78:
-		    break
 
     def train_convdeconv(self):
 
@@ -483,13 +449,13 @@ class Solver(object):
 		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
-		    if (t+1) % 100 == 0:
+		    if (t+1) % 250 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] d_loss: %.6f g_loss: %.6f avg_D_fake: %.2f avg_D_real: %.2f ' \
 				   %(t+1, int(epochs*len(source_images) /batch_size), dl, gl, avg_D_fake.mean(), avg_D_real.mean()))
 			
-                    if (t+1) % 1000 == 0:  
+                    if (t+1) % 5000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
 
     def train_dsn(self):
@@ -523,13 +489,33 @@ class Solver(object):
         model = self.model
         model.build_model()
 
-        # make directory if not exists
-        if tf.gfile.Exists(self.log_dir):
-            tf.gfile.DeleteRecursively(self.log_dir)
-        tf.gfile.MakeDirs(self.log_dir)
-
-
+	
+	label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
+	label_gen = np.matlib.repmat(label_gen,5,1)
+	
+	self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	
 	with tf.Session(config=self.config) as sess:
+	    	    
+	    tf.global_variables_initializer().run()
+	    
+	    print ('Loading pretrained encoder.')
+	    variables_to_restore = slim.get_model_variables(scope='encoder')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+	    
+	    print 'Extracting source features'
+	    
+	    source_features = sess.run(model.fx, feed_dict={model.src_features: np.zeros((1,128)), model.src_images: source_images, model.src_noise: np.zeros((1,100)), model.src_labels: utils.one_hot(source_labels,10), model.trg_images: target_images[0:1], model.labels_gen: label_gen})
+	    	
+	tf.reset_default_graph()
+
+	# build a graph
+        model = self.model
+        model.build_model()
+
+
+	with tf.Session() as sess:
 	    	    
 	    # initialize G and D
 	    tf.global_variables_initializer().run()
@@ -538,7 +524,12 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
+	    
+	    #~ print ('Loading pretrained discriminator.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.test_model)
 	    
 	    #~ print ('Loading pretrained generator.')
 	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
@@ -558,8 +549,7 @@ class Solver(object):
 	    t = 0
 	    
 	    
-	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
-	    label_gen = np.matlib.repmat(label_gen,5,1)
+	    
 	    for step in range(10000000):
 		
 		trg_count += 1
@@ -573,21 +563,20 @@ class Solver(object):
 		src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
+		src_features = source_features[i*self.batch_size:(i+1)*self.batch_size]
 		
-		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
+		feed_dict = {model.src_features: src_features, model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict)
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict)
 
-		if step%1==0:
-		    sess.run(model.G_train_op, feed_dict)
-		    sess.run(model.DG_train_op, feed_dict) 
+		#~ if step%1==0:
+		    #~ sess.run(model.G_train_op, feed_dict)
+		    #~ sess.run(model.DG_train_op, feed_dict) 
 		
-		sess.run(model.const_train_op, feed_dict)
+		#~ sess.run(model.const_train_op, feed_dict)
 
-		#~ sess.run(model.const_train_op_2, feed_dict)
-		
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
 		if (step+1) % 10 == 0:
@@ -599,7 +588,7 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 100 == 0:
+		if (step+1) % 1000 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 
     def eval_dsn(self):

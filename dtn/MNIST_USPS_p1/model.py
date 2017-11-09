@@ -25,11 +25,11 @@ class DSN(object):
 	in equal ratios.  
 	'''
 	
-	inputs = tf.concat(axis=1, values=[z, tf.cast(y,tf.float32)])
+	inputs = tf.concat(1, [z, tf.cast(y,tf.float32)])
 	#~ inputs = z
 	
 	with tf.variable_scope('sampler_generator', reuse=reuse):
-	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
+	    with slim.arg_scope([slim.fully_connected], weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.constant_initializer(0.0)):
 		
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
@@ -73,10 +73,10 @@ class DSN(object):
 		        		
     def D_e(self, inputs, y, reuse=False):
 		
-	inputs = tf.concat(axis=1, values=[inputs, tf.cast(y,tf.float32)])
+	inputs = tf.concat(1, [inputs, tf.cast(y,tf.float32)])
 	
 	with tf.variable_scope('disc_e',reuse=reuse):
-	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.zeros_initializer()):
+	    with slim.arg_scope([slim.fully_connected],weights_initializer=tf.contrib.layers.xavier_initializer(), biases_initializer = tf.constant_initializer(0.0)):
 		with slim.arg_scope([slim.batch_norm], decay=0.95, center=True, scale=True, 
                                     activation_fn=tf.nn.relu, is_training=(self.mode=='train_sampler')):
                     
@@ -154,7 +154,10 @@ class DSN(object):
             self.src_labels = tf.placeholder(tf.int64, [None], 'svhn_labels')
             self.trg_labels = tf.placeholder(tf.int64, [None], 'mnist_labels')
             
-	    self.src_logits = self.E(self.src_images, is_training = True)
+	    if self.mode == 'test':
+		self.src_logits = self.E(self.src_images, is_training = False)
+	    else:
+		self.src_logits = self.E(self.src_images, is_training = True)
 		
 	    self.src_pred = tf.argmax(self.src_logits, 1)
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels)
@@ -240,22 +243,18 @@ class DSN(object):
             self.labels_gen = tf.placeholder(tf.float32, [None, 10], 'labels_gen')
 	    self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'mnist_images')
+	    self.src_features = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'src_features')
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
-	    self.images = tf.concat(axis=0, values=[tf.image.rgb_to_grayscale(self.src_images), self.trg_images])
-	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
+	    self.images = tf.concat(0, [tf.image.rgb_to_grayscale(self.src_images), self.trg_images])
+	    self.labels = tf.concat(0, [self.src_labels,self.trg_labels])
 	    
-	    try:
-		self.orig_src_fx = self.E(self.src_images)
-	    except:
-		self.orig_src_fx = self.E(self.src_images, reuse=True)
+	    self.orig_src_fx = self.E(self.src_images, reuse=True)
 	    
-	    try:
-		self.fzy = self.sampler_generator(self.src_noise,self.src_labels) # instead of extracting the hidden representation from a src image, 
-	    except:
-		self.fzy = self.sampler_generator(self.src_noise,self.src_labels, reuse=True)
+	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
+	    #~ self.fzy = self.src_features
 		
 	    self.fx = self.E(self.images, reuse=True)
 	    
