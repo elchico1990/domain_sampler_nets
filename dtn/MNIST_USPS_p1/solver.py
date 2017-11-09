@@ -512,7 +512,7 @@ class Solver(object):
 	    random_idx = np.arange(len(source_features))
 	    npr.shuffle(random_idx)
 	    source_features = source_features[random_idx]
-	    source_labels = source_labels[random_idx]
+	    source_labels_feat = source_labels[random_idx]
 	
 	    	
 	tf.reset_default_graph()
@@ -570,9 +570,11 @@ class Solver(object):
 		src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
+
 		src_features = source_features[i*self.batch_size:(i+1)*self.batch_size]
+                src_labels_feat = source_labels_feat[i*self.batch_size:(i+1)*self.batch_size]
 		
-		feed_dict = {model.src_features: src_features, model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
+		feed_dict = {model.src_labels_feat = utils.one_hot(src_labels_feat,10), model.src_features: src_features, model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
 		
 		sess.run(model.E_train_op, feed_dict) 
