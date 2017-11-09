@@ -595,8 +595,9 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 7000 == 0:
+		if (step+1) % 14000 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
+		    break
 
     def eval_dsn(self):
         # build model
