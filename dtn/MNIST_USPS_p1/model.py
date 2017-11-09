@@ -253,8 +253,8 @@ class DSN(object):
 	    
 	    self.orig_src_fx = self.E(self.src_images, reuse=True)
 	    
-	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
-	    #~ self.fzy = self.src_features
+	    #~ self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
+	    self.fzy = self.src_features
 		
 	    self.fx = self.E(self.images, reuse=True)
 	    
