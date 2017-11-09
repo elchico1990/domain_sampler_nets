@@ -244,6 +244,8 @@ class DSN(object):
 	    self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'mnist_images')
 	    self.src_features = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'src_features')
+	    self.src_labels_feat = tf.placeholder(tf.float32, [None, 10], 'src_labels_feat')
+	    
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
