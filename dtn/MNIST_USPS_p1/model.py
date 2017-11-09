@@ -244,8 +244,6 @@ class DSN(object):
 	    self.src_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'svhn_images')
             self.trg_images = tf.placeholder(tf.float32, [None, 28, 28, 1], 'mnist_images')
 	    self.src_features = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'src_features')
-	    self.src_labels_feat = tf.placeholder(tf.float32, [None, 10], 'src_labels_feat')
-	    
 	    
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
@@ -256,7 +254,7 @@ class DSN(object):
 	    self.orig_src_fx = self.E(self.src_images, reuse=True)
 	    
 	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
-	    self.fzy = self.src_features
+	    #self.fzy = self.src_features
 		
 	    self.fx = self.E(self.images, reuse=True)
 	    
@@ -273,7 +271,7 @@ class DSN(object):
 	    
 	    # E losses
 	    
-	    self.logits_E_real = self.D_e(self.fzy, self.src_labels_feat)
+	    self.logits_E_real = self.D_e(self.fzy, self.src_labels)
 	    self.logits_E_fake = self.D_e(self.fx, self.labels, reuse=True)
 	    
 	    #~ self.DE_loss_real = slim.losses.sigmoid_cross_entropy(self.logits_E_real, tf.ones_like(self.logits_E_real))
