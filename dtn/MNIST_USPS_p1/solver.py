@@ -579,7 +579,7 @@ class Solver(object):
 
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
-		if (step+1) % 10 == 0:
+		if (step+1) % 1000 == 0:
 		    
 		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -588,7 +588,7 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 1000 == 0:
+		if (step+1) % 7000 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 
     def eval_dsn(self):
