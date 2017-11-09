@@ -574,7 +574,7 @@ class Solver(object):
 		src_features = source_features[i*self.batch_size:(i+1)*self.batch_size]
                 src_labels_feat = source_labels_feat[i*self.batch_size:(i+1)*self.batch_size]
 		
-		feed_dict = {model.src_labels_feat = utils.one_hot(src_labels_feat,10), model.src_features: src_features, model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
+		feed_dict = {model.src_labels_feat: utils.one_hot(src_labels_feat,10), model.src_features: src_features, model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
 		
 		
 		sess.run(model.E_train_op, feed_dict) 
