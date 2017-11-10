@@ -26,7 +26,8 @@ class Solver(object):
     def __init__(self, model, batch_size=128, pretrain_iter=20000, train_iter=20000, sample_iter=2000, 
                  log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
-		 test_model='model/dtn', adda_shared_model='model/adda_shared', convdeconv_model = 'model/conv_deconv', vgg16_ckpt='vgg_16.ckpt'):
+		 test_model='model/dtn', adda_shared_model='model/adda_shared',adda_model='model/adda', 
+		 convdeconv_model = 'model/conv_deconv', vgg16_ckpt='vgg_16.ckpt'):
         
         self.model = model
         self.batch_size = batch_size
@@ -40,6 +41,7 @@ class Solver(object):
 	self.pretrained_sampler = pretrained_sampler
         self.test_model = test_model
         self.adda_shared_model = adda_shared_model
+        self.adda_model = adda_model
 	self.convdeconv_model = convdeconv_model
 	self.no_images = {'source':2186, 'target':2401}
 	self.config = tf.ConfigProto()
@@ -284,14 +286,13 @@ class Solver(object):
 
     def train_adda_shared(self):
         
+	# build a graph
+        model = self.model
+        model.build_model()
+	
 	source_images, source_labels = self.load_NYUD(split='source')
         target_images, target_labels = self.load_NYUD(split='target')
 	
-
-        # build a graph
-        model = self.model
-        model.build_model()
-
         # make directory if not exists
         if tf.gfile.Exists(self.log_dir):
             tf.gfile.DeleteRecursively(self.log_dir)
@@ -373,7 +374,10 @@ class Solver(object):
 			trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
 		    
-		    saver.save(sess, os.path.join(self.model_save_path, 'adda_shared'))
+		    if model.mode == 'adda_shared':
+			saver.save(sess, os.path.join(self.model_save_path, 'adda_shared'))
+		    elif model.mode == 'adda':
+			saver.save(sess, os.path.join(self.model_save_path, 'adda'))
 
 
     def train_dsn(self):
@@ -648,8 +652,14 @@ class Solver(object):
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.adda_shared_model)
 		    print ('Done!')
-
 		    
+		elif sys.argv[1] == 'adda':
+		    print ('Loading pretrained model.')
+		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+		    restorer = tf.train.Saver(variables_to_restore)
+		    restorer.restore(sess, self.adda__model)
+		    print ('Done!')
+
 		else:
 		    raise NameError('Unrecognized mode.')
 	    

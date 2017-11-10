@@ -112,7 +112,7 @@ class DSN(object):
 		    if self.mode == 'train_sampler':
 			net = slim.fully_connected(inputs,128, activation_fn = lrelu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-		    elif self.mode == 'train_dsn' or self.mode == 'train_adda_shared' :
+		    elif self.mode == 'train_dsn' or 'train_adda' in self.mode :
 			net = slim.fully_connected(inputs, 1024, activation_fn = lrelu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc2')##
 			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc3')
@@ -263,14 +263,16 @@ class DSN(object):
 	    for var in tf.trainable_variables():
 		tf.summary.histogram(var.op.name, var)
 		
-	elif self.mode == 'train_adda_shared':
+	elif  'train_adda' in self.mode:
 				
 	    self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'source_images')
 	    self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'target_images')
 	    self.src_fx = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'source_features')
 	    self.src_labels = tf.placeholder(tf.float32, [None, self.no_classes ], 'source_lables')
 	    
-	    self.trg_logits = tf.squeeze(self.E(self.trg_images, make_preds=True))
+	    #~ self.trg_logits = tf.squeeeze(self.E(self.trg_images, make_preds=True))
+	    ## squeeze gives problems since it forgets shape
+	    self.trg_logits = tf.reshape(self.E(self.trg_images, make_preds=True), (-1,self.no_classes))
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_logits,1),self.no_classes )
 	    
 	     #################
@@ -282,14 +284,22 @@ class DSN(object):
 	    #################
 	    
 	    
-	    self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
-	    self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
-	    self.shared_fx = self.E(self.images, reuse=True)
+	    if self.mode == 'train_adda_shared':
+		self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
+		self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
+	    elif self.mode == 'train_adda':
+		self.images = self.trg_images
+		self.labels = self.trg_labels
+
 	    
+	    self.shared_fx = self.E(self.images, reuse=True)
+
 	    try:
 		self.dummy_fx = self.E(self.src_images)
 	    except:
 		self.dummy_fx = self.E(self.src_images, reuse=True)
+
+
 			
 	    self.logits_real = self.D_e(self.src_fx,self.src_labels, reuse=False) 
 	    self.logits_fake = self.D_e(self.shared_fx,self.labels, reuse=True)
