@@ -51,7 +51,7 @@ class Solver(object):
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'mnist_usps' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
+	self.protocol = 'usps_mnist' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
     
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -444,9 +444,11 @@ class Solver(object):
 	elif self.protocol == 'amazon_reviews':
 	    source_images, source_labels, target_images, target_labels, _, _ = self.load_amazon_reviews(self.amazon_dir)
 	
+	algorithm = str(sys.argv[1])
+	
         # build a graph
         model = self.model
-        model.build_model()
+        model.build_model(algorithm)
 
 	
 	label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,9,9,9]),10)
@@ -473,7 +475,7 @@ class Solver(object):
 
 	# build a graph
         model = self.model
-        model.build_model()
+        model.build_model(algorithm)
 
 
 	with tf.Session() as sess:
@@ -549,7 +551,7 @@ class Solver(object):
 		if (step) % 1000 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
 		    print 'Sending...'
-		    socket.send_string('run_test')
+		    socket.send_string(algorithm)
 		    
 
     def eval_dsn(self):
@@ -936,7 +938,7 @@ class Solver(object):
 		
 		print 'Waiting...'
 		
-		dummy_string = socket.recv_string()
+		algorithm = socket.recv_string()
 		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
@@ -979,7 +981,7 @@ class Solver(object):
 		print confusion_matrix(trg_test_labels[trg_rand_idxs], trg_pred)	   
 		
 		acc.append(test_trg_acc)
-		with open('test_acc_ADDA.pkl', 'wb') as f:
+		with open(self.protocol + '_' + algorithm + '.pkl', 'wb') as f:
 		    cPickle.dump(acc,f,cPickle.HIGHEST_PROTOCOL)
     
 		    
