@@ -26,7 +26,7 @@ class Solver(object):
     def __init__(self, model, batch_size=128, pretrain_iter=20000, train_iter=20000, sample_iter=2000, 
                  log_dir='logs', sample_save_path='sample', 
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
-		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv', vgg16_ckpt='vgg_16.ckpt'):
+		 test_model='model/dtn', adda_shared_model='model/adda_shared', convdeconv_model = 'model/conv_deconv', vgg16_ckpt='vgg_16.ckpt'):
         
         self.model = model
         self.batch_size = batch_size
@@ -39,6 +39,7 @@ class Solver(object):
         self.pretrained_model = pretrained_model
 	self.pretrained_sampler = pretrained_sampler
         self.test_model = test_model
+        self.adda_shared_model = adda_shared_model
 	self.convdeconv_model = convdeconv_model
 	self.no_images = {'source':2186, 'target':2401}
 	self.config = tf.ConfigProto()
@@ -390,7 +391,7 @@ class Solver(object):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 
-	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True) as sess:
+	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
 			    
 	    # initialize G and D
 	    tf.global_variables_initializer().run()
@@ -639,6 +640,13 @@ class Solver(object):
 		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.pretrained_model)
+		    print ('Done!')
+		    
+		elif sys.argv[1] == 'adda_shared':
+		    print ('Loading pretrained model.')
+		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+		    restorer = tf.train.Saver(variables_to_restore)
+		    restorer.restore(sess, self.adda_shared_model)
 		    print ('Done!')
 
 		    
