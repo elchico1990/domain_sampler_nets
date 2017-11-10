@@ -26,6 +26,8 @@ def main(_):
 	    solver.features()
     elif FLAGS.mode == 'test_ensemble':
 	    solver.test_ensemble()
+    elif FLAGS.mode == 'train_adda_shared':
+	    solver.train_adda_shared()
     else:
 	print 'Unrecognized mode.'
 	

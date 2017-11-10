@@ -280,6 +280,101 @@ class Solver(object):
                     if (t+1) % 5000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
 
+
+    def train_adda_shared(self):
+        
+	source_images, source_labels = self.load_NYUD(split='source')
+        target_images, target_labels = self.load_NYUD(split='target')
+	
+
+        # build a graph
+        model = self.model
+        model.build_model()
+
+        # make directory if not exists
+        if tf.gfile.Exists(self.log_dir):
+            tf.gfile.DeleteRecursively(self.log_dir)
+        tf.gfile.MakeDirs(self.log_dir)
+	
+	with tf.Session(config=self.config) as sess:
+	    
+	    print ('Computing latent representation.')
+            tf.global_variables_initializer().run()
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+            restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+	    
+	    ## Must do it batchwise
+	    source_fx = np.empty((0, model.hidden_repr_size))
+	    #~ counter = 0
+	    for spl_im, spl_lab in zip(np.array_split(source_images, 40),  np.array_split(source_labels, 40)):
+		feed_dict = {model.src_images: spl_im }
+		s_fx = sess.run(model.dummy_fx, feed_dict)
+		source_fx = np.vstack((source_fx, np.squeeze(s_fx)))
+		#~ print(counter)
+		#~ counter+=1
+	    assert source_fx.shape == (source_images.shape[0], model.hidden_repr_size)
+
+	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+			    
+	    tf.global_variables_initializer().run()
+	    
+	    # restore E to initialize E_shared
+	    print ('Loading Encoder.')
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+
+	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
+	    saver = tf.train.Saver()
+
+	    print ('Start training.')
+	    trg_count = 0
+	    t = 0
+	    
+	    
+	    for step in range(10000000):
+		
+		trg_count += 1
+		t+=1
+		
+		i = step % int(source_images.shape[0] / self.batch_size)
+		j = step % int(target_images.shape[0] / self.batch_size)
+		
+		src_images = source_images[i*self.batch_size:(i+1)*self.batch_size]
+		src_labels = utils.one_hot(source_labels[i*self.batch_size:(i+1)*self.batch_size].astype(int),model.no_classes)
+		src_fx = source_fx[i*self.batch_size:(i+1)*self.batch_size]
+		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
+		
+		feed_dict = {model.src_images: src_images, model.src_fx: src_fx, model.src_labels: src_labels, model.trg_images: trg_images}
+		
+		sess.run(model.g_train_op, feed_dict) 
+		sess.run(model.d_train_op, feed_dict) 
+		
+		if (step+1) % 10 == 0:
+		    logits_real,logits_fake = sess.run([model.logits_real,model.logits_fake],feed_dict) 
+		    summary, g, d = sess.run([model.summary_op, model.g_loss, model.d_loss], feed_dict)
+		    summary_writer.add_summary(summary, step)
+		    print ('Step: [%d/%d] g: [%.6f] d: [%.6f] g_real: [%.2f] g_fake: [%.2f]' \
+			       %(step+1, self.train_iter, g, d ,logits_real.mean(),logits_fake.mean()))
+
+
+		if (step+1) % 1000 == 0:
+		    trg_acc = 0.
+		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
+						np.array_split(target_labels, 40),
+						):
+			feed_dict = {model.src_images: src_images[0:2],  #dummy
+					model.src_labels: src_labels[0:2], #dummy
+					model.trg_images: trg_im, 
+					model.target_labels: trg_lab}
+			trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+			trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		    print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
+		    
+		    saver.save(sess, os.path.join(self.model_save_path, 'adda_shared'))
+
+
     def train_dsn(self):
         
 	source_images, source_labels = self.load_NYUD(split='source')
