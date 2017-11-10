@@ -359,7 +359,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, g, d ,logits_real.mean(),logits_fake.mean()))
 
 
-		if (step+1) % 1000 == 0:
+		if (step+1) % 100 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
@@ -390,7 +390,7 @@ class Solver(object):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 
-	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
+	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True) as sess:
 			    
 	    # initialize G and D
 	    tf.global_variables_initializer().run()
@@ -443,7 +443,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
 
-		if (step+1) % 20 == 0:
+		if (step+1) % 200 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
