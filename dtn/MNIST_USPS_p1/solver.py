@@ -11,6 +11,8 @@ import sys
 import glob
 import time
 
+import zmq
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 #~ import seaborn as sns
@@ -328,49 +330,6 @@ class Solver(object):
 			
 			#~ print 'Saved.'
 			saver.save(sess, os.path.join(self.model_save_path, 'model'))
-			
-
-    def train_convdeconv(self):
-
-        trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-        trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-
-        # build a graph
-        model = self.model
-        model.build_model()
-	
-        with tf.Session(config=self.config) as sess:
-            tf.global_variables_initializer().run()
-            saver = tf.train.Saver()
-	    
-            summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
-
-	    epochs = 100
-	    
-	    t = 0
-
-	    for i in range(epochs):
-		
-		print 'Epoch',str(i)
-		
-		for start, end in zip(range(0, len(trg_images), self.batch_size), range(self.batch_size, len(trg_images), self.batch_size)):
-		    
-		    t+=1
-		       
-		    feed_dict = {model.images: trg_images[start:end]}
-		    
-		    sess.run(model.train_op, feed_dict) 
-
-		    if (t+1) % 250 == 0:
-			rand_idxs = np.random.permutation(trg_test_images.shape[0])[:1000]
-			summary, l = sess.run([model.summary_op, model.loss], feed_dict = {model.images: trg_test_images[rand_idxs]})
-			summary_writer.add_summary(summary, t)
-			print ('Step: [%d/%d] loss: [%.6f]' \
-				   %(t+1, self.pretrain_iter, l))
-			
-		    if (t+1) % 250 == 0:
-			#~ print 'Saved.'
-			saver.save(sess, os.path.join(self.model_save_path, 'conv_deconv'))
 	    
     def train_sampler(self):
 	
@@ -526,12 +485,12 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    
-	    print ('Loading pretrained discriminator.')
-	    variables_to_restore = slim.get_model_variables(scope='disc_e')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    #~ print ('Loading pretrained discriminator.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
+	    #~ restorer = tf.train.Saver(variables_to_restore)
+	    #~ restorer.restore(sess, self.test_model)
 	    	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
@@ -544,10 +503,12 @@ class Solver(object):
 	    print ('Start training.')
 	    trg_count = 0
 	    t = 0
-	    
-	    
-	    
-	    for step in range(10000000):
+
+	    context = zmq.Context()
+	    socket = context.socket(zmq.DEALER)
+	    socket.connect('tcp://localhost:5560')
+
+	    for step in range(40001):
 		
 		trg_count += 1
 		t+=1
@@ -576,7 +537,7 @@ class Solver(object):
 
 		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
 		
-		if (step+1) % 1000 == 0:
+		if (step) % 1000 == 0:
 		    
 		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -585,9 +546,11 @@ class Solver(object):
 
 		    
 
-		if (step+1) % 8000 == 0:
+		if (step) % 1000 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
-		    break
+		    print 'Sending...'
+		    socket.send_string('run_test')
+		    
 
     def eval_dsn(self):
         # build model
@@ -901,6 +864,11 @@ class Solver(object):
 	    
     def test(self):
 	
+	
+	context = zmq.Context()
+	socket = context.socket(zmq.DEALER)
+	socket.connect('tcp://localhost:5570')
+	
 	if self.protocol == 'svhn_mnist':
 	    
 	    src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
@@ -966,6 +934,10 @@ class Solver(object):
 	    
 	    while(True):
 		
+		print 'Waiting...'
+		
+		dummy_string = socket.recv_string()
+		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
 		    variables_to_restore = slim.get_model_variables(scope='encoder')
@@ -1007,19 +979,9 @@ class Solver(object):
 		print confusion_matrix(trg_test_labels[trg_rand_idxs], trg_pred)	   
 		
 		acc.append(test_trg_acc)
-		with open('test_acc.pkl', 'wb') as f:
+		with open('test_acc_ADDA.pkl', 'wb') as f:
 		    cPickle.dump(acc,f,cPickle.HIGHEST_PROTOCOL)
     
-		#~ gen_acc = sess.run(fetches=[model.trg_accuracy, model.trg_pred], 
-				       #~ feed_dict={model.src_images: gen_images, 
-						  #~ model.src_labels: gen_labels,
-						  #~ model.trg_images: gen_images, 
-						  #~ model.trg_labels: gen_labels})
-				  
-		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
-			   #~ %(t+1, self.pretrain_iter, gen_acc))
-	
-		time.sleep(10.1)
 		    
 if __name__=='__main__':
 
