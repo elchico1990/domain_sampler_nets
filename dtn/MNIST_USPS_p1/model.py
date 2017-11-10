@@ -143,7 +143,7 @@ class DSN(object):
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='fc1')   # (batch_size, 1)
 		    return net
 
-    def build_model(self):
+    def build_model(self, algorithm='fa'):
         
         if self.mode == 'pretrain' or self.mode == 'test' or self.mode == 'train_gen_images':
             if self.mode == 'test':
@@ -248,15 +248,29 @@ class DSN(object):
 	    self.trg_labels = self.E(self.trg_images, make_preds=True)
 	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_labels,1),10)
 	    
-	    #~ self.images = tf.concat(0, [tf.image.rgb_to_grayscale(self.src_images), self.trg_images])
-	    #~ self.labels = tf.concat(0, [self.src_labels,self.trg_labels])
-	    self.images = tf.image.rgb_to_grayscale(self.trg_images)
-	    self.labels = self.trg_labels
+	    
+	    
+	    if algorithm=='adda':
+		print 'Training with ADDA algorithm.'
+		self.images = tf.image.rgb_to_grayscale(self.trg_images)
+		self.labels = self.trg_labels
+		self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
+		self.fzy = self.src_features
+	    elif algorithm=='Training with domain-invariant ADDA algorithm.':
+		self.images = tf.concat(0, [tf.image.rgb_to_grayscale(self.src_images), self.trg_images])
+		self.labels = tf.concat(0, [self.src_labels,self.trg_labels])
+		self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
+		self.fzy = self.src_features
+	    else:
+		print 'Training with feature augmentation.'
+		self.images = tf.concat(0, [tf.image.rgb_to_grayscale(self.src_images), self.trg_images])
+		self.labels = tf.concat(0, [self.src_labels,self.trg_labels])
+		self.fzy = self.src_features
+		self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
+		
+		
 	    
 	    self.orig_src_fx = self.E(self.src_images, reuse=True)
-	    
-	    self.fzy = self.sampler_generator(self.src_noise,self.src_labels)
-	    self.fzy = self.src_features
 	    
 	    self.fx = self.E(self.images, reuse=True)
 	    
