@@ -374,10 +374,7 @@ class Solver(object):
 			trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
 		    
-		    if model.mode == 'adda_shared':
-			saver.save(sess, os.path.join(self.model_save_path, 'adda_shared'))
-		    elif model.mode == 'adda':
-			saver.save(sess, os.path.join(self.model_save_path, 'adda'))
+		    saver.save(sess, os.path.join(self.model_save_path, model.mode))
 
 
     def train_dsn(self):
@@ -657,7 +654,7 @@ class Solver(object):
 		    print ('Loading pretrained model.')
 		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 		    restorer = tf.train.Saver(variables_to_restore)
-		    restorer.restore(sess, self.adda__model)
+		    restorer.restore(sess, self.adda_model)
 		    print ('Done!')
 
 		else:
