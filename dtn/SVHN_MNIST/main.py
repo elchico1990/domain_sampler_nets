@@ -16,7 +16,7 @@ def main(_):
     
     npr.seed(291)
     
-    GPU_ID = 1
+    GPU_ID = 2
 
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152 on stackoverflow
     os.environ["CUDA_VISIBLE_DEVICES"] = str(GPU_ID)
