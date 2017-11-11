@@ -2,6 +2,10 @@ import tensorflow as tf
 from model import DSN
 from solver import Solver
 
+import os
+
+import numpy.random as npr
+
 flags = tf.app.flags
 flags.DEFINE_string('mode', 'train', "'pretrain', 'train' or 'eval'")
 flags.DEFINE_string('model_save_path', 'model', "directory for saving the model")
@@ -10,6 +14,15 @@ FLAGS = flags.FLAGS
 
 def main(_):
     
+    npr.seed(291)
+    
+    GPU_ID = 3
+
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152 on stackoverflow
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(GPU_ID)
+
+
+
     model = DSN(mode=FLAGS.mode, learning_rate=0.0003)
     solver = Solver(model, svhn_dir='../data/svhn', mnist_dir='../data/mnist', model_save_path=FLAGS.model_save_path, sample_save_path=FLAGS.sample_save_path)
     

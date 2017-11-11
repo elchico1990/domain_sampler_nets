@@ -26,4 +26,5 @@
 /semantic_segmentation/images
 /semantic_segmentation/logs
 /semantic_segmentation/experiments/
-dtn/weakly_supervised_learning/logs/
+/dtn/weakly_supervised_learning/logs/
+/dtn/MNIST_USPS_p1/model
