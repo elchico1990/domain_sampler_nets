@@ -3,9 +3,9 @@ import cPickle
 import numpy as np
 
 
-file_FA = '/cvgl2/u/rvolpi/SVHN_MNIST/model_4/svhn_mnist_fa.pkl' 
-file_di_ADDA = '/cvgl2/u/rvolpi/SVHN_MNIST/model_4/svhn_mnist_adda_di.pkl' 
-file_ADDA = '/cvgl2/u/rvolpi/SVHN_MNIST/model_4/svhn_mnist_adda.pkl'
+file_FA = './svhn_mnist_fa.pkl' 
+file_di_ADDA = './svhn_mnist_adda_di.pkl' 
+file_ADDA = './svhn_mnist_adda.pkl'
 
 with open(file_FA,'r') as f:
 	data_FA = cPickle.load(f)
