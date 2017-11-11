@@ -112,7 +112,7 @@ class DSN(object):
 		    if self.mode == 'train_sampler':
 			net = slim.fully_connected(inputs,128, activation_fn = lrelu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sdisc_fc2')
-		    elif self.mode == 'train_dsn':
+		    elif self.mode == 'train_dsn' or 'train_adda' in self.mode :
 			net = slim.fully_connected(inputs, 1024, activation_fn = lrelu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc2')##
 			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc3')
@@ -262,6 +262,74 @@ class DSN(object):
 
 	    for var in tf.trainable_variables():
 		tf.summary.histogram(var.op.name, var)
+		
+	elif  'train_adda' in self.mode:
+				
+	    self.src_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'source_images')
+	    self.trg_images = tf.placeholder(tf.float32, [None, 224, 224, 3], 'target_images')
+	    self.src_fx = tf.placeholder(tf.float32, [None, self.hidden_repr_size], 'source_features')
+	    self.src_labels = tf.placeholder(tf.float32, [None, self.no_classes ], 'source_lables')
+	    
+	    #~ self.trg_logits = tf.squeeeze(self.E(self.trg_images, make_preds=True))
+	    ## squeeze gives problems since it forgets shape
+	    self.trg_logits = tf.reshape(self.E(self.trg_images, make_preds=True), (-1,self.no_classes))
+	    self.trg_labels = tf.one_hot(tf.argmax(self.trg_logits,1),self.no_classes )
+	    
+	     #################
+	    #temporarily added just to print out test accuracy during dsn training
+	    self.trg_pred = tf.argmax(self.trg_logits, 1) 
+	    self.target_labels = tf.placeholder(tf.int64, [None], 'target_labels') #name different from inferrend labels
+            self.trg_correct_pred = tf.equal(self.trg_pred, self.target_labels)
+            self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
+	    #################
+	    
+	    
+	    if self.mode == 'train_adda_shared':
+		self.images = tf.concat(axis=0, values=[self.src_images, self.trg_images])
+		self.labels = tf.concat(axis=0, values=[self.src_labels,self.trg_labels])
+	    elif self.mode == 'train_adda':
+		self.images = self.trg_images
+		self.labels = self.trg_labels
+
+	    
+	    self.shared_fx = self.E(self.images, reuse=True)
+
+	    try:
+		self.dummy_fx = self.E(self.src_images)
+	    except:
+		self.dummy_fx = self.E(self.src_images, reuse=True)
+
+
+			
+	    self.logits_real = self.D_e(self.src_fx,self.src_labels, reuse=False) 
+	    self.logits_fake = self.D_e(self.shared_fx,self.labels, reuse=True)
+	    
+	    self.d_loss_real = tf.reduce_mean(tf.square(self.logits_real - tf.ones_like(self.logits_real)))
+	    self.d_loss_fake = tf.reduce_mean(tf.square(self.logits_fake - tf.zeros_like(self.logits_fake)))
+	    
+	    self.d_loss = self.d_loss_real + self.d_loss_fake
+	    
+	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
+	    
+	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/100)
+	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/100)
+	    
+	    t_vars = tf.trainable_variables()
+	    d_vars = [var for var in t_vars if 'disc_e' in var.name]
+	    g_vars = [var for var in t_vars if 'vgg_16' in var.name]
+	    
+	    # train op
+	    with tf.variable_scope('source_train_op',reuse=False):
+		self.d_train_op = slim.learning.create_train_op(self.d_loss, self.d_optimizer, variables_to_train=d_vars)
+		self.g_train_op = slim.learning.create_train_op(self.g_loss, self.g_optimizer, variables_to_train=g_vars)
+	    
+	    # summary op
+	    d_loss_summary = tf.summary.scalar('d_loss', self.d_loss)
+	    g_loss_summary = tf.summary.scalar('g_loss', self.g_loss)
+	    self.summary_op = tf.summary.merge([d_loss_summary, g_loss_summary])
+
+	    for var in tf.trainable_variables():
+		tf.summary.histogram(var.op.name, var)
         
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, self.noise_dim], 'noise')
@@ -311,9 +379,6 @@ class DSN(object):
 	    self.DE_loss = self.DE_loss_real + self.DE_loss_fake 
 	    
 	    self.E_loss = tf.reduce_mean(tf.square(self.logits_E_fake - tf.ones_like(self.logits_E_fake)))
-	    
-	    # Optimizers
-	   
            
 	    # Optimizers
 	    

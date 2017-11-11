@@ -8,7 +8,7 @@ FLAGS = flags.FLAGS
 
 def main(_):
     
-    model = DSN(mode=FLAGS.mode, learning_rate=0.000005)
+    model = DSN(mode=FLAGS.mode, learning_rate=0.00001)
     solver = Solver(model, batch_size=32)
 
     
@@ -26,6 +26,8 @@ def main(_):
 	    solver.features()
     elif FLAGS.mode == 'test_ensemble':
 	    solver.test_ensemble()
+    elif FLAGS.mode == 'train_adda_shared' or FLAGS.mode == 'train_adda':
+	    solver.train_adda_shared()
     else:
 	print 'Unrecognized mode.'
 	
