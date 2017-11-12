@@ -333,7 +333,7 @@ class Solver(object):
 	    print ('Start training.')
 	    trg_count = 0
 	    t = 0
-	    
+	    accTeSet =[]
 	    
 	    for step in range(10000000):
 		
@@ -373,7 +373,10 @@ class Solver(object):
 			trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
 			trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
-		    
+		    accTeSet.append(trg_acc/len(target_labels))
+		    with file(model.mode + '_test_accuracies.pkl', 'w') as f:
+			cPickle.dump(accTeSet, f, protocol=cPickle.HIGHEST_PROTOCOL)
+			
 		    if model.mode == 'train_adda_shared':
 			saver.save(sess, os.path.join(self.model_save_path, 'adda_shared'))
 		    elif model.mode == 'train_adda':
@@ -420,6 +423,7 @@ class Solver(object):
 	    t = 0
 	    
 	    
+	    accTeSet = []
 	    noise_dim = model.noise_dim		
 	    
 	    for step in range(10000000):
@@ -460,7 +464,9 @@ class Solver(object):
 			trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
 			trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
-		    
+		    accTeSet.append(trg_acc/len(target_labels))
+		    with file(model.mode + 'test_accuracies.pkl', 'w') as f:
+			cPickle.dump(accTeSet, f, protocol=cPickle.HIGHEST_PROTOCOL)
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
     def eval_dsn(self):
