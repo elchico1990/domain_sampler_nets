@@ -11,7 +11,7 @@ import cPickle
 import sys
 import glob
 import time
-
+import zmq
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
@@ -25,9 +25,9 @@ from scipy import misc
 class Solver(object):
 
     def __init__(self, model, batch_size=16, pretrain_iter=100000, train_iter=51000, sample_iter=2000, 
-                 svhn_dir='../data/svhn', syn_dir='../data/syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
-		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model/model', gen_model='model/model_gen', pretrained_sampler='model/sampler', 
-		 test_model='model/dtn', convdeconv_model = 'model/conv_deconv', start_img=0, end_img=1600):
+                 svhn_dir='/data/svhn', syn_dir='/data/syn', mnist_dir='mnist', mnist_m_dir='mnist_m', usps_dir='usps', amazon_dir='amazon_reviews',
+		 log_dir='logs', sample_save_path='sample', model_save_path='model', pretrained_model='model', gen_model='model_gen', pretrained_sampler='sampler', 
+		 test_model='dtn', convdeconv_model = 'conv_deconv', start_img=0, end_img=1600):
         
         self.model = model
         self.batch_size = batch_size
@@ -36,24 +36,32 @@ class Solver(object):
         self.sample_iter = sample_iter
         self.svhn_dir = svhn_dir
         self.syn_dir = syn_dir
-        self.mnist_dir = 'data/'+mnist_dir
-        self.mnist_m_dir = 'data/'+mnist_m_dir
-        self.usps_dir = 'data/'+usps_dir
-	self.amazon_dir = 'data/'+amazon_dir
+        self.usps_dir = usps_dir
         self.log_dir = log_dir
         self.sample_save_path = sample_save_path
         self.model_save_path = model_save_path
-        self.pretrained_model = pretrained_model
-	self.gen_model = gen_model
-	self.pretrained_sampler = pretrained_sampler
-        self.test_model = test_model
+        
+	if sys.argv[1] == 'adda':
+	    self.model_save_path='/cvgl2/u/rvolpi/SYN_SVHN/model/adda'
+	    
+	elif sys.argv[1] == 'adda_di':
+	    self.model_save_path='/cvgl2/u/rvolpi/SYN_SVHN/model/adda_di'
+	    
+	elif sys.argv[1] == 'fa':
+	    self.model_save_path='/cvgl2/u/rvolpi/SYN_SVHN/model/fa'
+	    
+	else:
+	    self.model_save_path='/cvgl2/u/rvolpi/SYN_SVHN/model'
+	    
+	self.pretrained_model = os.path.join(self.model_save_path,pretrained_model)
+	self.pretrained_sampler = os.path.join(self.model_save_path,pretrained_sampler)
+	self.test_model = os.path.join(self.model_save_path,test_model)
+	
+	
 	self.convdeconv_model = convdeconv_model
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth=True
-	self.protocol = 'syn_svhn' # possibilities: svhn_mnist, mnist_usps, usps_mnist, syn_svhn, mnist_mnist_m, amazon_reviews
-	
-	self.start_img = start_img
-	self.end_img = end_img
+	self.protocol = 'syn_svhn'
     
     def load_svhn(self, image_dir, split='train'):
         print ('Loading SVHN dataset.')
@@ -365,17 +373,38 @@ class Solver(object):
 	if self.protocol=='syn_svhn':
 	    source_images, source_labels = self.load_syn(self.syn_dir, split='train')
 	    target_images, target_labels = self.load_svhn(self.svhn_dir, split='train')
-	    target_images = target_images[self.start_img:self.end_img]
-	    target_labels = target_labels[self.start_img:self.end_img]
 
         # build a graph
         model = self.model
         model.build_model()
 
-        # make directory if not exists
-        if tf.gfile.Exists(self.log_dir):
-            tf.gfile.DeleteRecursively(self.log_dir)
-        tf.gfile.MakeDirs(self.log_dir)
+	source_features = np.zeros((len(source_images),512))
+	
+	#~ self.config = tf.ConfigProto(device_count = {'GPU': 0})
+	
+	with tf.Session(config=self.config) as sess:
+	    	    
+	    tf.global_variables_initializer().run()
+	    
+	    print ('Loading pretrained encoder.')
+	    variables_to_restore = slim.get_model_variables(scope='encoder')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.pretrained_model)
+	    
+	    print 'Extracting source features'
+	    
+	    for indices, source_images_batch in zip(np.array_split(np.arange(len(source_images)),20), np.array_split(source_images,20)):
+		print indices[0]
+		source_features[indices] = sess.run(model.orig_src_fx, feed_dict={model.src_features: np.zeros((1,512)), model.src_images: source_images_batch, model.src_noise: np.zeros((1,100)), model.src_labels: utils.one_hot(source_labels,10), model.trg_images: target_images[0:1]})
+
+        
+	    	
+	tf.reset_default_graph()
+
+	# build a graph
+        model = self.model
+        model.build_model(algorithm)
+
 
 	with tf.Session(config=self.config) as sess:
 	    	    
@@ -386,39 +415,37 @@ class Solver(object):
 	    print ('Loading pretrained encoder.')
 	    variables_to_restore = slim.get_model_variables(scope='encoder')
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.test_model)
+	    restorer.restore(sess, self.pretrained_model)
 	    
-	    #~ print ('Loading pretrained generator.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='generator')
+	    #~ print ('Loading pretrained discriminator.')
+	    #~ variables_to_restore = slim.get_model_variables(scope='disc_e')
 	    #~ restorer = tf.train.Saver(variables_to_restore)
 	    #~ restorer.restore(sess, self.test_model)
-	    
-	    #~ print ('Loading pretrained disc_g.')
-	    #~ variables_to_restore = slim.get_model_variables(scope='disc_g')
-	    #~ restorer = tf.train.Saver(variables_to_restore)
-	    #~ restorer.restore(sess, self.test_model)
-
-	    
+	    	    
 	    print ('Loading sample generator.')
 	    variables_to_restore = slim.get_model_variables(scope='sampler_generator')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_sampler)
 	    
-
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 	    saver = tf.train.Saver()
 
 	    print ('Start training.')
 	    trg_count = 0
 	    t = 0
+
+	    context = zmq.Context()
+	    socket = context.socket(zmq.DEALER)
 	    
+	    if sys.argv[1] == 'adda':
+		socket.connect('tcp://localhost:5560')
+	    elif sys.argv[1] == 'adda_di':
+		socket.connect('tcp://localhost:5660')
+	    if sys.argv[1] == 'fa':
+		socket.connect('tcp://localhost:5760')
 	    
-	    label_gen = utils.one_hot(np.array([0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5]),10)
-	    
-	    for step in range(self.train_iter):
-		
-		if step%100==0:
-		    npr.shuffle(target_images)
+
+	    for step in range(40001):
 		
 		trg_count += 1
 		t+=1
@@ -431,30 +458,30 @@ class Solver(object):
 		src_labels_int = source_labels[i*self.batch_size:(i+1)*self.batch_size]
 		src_noise = utils.sample_Z(self.batch_size,100,'uniform')
 		trg_images = target_images[j*self.batch_size:(j+1)*self.batch_size]
+		src_features = source_features[i*self.batch_size:(i+1)*self.batch_size]
 		
-		feed_dict = {model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images, model.labels_gen: label_gen}
+		feed_dict = {model.src_features: src_features, model.src_images: src_images, model.src_noise: src_noise, model.src_labels: src_labels, model.trg_images: trg_images}
 		
 		
-		#~ sess.run(model.E_train_op, feed_dict) 
-		#~ sess.run(model.DE_train_op, feed_dict)
-		
-		sess.run(model.G_train_op, feed_dict)
-		sess.run(model.DG_train_op, feed_dict) 
-		sess.run(model.const_train_op, feed_dict)
+		sess.run(model.E_train_op, feed_dict) 
+		sess.run(model.DE_train_op, feed_dict)
 
-		logits_E_real,logits_E_fake,logits_G_real,logits_G_fake = sess.run([model.logits_E_real,model.logits_E_fake,model.logits_G_real,model.logits_G_fake],feed_dict) 
+		logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
 		
-		if (step+1) % 1000 == 0:
+		if (step) % 1000 == 0:
 		    
-		    summary, E, DE, G, DG, cnst = sess.run([model.summary_op, model.E_loss, model.DE_loss, model.G_loss, model.DG_loss, model.const_loss], feed_dict)
+		    summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
-		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] G: [%.6f] DG: [%.6f] Const: [%.6f] E_real: [%.2f] E_fake: [%.2f] G_real: [%.2f] G_fake: [%.2f]' \
-			       %(step+1, self.train_iter, E, DE, G, DG, cnst,logits_E_real.mean(),logits_E_fake.mean(),logits_G_real.mean(),logits_G_fake.mean()))
+		    print ('Step: [%d/%d] E: [%.6f] DE: [%.6f] E_real: [%.2f] E_fake: [%.2f]' \
+			       %(step+1, self.train_iter, E, DE, logits_E_real.mean(),logits_E_fake.mean()))
 
 		    
 
-		if (step+1) % 10000 == 0:
-		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
+		if (step) % 1000 == 0:
+		    print 'Saving...'
+		    saver.save(sess, self.test_model)
+		    print 'Sending...'
+		    socket.send_string(algorithm)
 
     def eval_dsn(self, name = '1600'):
         # build model
@@ -708,21 +735,16 @@ class Solver(object):
 	    
     def test(self):
 	
-	if self.protocol == 'svhn_mnist':
-	    
-	    src_images, src_labels = self.load_svhn(self.svhn_dir, split='train')
-	    src_test_images, src_test_labels = self.load_svhn(self.svhn_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
 	
-	elif self.protocol == 'mnist_mnist_m':
-	    
-	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_mnist_m(self.mnist_m_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist_m(self.mnist_m_dir, split='test')
+	context = zmq.Context()
+	socket = context.socket(zmq.DEALER)
+	
+	if sys.argv[1] == 'adda':
+	    socket.connect('tcp://localhost:5570')
+	elif sys.argv[1] == 'adda_di':
+	    socket.connect('tcp://localhost:5670')
+	elif sys.argv[1] == 'fa':
+	    socket.connect('tcp://localhost:5770')
 	
 	elif self.protocol == 'syn_svhn':
 	    
@@ -731,29 +753,6 @@ class Solver(object):
 	    
 	    trg_images, trg_labels = self.load_svhn(self.svhn_dir, split='test')
 	    trg_test_images, trg_test_labels = self.load_svhn(self.svhn_dir, split='test')
-	
-	elif self.protocol == 'mnist_usps':
-	    
-	    src_images, src_labels = self.load_mnist(self.mnist_dir, split='train')
-	    src_test_images, src_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    trg_images, trg_labels = self.load_usps(self.usps_dir)
-	    trg_test_images = trg_images
-	    trg_test_labels = trg_labels
-	    
-	elif self.protocol == 'usps_mnist':
-	    
-	    trg_images, trg_labels = self.load_mnist(self.mnist_dir, split='train')
-	    trg_test_images, trg_test_labels = self.load_mnist(self.mnist_dir, split='test')
-	    
-	    src_images, src_labels = self.load_usps(self.usps_dir)
-	    src_test_images = src_images
-	    src_test_labels = src_labels
-	
-	elif self.protocol == 'amazon_reviews':
-	    src_images, src_labels, trg_images, trg_labels, trg_test_images, trg_test_labels = self.load_amazon_reviews(self.amazon_dir)
-	    src_test_images, src_test_labels = src_images, src_labels
-	
 	
 	#~ gen_images, gen_labels = self.load_gen_images()
 
@@ -773,19 +772,23 @@ class Solver(object):
 	    
 	    while(True):
 		
-		if sys.argv[1] == 'test':
+		print 'Waiting...'
+		
+		#~ algorithm = socket.recv_string()
+		
+		if sys.argv[2] == 'test':
 		    print ('Loading test model.')
 		    variables_to_restore = slim.get_model_variables(scope='encoder')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.test_model)
 		
-		elif sys.argv[1] == 'pretrain':
+		elif sys.argv[2] == 'pretrain':
 		    print ('Loading pretrained model.')
 		    variables_to_restore = slim.get_model_variables(scope='encoder')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.pretrained_model)
 		
-		elif sys.argv[1] == 'gen':
+		elif sys.argv[2] == 'gen':
 		    print ('Loading gen model.')
 		    variables_to_restore = slim.get_model_variables(scope='encoder')
 		    restorer = tf.train.Saver(variables_to_restore)
@@ -796,15 +799,15 @@ class Solver(object):
 	    
 		t+=1
     
-		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:3000]
+		src_rand_idxs = np.random.permutation(src_test_images.shape[0])[:]
 		trg_rand_idxs = np.random.permutation(trg_test_images.shape[0])[:]
 		test_src_acc, test_trg_acc, trg_pred = sess.run(fetches=[model.src_accuracy, model.trg_accuracy, model.trg_pred], 
 				       feed_dict={model.src_images: src_test_images[src_rand_idxs], 
 						  model.src_labels: src_test_labels[src_rand_idxs],
 						  model.trg_images: trg_test_images[trg_rand_idxs], 
 						  model.trg_labels: trg_test_labels[trg_rand_idxs]})
-		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:3000], 
-								  model.src_labels: src_labels[:3000],
+		src_acc = sess.run(model.src_accuracy, feed_dict={model.src_images: src_images[:20000], 
+								  model.src_labels: src_labels[:20000],
 						                  model.trg_images: trg_test_images[trg_rand_idxs], 
 								  model.trg_labels: trg_test_labels[trg_rand_idxs]})
 						  
@@ -814,20 +817,10 @@ class Solver(object):
 		print confusion_matrix(trg_test_labels[trg_rand_idxs], trg_pred)	   
 		
 		acc.append(test_trg_acc)
-		with open('test_acc.pkl', 'wb') as f:
+		with open(self.protocol + '_' + algorithm + '.pkl', 'wb') as f:
 		    cPickle.dump(acc,f,cPickle.HIGHEST_PROTOCOL)
-    
-		#~ gen_acc = sess.run(fetches=[model.trg_accuracy, model.trg_pred], 
-				       #~ feed_dict={model.src_images: gen_images, 
-						  #~ model.src_labels: gen_labels,
-						  #~ model.trg_images: gen_images, 
-						  #~ model.trg_labels: gen_labels})
-				  
-		#~ print ('Step: [%d/%d] src train acc [%.2f]  src test acc [%.2f] trg test acc [%.2f]' \
-			   #~ %(t+1, self.pretrain_iter, gen_acc))
-	
-		time.sleep(10.1)
 		    
+		    		    
 if __name__=='__main__':
 
     from model import DSN
