@@ -361,7 +361,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, g, d ,logits_real.mean(),logits_fake.mean()))
 
 
-		if (step+1) % 100 == 0:
+		if (step+1) % 20 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
@@ -452,7 +452,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
 
-		if (step+1) % 200 == 0:
+		if (step+1) % 20 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
@@ -465,7 +465,7 @@ class Solver(object):
 			trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    print ('trg acc [%.4f]' %(trg_acc/len(target_labels)))
 		    accTeSet.append(trg_acc/len(target_labels))
-		    with file(model.mode + 'test_accuracies.pkl', 'w') as f:
+		    with file(model.mode + '_test_accuracies.pkl', 'w') as f:
 			cPickle.dump(accTeSet, f, protocol=cPickle.HIGHEST_PROTOCOL)
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
