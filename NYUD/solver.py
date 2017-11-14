@@ -326,6 +326,11 @@ class Solver(object):
 	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
+	    
+	    print ('resuming adda training.')
+	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    restorer = tf.train.Saver(variables_to_restore)
+	    restorer.restore(sess, self.adda_shared_model)
 
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 	    saver = tf.train.Saver()
@@ -762,8 +767,8 @@ class Solver(object):
 	    #with open('features_noise.pkl','w') as f:
 		#cPickle.dump(features, f, cPickle.HIGHEST_PROTOCOL)
 	
-	with open('features.pkl','r') as f:
-	    features = cPickle.load(f)
+	#~ with open('features.pkl','r') as f:
+	    #~ features = cPickle.load(f)
 	    
 	features[features > 0] = 1
 	features[features < 0] = -1
