@@ -326,11 +326,6 @@ class Solver(object):
 	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
-	    
-	    print ('resuming adda training.')
-	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
-	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.adda_shared_model)
 
 	    summary_writer = tf.summary.FileWriter(logdir=self.log_dir, graph=tf.get_default_graph())
 	    saver = tf.train.Saver()
