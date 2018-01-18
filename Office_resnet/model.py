@@ -16,7 +16,7 @@ class DSN(object):
         self.mode = mode
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 128
-	self.no_classes = 19
+	self.no_classes = 31
 	self.noise_dim = 100
 
     
@@ -185,7 +185,8 @@ class DSN(object):
 	    t_vars = tf.trainable_variables()
 	    
 	    train_vars = t_vars#[var for var in t_vars if 'logits' in var.name]
-	    #~ print train_vars
+	    #~ for v in train_vars:
+		#~ print v
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,self.no_classes )))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))

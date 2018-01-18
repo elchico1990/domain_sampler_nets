@@ -87,7 +87,7 @@ class Solver(object):
 		labels[c] = l
 		c+=1
 	    l+=1
-		
+	
 	rnd_indices = np.arange(len(labels))
 	npr.seed(231)
 	npr.shuffle(rnd_indices)
@@ -110,7 +110,7 @@ class Solver(object):
 	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 	    # get rid of logits
 	    variables_to_restore = [vv for vv in variables_to_restore if 'logits' not in vv.name]	    
-	    #~ variables_to_restore = [vv for vv in variables_to_restore if 'fc7' not in vv.name]	    
+	    #variables_to_restore = [vv for vv in variables_to_restore if 'fc7' not in vv.name]	    
 
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.resnet50_ckpt)
@@ -167,33 +167,33 @@ class Solver(object):
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
 		
 		# Eval on target
-		trg_acc = 0.
-		for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
-						np.array_split(trg_labels, 40),
-						):
-		    feed_dict = {model.src_images: src_images[0:2],  #dummy
-				    model.src_labels: src_labels[0:2], #dummy
-				    model.trg_images: trg_im, 
-				    model.trg_labels: trg_lab}
-		    trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
-		    trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		#~ trg_acc = 0.
+		#~ for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
+						#~ np.array_split(trg_labels, 40),
+						#~ ):
+		    #~ feed_dict = {model.src_images: src_images[0:2],  #dummy
+				    #~ model.src_labels: src_labels[0:2], #dummy
+				    #~ model.trg_images: trg_im, 
+				    #~ model.trg_labels: trg_lab}
+		    #~ trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+		    #~ trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    
-		print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
+		#~ print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
 		
 			
-		# Eval on source
-		src_acc = 0.
-		for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
-						np.array_split(src_labels, 40),
-						):
-		    feed_dict = {model.src_images: src_im,
-				    model.src_labels: src_lab,
-				    model.trg_images: trg_images[0:2], #dummy
-				    model.trg_labels: trg_lab[0:2]}#dummy
-		    src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
-		    src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
+		#~ # Eval on source
+		#~ src_acc = 0.
+		#~ for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
+						#~ np.array_split(src_labels, 40),
+						#~ ):
+		    #~ feed_dict = {model.src_images: src_im,
+				    #~ model.src_labels: src_lab,
+				    #~ model.trg_images: trg_images[0:2], #dummy
+				    #~ model.trg_labels: trg_lab[0:2]}#dummy
+		    #~ src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
+		    #~ src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
 		    
-		print ('src acc [%.4f]' %(src_acc/len(src_labels)))
+		#~ print ('src acc [%.4f]' %(src_acc/len(src_labels)))
 			   
 		saver.save(sess, os.path.join(self.model_save_path, 'model'))
 		
@@ -743,7 +743,7 @@ class Solver(object):
 	    inf_labels = np.zeros((no_items,))
 	    
 	    noise = utils.sample_Z(no_items, 100, 'uniform')
-	    labels = utils.one_hot(npr.randint(19,size=no_items), 19)
+	    labels = utils.one_hot(npr.randint(model.no_classes,size=no_items), model.no_classes)
 
 	    i=0
 	    #~ # Eval on source
