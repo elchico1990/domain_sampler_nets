@@ -202,8 +202,8 @@ class Solver(object):
     def train_sampler(self):
 	
 	print 'Training sampler.'
-        
-	source_images, source_labels = self.load_NYUD(split='source')
+	
+	source_images, source_labels  = self.load_office(split=self.src_dir)
 	source_labels = utils.one_hot(source_labels.astype(int), self.no_classes )
         
         # build a graph
@@ -225,7 +225,7 @@ class Solver(object):
 	    
 	    print ('Computing latent representation.')
             tf.global_variables_initializer().run()
-	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
             restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 	    

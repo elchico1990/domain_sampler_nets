@@ -72,9 +72,10 @@ class DSN(object):
 	    net, end_points = resnet_v1.resnet_v1_50(images, self.no_classes, is_training=is_training, reuse=reuse)
 
 	if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-	    print('pretrain')
-			
-	return net
+	    #return the logits
+	    return net
+	else:
+	    return end_points['resnet_v1_50/block4 '] #last bottleneck before logits
 	
 			    
     def D_e(self, inputs, y, reuse=False):
