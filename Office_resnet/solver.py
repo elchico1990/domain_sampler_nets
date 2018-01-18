@@ -166,19 +166,19 @@ class Solver(object):
 		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f] ' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
 		
-		# Eval on target
-		#~ trg_acc = 0.
-		#~ for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
-						#~ np.array_split(trg_labels, 40),
-						#~ ):
-		    #~ feed_dict = {model.src_images: src_images[0:2],  #dummy
-				    #~ model.src_labels: src_labels[0:2], #dummy
-				    #~ model.trg_images: trg_im, 
-				    #~ model.trg_labels: trg_lab}
-		    #~ trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
-		    #~ trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		#~ # Eval on target
+		trg_acc = 0.
+		for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
+						np.array_split(trg_labels, 40),
+						):
+		    feed_dict = {model.src_images: src_images[0:2],  #dummy
+				    model.src_labels: src_labels[0:2], #dummy
+				    model.trg_images: trg_im, 
+				    model.trg_labels: trg_lab}
+		    trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+		    trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    
-		#~ print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
+		print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
 		
 			
 		#~ # Eval on source
@@ -625,9 +625,6 @@ class Solver(object):
 	    
     def test(self):
 	
-	# load svhn dataset
-	src_images, src_labels = self.load_NYUD(split='source')
-        trg_images, trg_labels = self.load_NYUD(split='target')
 	
 	
 	# build a graph
@@ -647,28 +644,28 @@ class Solver(object):
 		
 		if sys.argv[1] == 'test':
 		    print ('Loading test model.')
-		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+		    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.test_model)
 		    print ('Done!')
 		
 		elif sys.argv[1] == 'pretrain':
 		    print ('Loading pretrained model.')
-		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+		    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.pretrained_model)
 		    print ('Done!')
 		    
 		elif sys.argv[1] == 'adda_shared':
 		    print ('Loading pretrained model.')
-		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+		    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.adda_shared_model)
 		    print ('Done!')
 		    
 		elif sys.argv[1] == 'adda':
 		    print ('Loading pretrained model.')
-		    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+		    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.adda_model)
 		    print ('Done!')
@@ -676,6 +673,10 @@ class Solver(object):
 		else:
 		    raise NameError('Unrecognized mode.')
 	    
+	    
+		src_images, src_labels = self.load_office(split=self.src_dir)
+		trg_images, trg_labels = self.load_office(split=self.trg_dir)
+		
 		# Eval on target
 		trg_acc = 0.
 		for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 

@@ -190,6 +190,7 @@ class DSN(object):
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,self.no_classes )))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
+	    #for some reason Adam leads to severe overfitting
 	    #~ self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
 	    self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
 	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
