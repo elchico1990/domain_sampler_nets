@@ -1,6 +1,6 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-
+from tensorflow.contrib.slim.nets import resnet_v1
 # Issue #6064: slim does not import nets, must import manually
 # import tensorflow.contrib.slim.nets as nets # implemented here to return fc layers
 
@@ -12,7 +12,7 @@ from utils import lrelu
 class DSN(object):
     """Domain Sampler Network
     """
-    def __init__(self, mode='train', learning_rate=0.00001):
+    def __init__(self, mode='train', learning_rate=0.0001):
         self.mode = mode
         self.learning_rate = learning_rate
 	self.hidden_repr_size = 128
@@ -58,44 +58,21 @@ class DSN(object):
 		    return net
 		    
 		    
-    def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
+    def E(self, images, reuse=False, make_preds=False, is_training=False):
 	
 	#~ _mode = self.mode == 'eval_dsn'
 	
-	with tf.variable_scope('vgg_16', reuse=reuse):
-	    # vgg16  as in https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/slim#working-example-specifying-the-vgg16-layers
-	    with slim.arg_scope([slim.conv2d],
-			  activation_fn=tf.nn.relu,
-			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
-			  weights_regularizer=slim.l2_regularizer(0.0005)):
+	#~ with tf.variable_scope('resnet_v1_50', reuse=reuse):
+
 			      
-		if self.mode=='features':
-		    images = tf.reshape(images,[-1,1,1,self.hidden_repr_size])
-		    return slim.conv2d(images, self.no_classes , [1,1], activation_fn=None, scope='fc8')
-		
-			      
-		with tf.device('/gpu:0' if not self.mode=='features'  else '/cpu:0'):
-		#~ with tf.device('/gpu:0'):
-		    net = slim.repeat(images, 2, slim.conv2d, 64, [3, 3], scope='conv1')
-		    net = slim.max_pool2d(net, [2, 2], scope='pool1')
-		    net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
-		    net = slim.max_pool2d(net, [2, 2], scope='pool2')
-		    net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
-		    net = slim.max_pool2d(net, [2, 2], scope='pool3')	
-		    	
-		with tf.device('/gpu:1' if not self.mode=='features' else '/cpu:0'):
-		#~ with tf.device('/gpu:1'):
-		    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
-		    net = slim.max_pool2d(net, [2, 2], scope='pool4')
-		    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
-		    net = slim.max_pool2d(net, [2, 2], scope='pool5')
-		    net = slim.conv2d(net, 4096, [7, 7], padding='VALID', scope='fc6')
-		    net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout6')
-		    ## differs from vgg
-		    net = slim.conv2d(net, self.hidden_repr_size , [1, 1], padding='VALID', activation_fn=tf.tanh, scope='fc7')
-		    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-			#~ net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
-			net = slim.conv2d(net, self.no_classes , [1,1], activation_fn=None, scope='fc8')
+	    #~ if self.mode=='features':
+		#~ images = tf.reshape(images,[-1,1,1,self.hidden_repr_size])
+		#~ return slim.conv2d(images, self.no_classes , [1,1], activation_fn=None, scope='fc8')
+	with slim.arg_scope(resnet_v1.resnet_arg_scope()):
+	    net, end_points = resnet_v1.resnet_v1_50(images, self.no_classes, is_training=is_training, reuse=reuse)
+
+	if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
+	    print('pretrain')
 			
 	return net
 	
@@ -193,6 +170,7 @@ class DSN(object):
 	    #~ self.keep_prob = tf.placeholder(tf.float32)
 	    
 	    self.src_logits = self.E(self.src_images, is_training = True)
+	    #~ print self.src_logits.get_shape()
 		
 	    self.src_pred = tf.argmax(tf.squeeze(self.src_logits), 1) #logits are [self.no_classes ,1,1,8], need to squeeze
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels) 
@@ -206,12 +184,13 @@ class DSN(object):
 	    
 	    t_vars = tf.trainable_variables()
 	    
-	    
-	    train_vars = t_vars #[var for var in t_vars if 'fc_repr' in var.name] + [var for var in t_vars if 'fc8' in var.name]
+	    train_vars = t_vars#[var for var in t_vars if 'logits' in var.name]
+	    #~ print train_vars
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,self.no_classes )))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
-	    self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
+	    #~ self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
+	    self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
 	    self.train_op = self.optimizer.apply_gradients(grads_and_vars=gradients)
 	    
             # summary op

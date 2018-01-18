@@ -4,12 +4,14 @@ from solver import Solver
 
 flags = tf.app.flags
 flags.DEFINE_string('mode', 'train', "'pretrain', 'train' or 'eval'")
+flags.DEFINE_string('splits', 'amazon2webcam', "src2trg")
 FLAGS = flags.FLAGS
 
 def main(_):
     
-    model = DSN(mode=FLAGS.mode, learning_rate=0.00001)
-    solver = Solver(model, batch_size=32)
+    model = DSN(mode=FLAGS.mode, learning_rate=0.001)
+    src_split, trg_split = FLAGS.splits.split('2')[0], FLAGS.splits.split('2')[1]
+    solver = Solver(model, batch_size=64, src_dir=src_split, trg_dir=trg_split)
 
     
     if FLAGS.mode == 'pretrain':

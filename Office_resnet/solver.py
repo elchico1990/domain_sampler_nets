@@ -24,43 +24,50 @@ from sklearn.manifold import TSNE
 class Solver(object):
 
     def __init__(self, model, batch_size=128, pretrain_iter=20000, train_iter=20000, sample_iter=2000, 
-                 log_dir='logs', sample_save_path='sample', 
+                 log_dir='logs', sample_save_path='sample', src_dir='amazon', trg_dir='webcam',
                  model_save_path='model', pretrained_model='model/model', pretrained_sampler='model/sampler', 
 		 test_model='model/dtn', adda_shared_model='model/adda_shared',adda_model='model/adda', 
-		 convdeconv_model = 'model/conv_deconv', vgg16_ckpt='vgg_16.ckpt'):
+		 convdeconv_model = 'model/conv_deconv', resnet50_ckpt='/data/models/resnet_50/resnet_v1_50.ckpt'):
         
         self.model = model
         self.batch_size = batch_size
         self.pretrain_iter = pretrain_iter
         self.train_iter = train_iter
         self.sample_iter = sample_iter
-        self.log_dir = log_dir
-        self.sample_save_path = sample_save_path
-        self.model_save_path = model_save_path
-        self.pretrained_model = pretrained_model
-	self.pretrained_sampler = pretrained_sampler
-        self.test_model = test_model
-        self.adda_shared_model = adda_shared_model
-        self.adda_model = adda_model
-	self.convdeconv_model = convdeconv_model
-	self.no_images = {'source':2186, 'target':2401}
+	
+	self.base_path = src_dir+'2'+trg_dir+'/'
+        self.log_dir = self.base_path+log_dir
+        self.sample_save_path = self.base_path+sample_save_path
+        self.model_save_path = self.base_path+model_save_path
+        self.pretrained_model = self.base_path+pretrained_model
+	self.pretrained_sampler = self.base_path+pretrained_sampler
+        self.test_model = self.base_path+test_model
+        self.adda_shared_model = self.base_path+adda_shared_model
+        self.adda_model = self.base_path+adda_model
+	self.convdeconv_model = self.base_path+convdeconv_model
+	self.no_images = {'amazon':2817, 'dslr':498, 'webcam':795}
+	self.src_dir = src_dir
+	self.trg_dir = trg_dir
 	self.config = tf.ConfigProto()
-        #~ self.config.gpu_options.allow_growth=True
-	#~ self.config.allow_soft_placement=True
-	self.vgg16_ckpt = vgg16_ckpt
+        self.config.gpu_options.allow_growth=True
+	self.config.allow_soft_placement=True
+	self.resnet50_ckpt = resnet50_ckpt
 	self.no_classes = model.no_classes
 	
 
-    def load_NYUD(self, split, image_dir='./NYUD_domain_adaptation'):
-        print ('Loading NYUD dataset -> '+split)
+    def load_office(self, split, image_dir='../Office/office'):
+        print ('Loading OFFICE dataset -> '+split)
+
 	
 	VGG_MEAN = [103.939, 116.779, 123.68]
+	RGB_MEAN = [VGG_MEAN[2],VGG_MEAN[1],VGG_MEAN[0] ]
+	
 
 	images = np.zeros((self.no_images[split],224,224,3))
 	labels = np.zeros((self.no_images[split],1))
 	l = 0
 	c = 0
-	obj_categories = sorted(glob.glob(image_dir + '/' + split + '/*'))
+	obj_categories = sorted(glob.glob(image_dir + '/' + split + '/images/*'))
 	for oc in obj_categories:
 	    obj_images = sorted(glob.glob(oc+'/*'))
 	    #~ print str(l)+'/'+str(len(obj_categories))
@@ -71,10 +78,10 @@ class Solver(object):
 		
 		img = np.array(img, dtype=float) 
 		
-		img = img[:, :, [2,1,0]] # swap channel from RGB to BGR
-		img[:,:,0] -= VGG_MEAN[0]
-		img[:,:,1] -= VGG_MEAN[1]
-		img[:,:,2] -= VGG_MEAN[2]
+		#~ img = img[:, :, [2,1,0]] # swap channel from RGB to BGR #not for resnet
+		img[:,:,0] -= RGB_MEAN[0]
+		img[:,:,1] -= RGB_MEAN[1]
+		img[:,:,2] -= RGB_MEAN[2]
 		img = np.expand_dims(img, axis=0) 
 		images[c] = img
 		labels[c] = l
@@ -88,10 +95,8 @@ class Solver(object):
 	labels = labels[rnd_indices]
         return images, np.squeeze(labels)
 
+
     def pretrain(self):
-        src_images, src_labels = self.load_NYUD(split='source')
-        trg_images, trg_labels = self.load_NYUD(split='target')
-	        
 
         # build a graph
         model = self.model
@@ -101,15 +106,14 @@ class Solver(object):
 	    
 	    tf.global_variables_initializer().run()
 	    
-	    
-	    print ('Loading pretrained vgg16...')
-	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
-	    # get rid of fc8 (and possibily fc7, for a more compact representation)
-	    variables_to_restore = [vv for vv in variables_to_restore if 'fc8' not in vv.name]	    
-	    variables_to_restore = [vv for vv in variables_to_restore if 'fc7' not in vv.name]	    
+	    print ('Loading pretrained resnet50...')
+	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
+	    # get rid of logits
+	    variables_to_restore = [vv for vv in variables_to_restore if 'logits' not in vv.name]	    
+	    #~ variables_to_restore = [vv for vv in variables_to_restore if 'fc7' not in vv.name]	    
 
 	    restorer = tf.train.Saver(variables_to_restore)
-	    restorer.restore(sess, self.vgg16_ckpt)
+	    restorer.restore(sess, self.resnet50_ckpt)
 	    print('Loaded!')
 	    
 	    saver = tf.train.Saver()
@@ -122,7 +126,10 @@ class Solver(object):
 	    
 	    t = 0
 	    
-	    print('Finetuning VGG16 on NYUD')
+	    print('Finetuning resnet50 on Office')
+	    
+	    src_images, src_labels = self.load_office(split=self.src_dir)
+	    trg_images, trg_labels = self.load_office(split=self.trg_dir)
 	    
 	    for i in range(epochs):
 		
@@ -143,8 +150,8 @@ class Solver(object):
 		    
 		
 		#~ # eval on a random batch
-		src_rand_idxs = np.random.permutation(src_images.shape[0])[:64]
-		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:64]
+		src_rand_idxs = np.random.permutation(src_images.shape[0])[:self.batch_size]
+		trg_rand_idxs = np.random.permutation(trg_images.shape[0])[:self.batch_size]
 		feed_dict={model.src_images: src_images[src_rand_idxs], 
 			    model.src_labels: src_labels[src_rand_idxs],
 			    model.trg_images: trg_images[trg_rand_idxs], 
@@ -159,36 +166,36 @@ class Solver(object):
 		print ('Step: [%d/%d] loss: [%.4f]  src acc [%.4f] trg acc [%.4f] ' \
 			   %(t+1, self.pretrain_iter, l, src_acc, trg_acc))
 		
-		#~ # Eval on target
-		#~ trg_acc = 0.
-		#~ for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
-						#~ np.array_split(trg_labels, 40),
-						#~ ):
-		    #~ feed_dict = {model.src_images: src_images[0:2],  #dummy
-				    #~ model.src_labels: src_labels[0:2], #dummy
-				    #~ model.trg_images: trg_im, 
-				    #~ model.trg_labels: trg_lab}
-		    #~ trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
-		    #~ trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
+		# Eval on target
+		trg_acc = 0.
+		for trg_im, trg_lab,  in zip(np.array_split(trg_images, 40), 
+						np.array_split(trg_labels, 40),
+						):
+		    feed_dict = {model.src_images: src_images[0:2],  #dummy
+				    model.src_labels: src_labels[0:2], #dummy
+				    model.trg_images: trg_im, 
+				    model.trg_labels: trg_lab}
+		    trg_acc_ = sess.run(fetches=model.trg_accuracy, feed_dict=feed_dict)
+		    trg_acc += (trg_acc_*len(trg_lab))	# must be a weighted average since last split is smaller				
 		    
-		#~ print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
+		print ('trg acc [%.4f]' %(trg_acc/len(trg_labels)))
 		
 			
-		#~ # Eval on source
-		#~ src_acc = 0.
-		#~ for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
-						#~ np.array_split(src_labels, 40),
-						#~ ):
-		    #~ feed_dict = {model.src_images: src_im,
-				    #~ model.src_labels: src_lab,
-				    #~ model.trg_images: trg_images[0:2], #dummy
-				    #~ model.trg_labels: trg_lab[0:2]}#dummy
-		    #~ src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
-		    #~ src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
+		# Eval on source
+		src_acc = 0.
+		for src_im, src_lab,  in zip(np.array_split(src_images, 40), 
+						np.array_split(src_labels, 40),
+						):
+		    feed_dict = {model.src_images: src_im,
+				    model.src_labels: src_lab,
+				    model.trg_images: trg_images[0:2], #dummy
+				    model.trg_labels: trg_lab[0:2]}#dummy
+		    src_acc_ = sess.run(fetches=model.src_accuracy, feed_dict=feed_dict)
+		    src_acc += (src_acc_*len(src_lab))	# must be a weighted average since last split is smaller				
 		    
-		#~ print ('src acc [%.4f]' %(src_acc/len(src_labels)))
+		print ('src acc [%.4f]' %(src_acc/len(src_labels)))
 			   
-		#~ saver.save(sess, os.path.join(self.model_save_path, 'model'))
+		saver.save(sess, os.path.join(self.model_save_path, 'model'))
 		
 		
     
