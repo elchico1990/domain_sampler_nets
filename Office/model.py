@@ -18,6 +18,7 @@ from utils import conv_concat
 # WA  48.3
 # Avg 68.8
 
+
 class DSN(object):
     """Domain Sampler Network
     """
@@ -54,26 +55,40 @@ class DSN(object):
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.tanh, scope='sgen_feat')
 		    return net
 		    
-    def E(self, images, reuse=False, make_preds=False, is_training = False, scope='encoder'):
-	
-	if is_training:
-	    keep_prob_input = 1.0
-	    keep_prob_conv = 0.7
-	    keep_prob_hidden = 0.5
-	else:
-	    keep_prob_input = 1.0
-	    keep_prob_conv = 1.0
-	    keep_prob_hidden = 1.0
+    def E(self, images, reuse=False, is_training = False, scope='encoder'):
 
-	self.model_AlexNet = AlexNet(images, is_training = is_training, keep_prob_input = keep_prob_input, keep_prob_conv = keep_prob_conv, keep_prob_hidden = keep_prob_hidden, skip_layer = ['fc8','fc_repr'], num_classes=31,reuse=reuse, hidden_repr_size=self.hidden_repr_size)
+	with tf.variable_scope(scope, reuse=reuse):
+	    
+	    with slim.arg_scope([slim.conv2d],
+			  activation_fn=tf.nn.relu,
+			  weights_initializer=tf.contrib.layers.xavier_initializer(),
+			  weights_regularizer=slim.l2_regularizer(0.0005)):
+		#[conv1]
+		net = slim.conv2d(images, 96, [11, 11], stride=[4,4], padding='VALID',activation_fn=None,biases_initializer= tf.constant_initializer(0.01) ,scope='conv1')
+		#[rnorm1] 
+		net = tf.nn.local_response_normalization(net, name='lrn1') #(using tf default param)
+		# [pool1]
+		net = slim.max_pool2d(net, [3, 3], stride=2, scope='pool1',padding='VALID')
+	    	net=tf.nn.relu(net)
+		#[conv2] Adapted from: https://github.com/ethereon/caffe-tensorflow
+		net1=slim.conv2d(net[:48], 256, [5, 5], stride=[1,1], padding='SAME',activation_fn=tf.nn.relu,biases_initializer= tf.constant_initializer(0.01) ,scope='conv2')
+		net2=slim.conv2d(net[48:], 256, [5, 5], stride=[1,1], padding='SAME',activation_fn=tf.nn.relu,biases_initializer= tf.constant_initializer(0.01) ,scope='conv2', reuse=True)
+		net = tf.concat(axis=3, values=[net1,net2])
+		#[lrn2]
+		net = tf.nn.local_response_normalization(net, name='lrn2') #(using tf default param)
+		# [pool2]
+		net = slim.max_pool2d(net, [3, 3], stride=2, scope='pool2',padding='VALID')
+		#[conv3] Adapted from: https://github.com/ethereon/caffe-tensorflow
+		net=slim.conv2d(net, 384, [3, 3], stride=[1,1], padding='SAME',activation_fn=tf.nn.relu,biases_initializer= tf.constant_initializer(0.01) ,scope='conv3')
+		#[conv4] Adapted from: https://github.com/ethereon/caffe-tensorflow
+		net1=slim.conv2d(net[:192], 256, [3, 3], stride=[1,1], padding='SAME',activation_fn=tf.nn.relu,biases_initializer= tf.constant_initializer(0.01) ,scope='conv4')
+		net2=slim.conv2d(net[192:], 256, [3, 3], stride=[1,1], padding='SAME',activation_fn=tf.nn.relu,biases_initializer= tf.constant_initializer(0.01) ,scope='conv4', reuse=True)
+		net = tf.concat(axis=3, values=[net1,net2])
+		
+		
+		
+		
 
-	with tf.variable_scope('encoder', reuse=reuse):
-	    	
-	    if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-		net = self.model_AlexNet.fc8
-	    else:
-		net = self.model_AlexNet.fc_repr
-	    return net
 			    
     def D_e(self, inputs, y, reuse=False):
 		

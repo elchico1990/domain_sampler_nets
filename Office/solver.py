@@ -306,7 +306,7 @@ class Solver(object):
 		print ('Loading pretrained model.')
 		# Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
 		variables_to_restore = tf.global_variables() 
-		variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
+		#~ variables_to_restore = [v for v in variables_to_restore if 'encoder' in v.name]
 		restorer = tf.train.Saver(variables_to_restore)
 		restorer.restore(sess, self.pretrained_model)
 
@@ -537,7 +537,7 @@ class Solver(object):
 		    print ('Loading test model.')
 		    # Do not change next two lines. Necessary because slim.get_model_variables(scope='blablabla') works only for model built with slim. 
 		    variables_to_restore = tf.global_variables() 
-		    variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['Adam','encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
+		    #~ variables_to_restore = [v for v in variables_to_restore if np.all([s not in str(v.name) for s in ['Adam','encoder','sampler_generator','generator','disc_e','disc_g','source_train_op','training_op','beta1','beta2']])]
 		    restorer = tf.train.Saver(variables_to_restore)
 		    restorer.restore(sess, self.test_model)
 		
