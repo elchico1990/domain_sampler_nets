@@ -53,9 +53,9 @@ class DSN(object):
 		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc4')
 		    net = slim.batch_norm(net, scope='sgen_bn4')
 		    net = slim.dropout(net, 0.5)
-		    #~ net = slim.fully_connected(net, 1024 , activation_fn = tf.nn.relu, scope='sgen_fc5')
-		    #~ net = slim.batch_norm(net, scope='sgen_bn5')
-		    #~ net = slim.dropout(net, 0.5)
+		    net = slim.fully_connected(net, 1024 , activation_fn = tf.nn.relu, scope='sgen_fc5')
+		    net = slim.batch_norm(net, scope='sgen_bn5')
+		    net = slim.dropout(net, 0.5)
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.nn.relu, scope='sgen_feat')
 		    return net
 		    
