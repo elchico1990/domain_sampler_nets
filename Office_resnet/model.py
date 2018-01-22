@@ -67,9 +67,9 @@ class DSN(object):
 	#~ with tf.variable_scope('resnet_v1_50', reuse=reuse):
 
 			      
-	#~ if self.mode=='features':
-	    #~ images = tf.reshape(images,[-1,7,7,self.hidden_repr_size])
-	    #~ return slim.conv2d(images, self.no_classes , [1,1], activation_fn=None, scope='fc8')
+	if self.mode=='features':
+	    images = tf.reshape(images,[-1,7,7,2048])
+	    return slim.conv2d(images, self.no_classes , [1,1], activation_fn=None, scope='logits')
 	    
 	with slim.arg_scope(resnet_v1.resnet_arg_scope()):
 	    net, end_points = resnet_v1.resnet_v1_50(images, self.no_classes, is_training=is_training, reuse=reuse)
@@ -304,7 +304,8 @@ class DSN(object):
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'disc_e' in var.name]
-	    g_vars = [var for var in t_vars if 'block4' not in var.name]
+	    #~ g_vars = [var for var in t_vars if 'block4' not in var.name]
+	    g_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
 	    
 	    # train op
 	    with tf.variable_scope('source_train_op',reuse=False):
