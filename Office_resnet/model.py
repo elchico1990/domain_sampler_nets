@@ -15,7 +15,7 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0001):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 7*7*1024*2
+	self.hidden_repr_size = 64
 	self.no_classes = 31
 	self.noise_dim = 100
 
@@ -56,31 +56,44 @@ class DSN(object):
 		    net = slim.fully_connected(net, 1024 , activation_fn = tf.nn.relu, scope='sgen_fc5')
 		    net = slim.batch_norm(net, scope='sgen_bn5')
 		    net = slim.dropout(net, 0.5)
-		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.nn.relu, scope='sgen_feat')
+		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.nn.tanh, scope='sgen_feat')
 		    return net
 		    
 		    
     def E(self, images, reuse=False, make_preds=False, is_training=False):
-	
-	#~ _mode = self.mode == 'eval_dsn'
-	
-	#~ with tf.variable_scope('resnet_v1_50', reuse=reuse):
-
 			      
 	if self.mode=='features':
-	    images = tf.reshape(images,[-1,7,7,2048])
-	    return slim.conv2d(images, self.no_classes , [1,1], activation_fn=None, scope='logits')
+	    with tf.variable_scope('resnet_v1_50', reuse=reuse):
+		with slim.arg_scope([slim.conv2d],
+			      activation_fn=tf.nn.relu,
+			      weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
+			      weights_regularizer=slim.l2_regularizer(0.0005)):
+		    
+		    images = tf.reshape(images,[-1,1,1,self.hidden_repr_size])
+		    return slim.conv2d(images, self.no_classes , [1,1], activation_fn=None, scope='_logits_')
+	    
+	    
 	    
 	with slim.arg_scope(resnet_v1.resnet_arg_scope()):
-	    net, end_points = resnet_v1.resnet_v1_50(images, self.no_classes, is_training=is_training, reuse=reuse)
-
-	if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
-	    #return the logits
-	    return net
-	else:
-	    return end_points['resnet_v1_50/block4'] #last bottleneck before logits
+	    _, end_points = resnet_v1.resnet_v1_50(images, self.no_classes, is_training=is_training, reuse=reuse)
 	
-			    
+	with slim.arg_scope([slim.conv2d],
+			  activation_fn=tf.nn.relu,
+			  weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
+			  weights_regularizer=slim.l2_regularizer(0.0005)):
+	    
+	    net = end_points['resnet_v1_50/block4'] #last bottleneck before logits
+	    
+	    with tf.variable_scope('resnet_v1_50', reuse=reuse):
+		net = slim.conv2d(net, self.hidden_repr_size , [7, 7], padding='VALID', activation_fn=tf.tanh, scope='f_repr')
+		
+		if (self.mode == 'pretrain' or self.mode == 'test' or make_preds):
+			    #~ net = slim.dropout(net, 0.5, is_training=is_training, scope='dropout7')
+		    net = slim.conv2d(net, self.no_classes , [1,1], activation_fn=None, scope='_logits_')
+		
+	    return net
+	    
+	    
     def D_e(self, inputs, y, reuse=False):
 		
 	inputs = tf.concat(axis=1, values=[tf.contrib.layers.flatten(inputs), tf.cast(y,tf.float32)])
@@ -176,13 +189,13 @@ class DSN(object):
 	    self.src_logits = self.E(self.src_images, is_training = True)
 	    #~ print self.src_logits.get_shape()
 		
-	    self.src_pred = tf.argmax(tf.squeeze(self.src_logits), 1) #logits are [self.no_classes ,1,1,8], need to squeeze
+	    self.src_pred = tf.argmax(tf.squeeze(self.src_logits), 1) #logits are [self.no_classes ,1,1,classes], need to squeeze
             self.src_correct_pred = tf.equal(self.src_pred, self.src_labels) 
             self.src_accuracy = tf.reduce_mean(tf.cast(self.src_correct_pred, tf.float32))
 		
             self.trg_logits = self.E(self.trg_images, is_training = False, reuse=True)
 		
-	    self.trg_pred = tf.argmax(tf.squeeze(self.trg_logits), 1) #logits are [self.no_classes ,1,1,8], need to squeeze
+	    self.trg_pred = tf.argmax(tf.squeeze(self.trg_logits), 1) #logits are [self.no_classes ,1,1,classes], need to squeeze
             self.trg_correct_pred = tf.equal(self.trg_pred, self.trg_labels)
             self.trg_accuracy = tf.reduce_mean(tf.cast(self.trg_correct_pred, tf.float32))
 	    
@@ -212,9 +225,9 @@ class DSN(object):
 	    self.noise = tf.placeholder(tf.float32, [None, self.noise_dim], 'noise')
 	    self.labels = tf.placeholder(tf.int64, [None, self.no_classes ], 'labels_real')
 	    try:
-		self.dummy_fx = tf.tanh(slim.flatten(self.E(self.images)))
+		self.dummy_fx = slim.flatten(self.E(self.images))
 	    except:
-		self.dummy_fx = tf.tanh(slim.flatten(self.E(self.images, reuse=True)))
+		self.dummy_fx = slim.flatten(self.E(self.images, reuse=True))
 			
 	    self.fzy = tf.tanh(self.sampler_generator(self.noise, self.labels))
 
@@ -298,8 +311,8 @@ class DSN(object):
 	    
 	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
 	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
-	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
-	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate/100)
+	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate/100)
 
 	    
 	    t_vars = tf.trainable_variables()

@@ -110,7 +110,7 @@ class Solver(object):
 	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 	    # get rid of logits
 	    variables_to_restore = [vv for vv in variables_to_restore if 'logits' not in vv.name]	    
-	    #variables_to_restore = [vv for vv in variables_to_restore if 'fc7' not in vv.name]	    
+	    variables_to_restore = [vv for vv in variables_to_restore if 'f_repr' not in vv.name]	    
 
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.resnet50_ckpt)
