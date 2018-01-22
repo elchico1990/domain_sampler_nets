@@ -15,7 +15,7 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0001):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 64
+	self.hidden_repr_size = 32
 	self.no_classes = 31
 	self.noise_dim = 100
 
@@ -290,12 +290,12 @@ class DSN(object):
 		self.labels = self.trg_labels
 
 	    
-	    self.shared_fx = tf.tanh(slim.flatten(self.E(self.images, reuse=True)))
+	    self.shared_fx = slim.flatten(self.E(self.images, reuse=True))
 
 	    try:
-		self.dummy_fx = tf.tanh(slim.flatten(self.E(self.src_images)))
+		self.dummy_fx = slim.flatten(self.E(self.src_images))
 	    except:
-		self.dummy_fx = tf.tanh(slim.flatten(self.E(self.src_images, reuse=True)))
+		self.dummy_fx = slim.flatten(self.E(self.src_images, reuse=True))
 
 
 			
