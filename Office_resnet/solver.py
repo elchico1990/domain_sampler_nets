@@ -238,6 +238,7 @@ class Solver(object):
 				model.labels: spl_lab, 
 				model.fx: np.ones((1,model.hidden_repr_size))}
 		s_fx = sess.run(model.dummy_fx, feed_dict)
+		#~ print s_fx.shape
 		source_fx = np.vstack((source_fx, np.squeeze(s_fx)))
 		#~ print(counter)
 		#~ counter+=1
@@ -248,7 +249,7 @@ class Solver(object):
             tf.global_variables_initializer().run()
             
 	    print ('Loading pretrained model.')
-	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
             restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 	    
@@ -280,14 +281,14 @@ class Solver(object):
 		    sess.run(model.d_train_op, feed_dict)
 		    sess.run(model.g_train_op, feed_dict)
 		    
-		    if (t+1) % 250 == 0:
+		    if (t+1) % 100 == 0:
 			summary, dl, gl = sess.run([model.summary_op, model.d_loss, model.g_loss], feed_dict)
 			summary_writer.add_summary(summary, t)
 			print ('Step: [%d/%d] g_loss: [%.6f] d_loss: [%.6f]' \
 				   %(t+1, int(epochs*len(source_images) /batch_size), gl, dl))
 			print '\t avg_D_fake',str(avg_D_fake.mean()),'avg_D_real',str(avg_D_real.mean())
 			
-                    if (t+1) % 5000 == 0:  
+                    if (t+1) % 1000 == 0:  
 			saver.save(sess, os.path.join(self.model_save_path, 'sampler')) 
 
 
@@ -297,10 +298,11 @@ class Solver(object):
         model = self.model
         model.build_model()
 	
-	source_images, source_labels = self.load_NYUD(split='source')
-        target_images, target_labels = self.load_NYUD(split='target')
+	source_images, source_labels = self.load_office(split=self.src_dir)
+        target_images, target_labels = self.load_office(split=self.trg_dir)
 	
         # make directory if not exists
+	self.log_dir=self.log_dir + '/' + model.mode
         if tf.gfile.Exists(self.log_dir):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
@@ -309,7 +311,7 @@ class Solver(object):
 	    
 	    print ('Computing latent representation.')
             tf.global_variables_initializer().run()
-	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
             restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 	    
@@ -330,7 +332,7 @@ class Solver(object):
 	    
 	    # restore E to initialize E_shared
 	    print ('Loading Encoder.')
-	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 
@@ -360,7 +362,7 @@ class Solver(object):
 		sess.run(model.g_train_op, feed_dict) 
 		sess.run(model.d_train_op, feed_dict) 
 		
-		if (step+1) % 10 == 0:
+		if (step+1) % 200 == 0:
 		    logits_real,logits_fake = sess.run([model.logits_real,model.logits_fake],feed_dict) 
 		    summary, g, d = sess.run([model.summary_op, model.g_loss, model.d_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -368,7 +370,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, g, d ,logits_real.mean(),logits_fake.mean()))
 
 
-		if (step+1) % 20 == 0:
+		if (step+1) % 200 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
@@ -383,7 +385,8 @@ class Solver(object):
 		    accTeSet.append(trg_acc/len(target_labels))
 		    with file(model.mode + '_test_accuracies.pkl', 'w') as f:
 			cPickle.dump(accTeSet, f, protocol=cPickle.HIGHEST_PROTOCOL)
-			
+		
+		if (step+1) % 1000 == 0:
 		    if model.mode == 'train_adda_shared':
 			saver.save(sess, os.path.join(self.model_save_path, 'adda_shared'))
 		    elif model.mode == 'train_adda':
@@ -711,9 +714,8 @@ class Solver(object):
     def features(self):
 	
 	# load whatevere dataset 
-	split='source'
-	#~ images, _ = self.load_NYUD(split=split)
-
+	#split='source'
+	images, _ = self.load_office(split=self.src_dir)
 	
 	# build a graph
 	model = self.model
@@ -724,7 +726,7 @@ class Solver(object):
 
 	    #~ # Load pretrained or final model
 	    print ('Loading pretrained model.')
-	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 	    # Load pretrained or final model
