@@ -781,7 +781,7 @@ class Solver(object):
 	uniques=tmpUnique[0].view(features.dtype).reshape(-1, features.shape[1])
 	print uniques.shape
 	 
-	print len(np.where(inf_labels==np.argmax(labels,1))[0])
+	print float(len(np.where(inf_labels==np.argmax(labels,1))[0]))/float(no_items)
 	
 	
 
