@@ -229,7 +229,7 @@ class DSN(object):
 	    except:
 		self.dummy_fx = slim.flatten(self.E(self.images, reuse=True))
 			
-	    self.fzy = tf.tanh(self.sampler_generator(self.noise, self.labels))
+	    self.fzy = self.sampler_generator(self.noise, self.labels)
 
 	    self.logits_real = self.D_e(self.fx,self.labels, reuse=False) 
 	    self.logits_fake = self.D_e(self.fzy,self.labels, reuse=True)
@@ -311,8 +311,8 @@ class DSN(object):
 	    
 	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
 	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
-	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate/100)
-	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate/100)
+	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
 
 	    
 	    t_vars = tf.trainable_variables()

@@ -13,7 +13,7 @@ def main(_):
     with tf.device('/gpu:'+FLAGS.gpu):
 	model = DSN(mode=FLAGS.mode, learning_rate=0.001)
 	src_split, trg_split = FLAGS.splits.split('2')[0], FLAGS.splits.split('2')[1]
-	solver = Solver(model, batch_size=64, src_dir=src_split, trg_dir=trg_split)
+	solver = Solver(model, batch_size=32, src_dir=src_split, trg_dir=trg_split)
 
 	
 	if FLAGS.mode == 'pretrain':
