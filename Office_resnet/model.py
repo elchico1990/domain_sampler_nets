@@ -335,8 +335,8 @@ class DSN(object):
 	    g_loss_summary = tf.summary.scalar('g_loss', self.g_loss)
 	    self.summary_op = tf.summary.merge([d_loss_summary, g_loss_summary])
 
-	    for var in tf.trainable_variables():
-		tf.summary.histogram(var.op.name, var)
+	    #~ for var in tf.trainable_variables():
+		#~ tf.summary.histogram(var.op.name, var)
         
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, self.noise_dim], 'noise')
@@ -408,8 +408,8 @@ class DSN(object):
 
             self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary])
             
-            for var in tf.trainable_variables():
-		tf.summary.histogram(var.op.name, var)
+            #~ for var in tf.trainable_variables():
+		#~ tf.summary.histogram(var.op.name, var)
 	
 	
 	elif self.mode == 'features':
