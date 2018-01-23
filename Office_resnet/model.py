@@ -390,8 +390,8 @@ class DSN(object):
 	    
             #~ self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             #~ self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
-	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.DE_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
+	    self.E_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
             
             
             t_vars = tf.trainable_variables()
