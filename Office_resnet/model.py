@@ -243,8 +243,11 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
-	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'disc_e' in var.name]
@@ -311,6 +314,7 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
+
 	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
 	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
 	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
@@ -332,8 +336,8 @@ class DSN(object):
 	    g_loss_summary = tf.summary.scalar('g_loss', self.g_loss)
 	    self.summary_op = tf.summary.merge([d_loss_summary, g_loss_summary])
 
-	    for var in tf.trainable_variables():
-		tf.summary.histogram(var.op.name, var)
+	    #~ for var in tf.trainable_variables():
+		#~ tf.summary.histogram(var.op.name, var)
         
 	elif self.mode == 'eval_dsn':
             self.src_noise = tf.placeholder(tf.float32, [None, self.noise_dim], 'noise')
@@ -386,12 +390,14 @@ class DSN(object):
            
 	    # Optimizers
 	    
-            self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            #~ self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            #~ self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+	    self.DE_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
+	    self.E_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
             
             
             t_vars = tf.trainable_variables()
-            E_vars = [var for var in t_vars if 'vgg_16' in var.name]
+            E_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
             DE_vars = [var for var in t_vars if 'disc_e' in var.name]
             
             # train op
@@ -405,8 +411,8 @@ class DSN(object):
 
             self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary])
             
-            for var in tf.trainable_variables():
-		tf.summary.histogram(var.op.name, var)
+            #~ for var in tf.trainable_variables():
+		#~ tf.summary.histogram(var.op.name, var)
 	
 	
 	elif self.mode == 'features':
