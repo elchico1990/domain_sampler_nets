@@ -243,8 +243,11 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
-	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'disc_e' in var.name]
