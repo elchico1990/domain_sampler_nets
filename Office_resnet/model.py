@@ -16,9 +16,9 @@ class DSN(object):
         self.mode = mode
         self.learning_rate = learning_rate
 
-		self.hidden_repr_size = 32
+		self.hidden_repr_size = 48
 		self.no_classes = 31
-	s	elf.noise_dim = 100
+		self.noise_dim = 100
 
     
     def sampler_generator(self, z, y, reuse=False):
