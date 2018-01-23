@@ -110,8 +110,8 @@ class DSN(object):
 			#~ net = slim.fully_connected(net, 256, activation_fn = lrelu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn' or 'train_adda' in self.mode :
 			net = slim.fully_connected(inputs, 1024, activation_fn = lrelu, scope='sdisc_fc1')
-			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc2')##
-			net = slim.fully_connected(net, 3072, activation_fn = lrelu, scope='sdisc_fc3')
+			net = slim.fully_connected(net, 1024, activation_fn = lrelu, scope='sdisc_fc2')##
+			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 		    
@@ -243,10 +243,10 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
-	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
-	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
-	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    #~ self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    #~ self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
 	    
 	    
 	    t_vars = tf.trainable_variables()
