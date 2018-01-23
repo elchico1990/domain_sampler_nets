@@ -362,12 +362,14 @@ class Solver(object):
 		sess.run(model.g_train_op, feed_dict) 
 		sess.run(model.d_train_op, feed_dict) 
 		
+
 		if (step+1) % 50 == 0:
 		    logits_real,logits_fake = sess.run([model.logits_real,model.logits_fake],feed_dict) 
 		    summary, g, d = sess.run([model.summary_op, model.g_loss, model.d_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
 		    print ('Step: [%d/%d] g: [%.6f] d: [%.6f] g_real: [%.2f] g_fake: [%.2f]' \
 			       %(step+1, self.train_iter, g, d ,logits_real.mean(),logits_fake.mean()))
+
 
 
 		if (step+1) % 50 == 0:
