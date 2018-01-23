@@ -362,7 +362,7 @@ class Solver(object):
 		sess.run(model.g_train_op, feed_dict) 
 		sess.run(model.d_train_op, feed_dict) 
 		
-		if (step+1) % 200 == 0:
+		if (step+1) % 50 == 0:
 		    logits_real,logits_fake = sess.run([model.logits_real,model.logits_fake],feed_dict) 
 		    summary, g, d = sess.run([model.summary_op, model.g_loss, model.d_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -370,7 +370,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, g, d ,logits_real.mean(),logits_fake.mean()))
 
 
-		if (step+1) % 200 == 0:
+		if (step+1) % 50 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
@@ -386,7 +386,7 @@ class Solver(object):
 		    with file(model.mode + '_test_accuracies.pkl', 'w') as f:
 			cPickle.dump(accTeSet, f, protocol=cPickle.HIGHEST_PROTOCOL)
 		
-		if (step+1) % 1000 == 0:
+		if (step+1) % 500 == 0:
 		    if model.mode == 'train_adda_shared':
 			saver.save(sess, os.path.join(self.model_save_path, 'adda_shared'))
 		    elif model.mode == 'train_adda':
@@ -453,7 +453,7 @@ class Solver(object):
 		sess.run(model.E_train_op, feed_dict) 
 		sess.run(model.DE_train_op, feed_dict) 
 		
-		if (step+1) % 100 == 0:
+		if (step+1) % 50 == 0:
 		    logits_E_real,logits_E_fake = sess.run([model.logits_E_real,model.logits_E_fake],feed_dict) 
 		    summary, E, DE = sess.run([model.summary_op, model.E_loss, model.DE_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -461,7 +461,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, E, DE,logits_E_real.mean(),logits_E_fake.mean()))
 
 
-		if (step+1) % 100 == 0:
+		if (step+1) % 50 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
@@ -477,7 +477,7 @@ class Solver(object):
 		    with file(model.mode + '_test_accuracies.pkl', 'w') as f:
 			cPickle.dump(accTeSet, f, protocol=cPickle.HIGHEST_PROTOCOL)
 			
-		if (step+1) % 1000 == 0:
+		if (step+1) % 500 == 0:
 		    saver.save(sess, os.path.join(self.model_save_path, 'dtn'))
             
     def eval_dsn(self):
