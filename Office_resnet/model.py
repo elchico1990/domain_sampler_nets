@@ -314,10 +314,9 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
-	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
-	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
-	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
+	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
+	    
 
 	    
 	    t_vars = tf.trainable_variables()
@@ -389,12 +388,14 @@ class DSN(object):
            
 	    # Optimizers
 	    
-            self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-            self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            #~ self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+            #~ self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
+	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
             
             
             t_vars = tf.trainable_variables()
-            E_vars = [var for var in t_vars if 'vgg_16' in var.name]
+            E_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
             DE_vars = [var for var in t_vars if 'disc_e' in var.name]
             
             # train op

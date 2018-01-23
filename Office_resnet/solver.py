@@ -395,13 +395,12 @@ class Solver(object):
 
     def train_dsn(self):
         
-	source_images, source_labels = self.load_NYUD(split='source')
-        target_images, target_labels = self.load_NYUD(split='target')
-	
-
         # build a graph
         model = self.model
         model.build_model()
+	
+	source_images, source_labels = self.load_office(split=self.src_dir)
+        target_images, target_labels = self.load_office(split=self.trg_dir)
 
         # make directory if not exists
         if tf.gfile.Exists(self.log_dir):
@@ -415,7 +414,7 @@ class Solver(object):
 	    # restore variables of F
 	    
 	    print ('Loading Encoder.')
-	    variables_to_restore = slim.get_model_variables(scope='vgg_16')
+	    variables_to_restore = slim.get_model_variables(scope='resnet_v1_50')
 	    restorer = tf.train.Saver(variables_to_restore)
 	    restorer.restore(sess, self.pretrained_model)
 	    
