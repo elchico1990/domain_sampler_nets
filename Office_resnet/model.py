@@ -15,9 +15,9 @@ class DSN(object):
     def __init__(self, mode='train', learning_rate=0.0001):
         self.mode = mode
         self.learning_rate = learning_rate
-	self.hidden_repr_size = 32
-	self.no_classes = 31
-	self.noise_dim = 100
+        self.hidden_repr_size = 48
+        self.no_classes = 31
+        self.noise_dim = 100
 
     
     def sampler_generator(self, z, y, reuse=False):
@@ -50,12 +50,14 @@ class DSN(object):
 		    res = slim.batch_norm(res, scope='sgen_bn3')
 		    res = slim.dropout(res, 0.5)
 		    net = res+net
-		    net = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc4')
-		    net = slim.batch_norm(net, scope='sgen_bn4')
-		    net = slim.dropout(net, 0.5)
-		    net = slim.fully_connected(net, 1024 , activation_fn = tf.nn.relu, scope='sgen_fc5')
-		    net = slim.batch_norm(net, scope='sgen_bn5')
-		    net = slim.dropout(net, 0.5)
+		    res = slim.fully_connected(net, 1024, activation_fn = tf.nn.relu, scope='sgen_fc4')
+		    res = slim.batch_norm(res, scope='sgen_bn4')
+		    res = slim.dropout(res, 0.5)
+		    net = res+net
+		    res = slim.fully_connected(net, 1024 , activation_fn = tf.nn.relu, scope='sgen_fc5')
+		    res = slim.batch_norm(res, scope='sgen_bn5')
+		    res = slim.dropout(res, 0.5)
+		    net = res+net
 		    net = slim.fully_connected(net, self.hidden_repr_size, activation_fn = tf.nn.tanh, scope='sgen_feat')
 		    return net
 		    
@@ -104,7 +106,7 @@ class DSN(object):
                                     activation_fn=lrelu, is_training=(self.mode=='train_sampler')):
                     
 		    if self.mode == 'train_sampler':
-			net = slim.fully_connected(inputs,128, activation_fn = lrelu, scope='sdisc_fc1')
+			net = slim.fully_connected(inputs,64, activation_fn = lrelu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 256, activation_fn = lrelu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn' or 'train_adda' in self.mode :
 			net = slim.fully_connected(inputs, 1024, activation_fn = lrelu, scope='sdisc_fc1')
@@ -241,8 +243,8 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/100.,beta1=0.5)
-	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/100.,beta1=0.5)
+	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'disc_e' in var.name]
@@ -250,8 +252,8 @@ class DSN(object):
 	    
 	    # train op
 	    with tf.variable_scope('source_train_op',reuse=False):
-		self.d_train_op = slim.learning.create_train_op(self.d_loss, self.d_optimizer, variables_to_train=d_vars)
-		self.g_train_op = slim.learning.create_train_op(self.g_loss, self.g_optimizer, variables_to_train=g_vars)
+			self.d_train_op = slim.learning.create_train_op(self.d_loss, self.d_optimizer, variables_to_train=d_vars)
+			self.g_train_op = slim.learning.create_train_op(self.g_loss, self.g_optimizer, variables_to_train=g_vars)
 	    
 	    # summary op
 	    d_loss_summary = tf.summary.scalar('d_loss', self.d_loss)
