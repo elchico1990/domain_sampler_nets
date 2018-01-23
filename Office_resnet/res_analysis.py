@@ -22,7 +22,7 @@ plt.plot(qwe)
 #~ plt.plot(qwe)
 
 plt.ylabel('Accuracy %')
-plt.xlabel('Iterations (x200)')
+plt.xlabel('Iterations (x100)')
 
 plt.show()
 

@@ -362,7 +362,7 @@ class Solver(object):
 		sess.run(model.g_train_op, feed_dict) 
 		sess.run(model.d_train_op, feed_dict) 
 		
-		if (step+1) % 200 == 0:
+		if (step+1) % 100 == 0:
 		    logits_real,logits_fake = sess.run([model.logits_real,model.logits_fake],feed_dict) 
 		    summary, g, d = sess.run([model.summary_op, model.g_loss, model.d_loss], feed_dict)
 		    summary_writer.add_summary(summary, step)
@@ -370,7 +370,7 @@ class Solver(object):
 			       %(step+1, self.train_iter, g, d ,logits_real.mean(),logits_fake.mean()))
 
 
-		if (step+1) % 200 == 0:
+		if (step+1) % 100 == 0:
 		    trg_acc = 0.
 		    for trg_im, trg_lab,  in zip(np.array_split(target_images, 40), 
 						np.array_split(target_labels, 40),
