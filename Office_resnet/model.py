@@ -324,7 +324,9 @@ class DSN(object):
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'disc_e' in var.name]
 	    #~ g_vars = [var for var in t_vars if 'block4' not in var.name]
-	    g_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
+	    #~ g_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
+	    g_vars = [var for var in t_vars if 'block4' in var.name or 'f_repr' in var.name]
+
 	    
 	    # train op
 	    with tf.variable_scope('source_train_op',reuse=False):
@@ -397,7 +399,8 @@ class DSN(object):
             
             
             t_vars = tf.trainable_variables()
-            E_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
+            #~ E_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
+	    E_vars = [var for var in t_vars if 'block4' in var.name or 'f_repr' in var.name]
             DE_vars = [var for var in t_vars if 'disc_e' in var.name]
             
             # train op
