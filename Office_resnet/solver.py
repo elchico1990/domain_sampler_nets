@@ -122,7 +122,7 @@ class Solver(object):
 	    
 	    #~ time.sleep(30)
 	    
-	    epochs = 600
+	    epochs = 2000
 	    
 	    t = 0
 	    
