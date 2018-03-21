@@ -111,7 +111,7 @@ class DSN(object):
 		    elif self.mode == 'train_dsn' or 'train_adda' in self.mode :
 			net = slim.fully_connected(inputs, 2048, activation_fn = lrelu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc2')##
-			net = slim.fully_connected(net, 4096, activation_fn = lrelu, scope='sdisc_fc3')
+			net = slim.fully_connected(net, 3076, activation_fn = lrelu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 		    
@@ -203,7 +203,10 @@ class DSN(object):
 	    
 	    t_vars = tf.trainable_variables()
 	    
-	    train_vars = [var for var in t_vars if '_logits_' in var.name or 'f_repr' in var.name or 'block4' in var.name]
+
+	    train_vars = [var for var in t_vars if '_logits_' in var.name or 'f_repr' in var.name]
+	    
+	    
 	    for v in train_vars:
 		print v
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,self.no_classes )))
