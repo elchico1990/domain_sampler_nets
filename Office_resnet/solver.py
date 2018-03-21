@@ -122,7 +122,7 @@ class Solver(object):
 	    
 	    #~ time.sleep(30)
 	    
-	    epochs = 600
+	    epochs = 2000
 	    
 	    t = 0
 	    
@@ -405,11 +405,12 @@ class Solver(object):
         target_images, target_labels = self.load_office(split=self.trg_dir)
 
         # make directory if not exists
+	self.log_dir = self.log_dir+'/'+model.mode
         if tf.gfile.Exists(self.log_dir):
             tf.gfile.DeleteRecursively(self.log_dir)
         tf.gfile.MakeDirs(self.log_dir)
 
-	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+	with tf.Session(config=self.config) as sess:
 			    
 	    # initialize G and D
 	    tf.global_variables_initializer().run()

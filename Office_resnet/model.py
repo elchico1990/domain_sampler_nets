@@ -109,9 +109,9 @@ class DSN(object):
 			net = slim.fully_connected(inputs,64, activation_fn = lrelu, scope='sdisc_fc1')
 			#~ net = slim.fully_connected(net, 256, activation_fn = lrelu, scope='sdisc_fc2')
 		    elif self.mode == 'train_dsn' or 'train_adda' in self.mode :
-			net = slim.fully_connected(inputs, 1024, activation_fn = lrelu, scope='sdisc_fc1')
+			net = slim.fully_connected(inputs, 2048, activation_fn = lrelu, scope='sdisc_fc1')
 			net = slim.fully_connected(net, 2048, activation_fn = lrelu, scope='sdisc_fc2')##
-			net = slim.fully_connected(net, 3072, activation_fn = lrelu, scope='sdisc_fc3')
+			net = slim.fully_connected(net, 4096, activation_fn = lrelu, scope='sdisc_fc3')
 		    net = slim.fully_connected(net,1,activation_fn=tf.sigmoid,scope='sdisc_prob')
 		    return net
 		    
@@ -203,9 +203,9 @@ class DSN(object):
 	    
 	    t_vars = tf.trainable_variables()
 	    
-	    train_vars = t_vars#[var for var in t_vars if 'logits' in var.name]
-	    #~ for v in train_vars:
-		#~ print v
+	    train_vars = [var for var in t_vars if '_logits_' in var.name or 'f_repr' in var.name or 'block4' in var.name]
+	    for v in train_vars:
+		print v
 	    self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.src_logits,labels=tf.one_hot(self.src_labels,self.no_classes )))
 	    gradients = tf.gradients(self.loss, train_vars)
 	    gradients = list(zip(gradients, train_vars))
@@ -243,10 +243,10 @@ class DSN(object):
 	    
 	    self.g_loss = tf.reduce_mean(tf.square(self.logits_fake - tf.ones_like(self.logits_fake)))
 	    
-	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
-	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
-	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
-	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/10.,beta1=0.5)
+	    #~ self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+	    #~ self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
 	    
 	    
 	    t_vars = tf.trainable_variables()
@@ -317,15 +317,14 @@ class DSN(object):
 
 	    #~ self.d_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
 	    #~ self.g_optimizer = tf.train.AdamOptimizer(self.learning_rate/100, beta1=0.5)
-	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
-	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
+	    self.d_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*5.)
+	    self.g_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*5.)
 
 	    
 	    t_vars = tf.trainable_variables()
 	    d_vars = [var for var in t_vars if 'disc_e' in var.name]
-	    #~ g_vars = [var for var in t_vars if 'block4' not in var.name]
-	    #~ g_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
-	    g_vars = [var for var in t_vars if 'block4' in var.name or 'f_repr' in var.name]
+	    #~ g_vars = [var for var in t_vars if 'block4' in var.name or 'f_repr' in var.name]
+	    g_vars = [var for var in t_vars if 'f_repr' in var.name]
 
 	    
 	    # train op
@@ -394,13 +393,14 @@ class DSN(object):
 	    
             #~ self.DE_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
             #~ self.E_optimizer = tf.train.AdamOptimizer(self.learning_rate / 100.)
-	    self.DE_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
-	    self.E_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*10.)
+	    self.DE_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*5.)
+	    self.E_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate*5.)
             
             
             t_vars = tf.trainable_variables()
             #~ E_vars = [var for var in t_vars if 'resnet_v1_50' in var.name]
-	    E_vars = [var for var in t_vars if 'block4' in var.name or 'f_repr' in var.name]
+	    #~ E_vars = [var for var in t_vars if 'block4' in var.name or 'f_repr' in var.name]
+	    E_vars = [var for var in t_vars if 'f_repr' in var.name]
             DE_vars = [var for var in t_vars if 'disc_e' in var.name]
             
             # train op
@@ -409,8 +409,8 @@ class DSN(object):
                 self.DE_train_op = slim.learning.create_train_op(self.DE_loss, self.DE_optimizer, variables_to_train=DE_vars)
 		
             # summary op
-            E_loss_summary = tf.summary.scalar('E_loss', self.E_loss)
-            DE_loss_summary = tf.summary.scalar('DE_loss', self.DE_loss)
+            E_loss_summary = tf.summary.scalar('g_loss', self.E_loss)
+            DE_loss_summary = tf.summary.scalar('d_loss', self.DE_loss)
 
             self.summary_op = tf.summary.merge([E_loss_summary, DE_loss_summary])
             
